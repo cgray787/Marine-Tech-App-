@@ -1,12 +1,39 @@
 import "react-native-url-polyfill/auto";
 import { createClient } from "@supabase/supabase-js";
-import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+// In-memory fallback for SSR/server environments
+const memoryStore: Record<string, string> = {};
+
+const noopStorage = {
+  getItem: async (key: string) => memoryStore[key] ?? null,
+  setItem: async (key: string, value: string) => { memoryStore[key] = value; },
+  removeItem: async (key: string) => { delete memoryStore[key]; },
 };
+
+function getStorage() {
+  if (Platform.OS !== "web") {
+    try {
+      const SecureStore = require("expo-secure-store");
+      return {
+        getItem: (key: string) => SecureStore.getItemAsync(key),
+        setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
+        removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+      };
+    } catch {
+      return noopStorage;
+    }
+  }
+  // Web: use localStorage if available (browser), fallback to memory (SSR)
+  if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
+    return {
+      getItem: async (key: string) => window.localStorage.getItem(key),
+      setItem: async (key: string, value: string) => window.localStorage.setItem(key, value),
+      removeItem: async (key: string) => window.localStorage.removeItem(key),
+    };
+  }
+  return noopStorage;
+}
 
 const supabaseUrl = "https://jwedhavnxqwkczefjifs.supabase.co";
 const supabaseAnonKey =
@@ -14,7 +41,7 @@ const supabaseAnonKey =
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    storage: getStorage(),
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
