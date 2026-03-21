@@ -8,13 +8,26 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Image,
+  Dimensions,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const THUMB_SIZE = (SCREEN_WIDTH - 40 - 24) / 3; // 3 per row with gaps
+
 type Customer = { id: string; name: string };
-type Boat = { id: string; name: string; make_model: string | null; year: number | null; hin: string | null; customer_id: string };
+type Boat = {
+  id: string;
+  name: string;
+  make_model: string | null;
+  year: number | null;
+  hin: string | null;
+  customer_id: string;
+};
 type Marina = { id: string; name: string };
 
 const CATEGORIES = ["Engine", "Electrical", "Hull", "Safety", "Nav"] as const;
@@ -22,27 +35,70 @@ type Category = (typeof CATEGORIES)[number];
 
 const CHECKLIST: Record<Category, string[]> = {
   Engine: [
-    "Oil Pressure", "Oil Level", "Coolant Level", "Fuel System",
-    "Exhaust System", "Throttle Response", "Steering System",
-    "Propeller Condition", "Trim & Tilt", "Belts & Hoses",
+    "Oil Pressure",
+    "Oil Level",
+    "Coolant Level",
+    "Fuel System",
+    "Exhaust System",
+    "Throttle Response",
+    "Steering System",
+    "Propeller Condition",
+    "Trim & Tilt",
+    "Belts & Hoses",
   ],
   Electrical: [
-    "Battery Voltage", "Battery Connections", "Navigation Lights",
-    "Bilge Pump", "Horn", "Gauges & Instruments", "Switch Panel", "Shore Power",
+    "Battery Voltage",
+    "Battery Connections",
+    "Navigation Lights",
+    "Bilge Pump",
+    "Horn",
+    "Gauges & Instruments",
+    "Switch Panel",
+    "Shore Power",
   ],
   Hull: [
-    "Hull Integrity", "Gel Coat Finish", "Zinc Anodes",
-    "Through-Hull Fittings", "Rub Rail & Hardware",
+    "Hull Integrity",
+    "Gel Coat Finish",
+    "Zinc Anodes",
+    "Through-Hull Fittings",
+    "Rub Rail & Hardware",
   ],
   Safety: [
-    "Life Jackets", "Fire Extinguisher", "Flares & Signals",
-    "First Aid Kit", "Anchor & Line",
+    "Life Jackets",
+    "Fire Extinguisher",
+    "Flares & Signals",
+    "First Aid Kit",
+    "Anchor & Line",
   ],
   Nav: ["GPS / Chartplotter", "Depth Finder", "VHF Radio", "Compass"],
 };
 
+const PHOTO_CATEGORIES = [
+  "HIN Plate",
+  "Engine Hours",
+  "Before",
+  "After",
+  "Damage",
+  "Other",
+] as const;
+type PhotoCategory = (typeof PHOTO_CATEGORIES)[number];
+
 type Assessment = "good" | "bad" | null;
-type ChecklistState = Record<string, { assessment: Assessment; notes: string }>;
+type ChecklistState = Record<
+  string,
+  {
+    assessment: Assessment;
+    notes: string;
+    showNotes: boolean;
+    photos: { uri: string; uploaded: boolean }[];
+  }
+>;
+
+type GalleryPhoto = {
+  uri: string;
+  category: PhotoCategory;
+  uploaded: boolean;
+};
 
 export default function ServiceScreen() {
   const { profile } = useAuth();
@@ -60,16 +116,33 @@ export default function ServiceScreen() {
   const [generalNotes, setGeneralNotes] = useState("");
   const [checklist, setChecklist] = useState<ChecklistState>({});
 
+  // Photo gallery state
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
+  const [selectedPhotoCategory, setSelectedPhotoCategory] =
+    useState<PhotoCategory>("Other");
+
   useEffect(() => {
-    supabase.from("customers").select("id, name").order("name").then(({ data }) => {
-      if (data) setCustomers(data);
-    });
-    supabase.from("boats").select("id, name, make_model, year, hin, customer_id").order("name").then(({ data }) => {
-      if (data) setBoats(data);
-    });
-    supabase.from("marinas").select("id, name").order("name").then(({ data }) => {
-      if (data) setMarinas(data);
-    });
+    supabase
+      .from("customers")
+      .select("id, name")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setCustomers(data);
+      });
+    supabase
+      .from("boats")
+      .select("id, name, make_model, year, hin, customer_id")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setBoats(data);
+      });
+    supabase
+      .from("marinas")
+      .select("id, name")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setMarinas(data);
+      });
   }, []);
 
   const filteredBoats = customerId
@@ -81,15 +154,156 @@ export default function ServiceScreen() {
   function setAssessment(item: string, assessment: Assessment) {
     setChecklist((prev) => ({
       ...prev,
-      [item]: { ...prev[item], assessment, notes: prev[item]?.notes || "" },
+      [item]: {
+        assessment,
+        notes: prev[item]?.notes || "",
+        showNotes: prev[item]?.showNotes || false,
+        photos: prev[item]?.photos || [],
+      },
     }));
   }
 
   function setItemNotes(item: string, notes: string) {
     setChecklist((prev) => ({
       ...prev,
-      [item]: { ...prev[item], notes, assessment: prev[item]?.assessment || null },
+      [item]: {
+        assessment: prev[item]?.assessment || null,
+        notes,
+        showNotes: prev[item]?.showNotes || true,
+        photos: prev[item]?.photos || [],
+      },
     }));
+  }
+
+  function toggleItemNotes(item: string) {
+    setChecklist((prev) => ({
+      ...prev,
+      [item]: {
+        assessment: prev[item]?.assessment || null,
+        notes: prev[item]?.notes || "",
+        showNotes: !prev[item]?.showNotes,
+        photos: prev[item]?.photos || [],
+      },
+    }));
+  }
+
+  async function takeItemPhoto(item: string) {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Camera access is needed to take photos."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.7,
+      allowsEditing: false,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setChecklist((prev) => ({
+        ...prev,
+        [item]: {
+          assessment: prev[item]?.assessment || null,
+          notes: prev[item]?.notes || "",
+          showNotes: prev[item]?.showNotes || false,
+          photos: [
+            ...(prev[item]?.photos || []),
+            { uri: result.assets[0].uri, uploaded: false },
+          ],
+        },
+      }));
+    }
+  }
+
+  async function takeGalleryPhoto() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Camera access is needed to take photos."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.7,
+      allowsEditing: false,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setGalleryPhotos((prev) => [
+        ...prev,
+        {
+          uri: result.assets[0].uri,
+          category: selectedPhotoCategory,
+          uploaded: false,
+        },
+      ]);
+    }
+  }
+
+  async function pickGalleryPhoto() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Photo library access is needed."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      quality: 0.7,
+      allowsMultipleSelection: true,
+      selectionLimit: 5,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      const newPhotos = result.assets.map((a) => ({
+        uri: a.uri,
+        category: selectedPhotoCategory,
+        uploaded: false,
+      }));
+      setGalleryPhotos((prev) => [...prev, ...newPhotos]);
+    }
+  }
+
+  function removeGalleryPhoto(index: number) {
+    setGalleryPhotos((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function uploadPhoto(
+    uri: string,
+    bucket: string,
+    reportId: string,
+    category: string
+  ): Promise<string | null> {
+    try {
+      const fileName = `${reportId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, blob, { contentType: "image/jpeg" });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        return null;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(bucket).getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Upload failed:", err);
+      return null;
+    }
   }
 
   async function handleSubmit() {
@@ -140,7 +354,10 @@ export default function ServiceScreen() {
       .single();
 
     if (reportError || !report) {
-      Alert.alert("Error", reportError?.message || "Failed to create report");
+      Alert.alert(
+        "Error",
+        reportError?.message || "Failed to create report"
+      );
       setSubmitting(false);
       return;
     }
@@ -149,9 +366,10 @@ export default function ServiceScreen() {
     const checklistRows = Object.entries(checklist)
       .filter(([, val]) => val.assessment !== null)
       .map(([itemName, val], i) => {
-        const category = Object.entries(CHECKLIST).find(([, items]) =>
-          items.includes(itemName)
-        )?.[0] || "Engine";
+        const category =
+          Object.entries(CHECKLIST).find(([, items]) =>
+            items.includes(itemName)
+          )?.[0] || "Engine";
         return {
           report_id: report.id,
           category: category.toLowerCase(),
@@ -164,6 +382,48 @@ export default function ServiceScreen() {
 
     if (checklistRows.length > 0) {
       await supabase.from("checklist_items").insert(checklistRows);
+    }
+
+    // Upload checklist item photos
+    for (const [itemName, val] of Object.entries(checklist)) {
+      if (val.photos && val.photos.length > 0) {
+        for (const photo of val.photos) {
+          const url = await uploadPhoto(
+            photo.uri,
+            "report-photos",
+            report.id,
+            "checklist"
+          );
+          if (url) {
+            await supabase.from("report_photos").insert({
+              report_id: report.id,
+              photo_url: url,
+              category: "other",
+              caption: itemName,
+            });
+          }
+        }
+      }
+    }
+
+    // Upload gallery photos
+    for (const photo of galleryPhotos) {
+      const categorySlug = photo.category
+        .toLowerCase()
+        .replace(/\s+/g, "_") as string;
+      const url = await uploadPhoto(
+        photo.uri,
+        "report-photos",
+        report.id,
+        categorySlug
+      );
+      if (url) {
+        await supabase.from("report_photos").insert({
+          report_id: report.id,
+          photo_url: url,
+          category: categorySlug,
+        });
+      }
     }
 
     setSubmitting(false);
@@ -180,10 +440,15 @@ export default function ServiceScreen() {
     setGeneralNotes("");
     setChecklist({});
     setActiveTab("Engine");
+    setGalleryPhotos([]);
+    setSelectedPhotoCategory("Other");
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+    >
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>New Job</Text>
@@ -199,14 +464,24 @@ export default function ServiceScreen() {
             <TouchableOpacity
               key={c.id}
               style={[styles.chip, customerId === c.id && styles.chipActive]}
-              onPress={() => { setCustomerId(c.id); setBoatId(""); }}
+              onPress={() => {
+                setCustomerId(c.id);
+                setBoatId("");
+              }}
             >
-              <Text style={[styles.chipText, customerId === c.id && styles.chipTextActive]}>
+              <Text
+                style={[
+                  styles.chipText,
+                  customerId === c.id && styles.chipTextActive,
+                ]}
+              >
                 {c.name}
               </Text>
             </TouchableOpacity>
           ))}
-          {customers.length === 0 && <Text style={styles.placeholder}>No customers yet</Text>}
+          {customers.length === 0 && (
+            <Text style={styles.placeholder}>No customers yet</Text>
+          )}
         </ScrollView>
       </View>
 
@@ -217,21 +492,32 @@ export default function ServiceScreen() {
             <TouchableOpacity
               key={b.id}
               style={[styles.chip, boatId === b.id && styles.chipActive]}
-              onPress={() => { setBoatId(b.id); setHin(b.hin || ""); }}
+              onPress={() => {
+                setBoatId(b.id);
+                setHin(b.hin || "");
+              }}
             >
-              <Text style={[styles.chipText, boatId === b.id && styles.chipTextActive]}>
+              <Text
+                style={[
+                  styles.chipText,
+                  boatId === b.id && styles.chipTextActive,
+                ]}
+              >
                 {b.name}
               </Text>
             </TouchableOpacity>
           ))}
-          {filteredBoats.length === 0 && <Text style={styles.placeholder}>No boats</Text>}
+          {filteredBoats.length === 0 && (
+            <Text style={styles.placeholder}>No boats</Text>
+          )}
         </ScrollView>
       </View>
 
       {selectedBoat && (
         <View style={styles.boatInfo}>
           <Text style={styles.boatInfoText}>
-            {selectedBoat.make_model} {selectedBoat.year ? `• ${selectedBoat.year}` : ""}
+            {selectedBoat.make_model}{" "}
+            {selectedBoat.year ? `\u2022 ${selectedBoat.year}` : ""}
           </Text>
         </View>
       )}
@@ -254,12 +540,19 @@ export default function ServiceScreen() {
               style={[styles.chip, marinaId === m.id && styles.chipActive]}
               onPress={() => setMarinaId(m.id)}
             >
-              <Text style={[styles.chipText, marinaId === m.id && styles.chipTextActive]}>
+              <Text
+                style={[
+                  styles.chipText,
+                  marinaId === m.id && styles.chipTextActive,
+                ]}
+              >
                 {m.name}
               </Text>
             </TouchableOpacity>
           ))}
-          {marinas.length === 0 && <Text style={styles.placeholder}>No marinas yet</Text>}
+          {marinas.length === 0 && (
+            <Text style={styles.placeholder}>No marinas yet</Text>
+          )}
         </ScrollView>
       </View>
 
@@ -271,7 +564,12 @@ export default function ServiceScreen() {
             style={[styles.tab, activeTab === cat && styles.tabActive]}
             onPress={() => setActiveTab(cat)}
           >
-            <Text style={[styles.tabText, activeTab === cat && styles.tabTextActive]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === cat && styles.tabTextActive,
+              ]}
+            >
               {cat}
             </Text>
           </TouchableOpacity>
@@ -287,53 +585,171 @@ export default function ServiceScreen() {
           <View key={item}>
             <View style={styles.checklistRow}>
               <Text style={styles.checklistLabel}>{item}</Text>
-              <View style={styles.assessmentRow}>
+              <View style={styles.checklistActions}>
+                {/* Camera button */}
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  onPress={() => takeItemPhoto(item)}
+                >
+                  <Text style={styles.iconBtnText}>{"\uD83D\uDCF7"}</Text>
+                </TouchableOpacity>
+                {/* Notes toggle */}
                 <TouchableOpacity
                   style={[
-                    styles.assessBtn,
-                    state?.assessment === "bad" && styles.assessBtnBad,
+                    styles.iconBtn,
+                    state?.showNotes && styles.iconBtnActive,
                   ]}
-                  onPress={() => setAssessment(item, state?.assessment === "bad" ? null : "bad")}
+                  onPress={() => toggleItemNotes(item)}
                 >
-                  <Text
-                    style={[
-                      styles.assessText,
-                      state?.assessment === "bad" && styles.assessTextBadActive,
-                    ]}
-                  >
-                    BAD
-                  </Text>
+                  <Text style={styles.iconBtnText}>{"\uD83D\uDCDD"}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.assessBtn,
-                    state?.assessment === "good" && styles.assessBtnGood,
-                  ]}
-                  onPress={() => setAssessment(item, state?.assessment === "good" ? null : "good")}
-                >
-                  <Text
+                {/* Assessment buttons */}
+                <View style={styles.assessmentRow}>
+                  <TouchableOpacity
                     style={[
-                      styles.assessText,
-                      state?.assessment === "good" && styles.assessTextGoodActive,
+                      styles.assessBtn,
+                      state?.assessment === "bad" && styles.assessBtnBad,
                     ]}
+                    onPress={() =>
+                      setAssessment(
+                        item,
+                        state?.assessment === "bad" ? null : "bad"
+                      )
+                    }
                   >
-                    GOOD
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.assessText,
+                        state?.assessment === "bad" &&
+                          styles.assessTextBadActive,
+                      ]}
+                    >
+                      BAD
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.assessBtn,
+                      state?.assessment === "good" && styles.assessBtnGood,
+                    ]}
+                    onPress={() =>
+                      setAssessment(
+                        item,
+                        state?.assessment === "good" ? null : "good"
+                      )
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.assessText,
+                        state?.assessment === "good" &&
+                          styles.assessTextGoodActive,
+                      ]}
+                    >
+                      GOOD
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-            {state?.assessment === "bad" && (
+
+            {/* Notes input (show when toggled or when assessment is bad) */}
+            {(state?.showNotes || state?.assessment === "bad") && (
               <TextInput
                 style={styles.notesInput}
-                placeholder="Describe the issue..."
+                placeholder={
+                  state?.assessment === "bad"
+                    ? "Describe the issue..."
+                    : "Add a note..."
+                }
                 placeholderTextColor={colors.textSecondary + "80"}
-                value={state.notes}
+                value={state?.notes || ""}
                 onChangeText={(text) => setItemNotes(item, text)}
               />
+            )}
+
+            {/* Inline photo thumbnails */}
+            {state?.photos && state.photos.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.inlinePhotoScroll}
+              >
+                {state.photos.map((photo, idx) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: photo.uri }}
+                    style={styles.inlineThumb}
+                  />
+                ))}
+              </ScrollView>
             )}
           </View>
         );
       })}
+
+      {/* Photo Gallery Section */}
+      <Text style={styles.sectionTitle}>Photos</Text>
+
+      {/* Category selector for gallery photos */}
+      <View style={styles.photoCatRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {PHOTO_CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              style={[
+                styles.photoCatChip,
+                selectedPhotoCategory === cat && styles.photoCatChipActive,
+              ]}
+              onPress={() => setSelectedPhotoCategory(cat)}
+            >
+              <Text
+                style={[
+                  styles.photoCatChipText,
+                  selectedPhotoCategory === cat &&
+                    styles.photoCatChipTextActive,
+                ]}
+              >
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Photo grid */}
+      <View style={styles.photoGrid}>
+        {galleryPhotos.map((photo, index) => (
+          <View key={index} style={styles.photoGridItem}>
+            <Image source={{ uri: photo.uri }} style={styles.photoGridImage} />
+            <View style={styles.photoLabel}>
+              <Text style={styles.photoLabelText}>{photo.category}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.photoRemoveBtn}
+              onPress={() => removeGalleryPhoto(index)}
+            >
+              <Text style={styles.photoRemoveText}>{"\u2715"}</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        {/* Add photo buttons */}
+        <TouchableOpacity
+          style={styles.addPhotoBtn}
+          onPress={takeGalleryPhoto}
+        >
+          <Text style={styles.addPhotoIcon}>{"\uD83D\uDCF7"}</Text>
+          <Text style={styles.addPhotoText}>Camera</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.addPhotoBtn}
+          onPress={pickGalleryPhoto}
+        >
+          <Text style={styles.addPhotoIcon}>{"\uD83D\uDDBC\uFE0F"}</Text>
+          <Text style={styles.addPhotoText}>Library</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* General Notes */}
       <Text style={styles.sectionTitle}>General Notes</Text>
@@ -381,7 +797,12 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.gold,
     paddingLeft: 12,
   },
-  label: { fontSize: 13, color: colors.textSecondary, marginBottom: 6, marginTop: 12 },
+  label: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    marginTop: 12,
+  },
   input: {
     backgroundColor: colors.bgSecondary,
     borderWidth: 1,
@@ -409,7 +830,11 @@ const styles = StyleSheet.create({
   },
   chipText: { color: colors.textSecondary, fontSize: 14 },
   chipTextActive: { color: colors.gold, fontWeight: "600" },
-  placeholder: { color: colors.textSecondary, fontSize: 14, paddingVertical: 8 },
+  placeholder: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    paddingVertical: 8,
+  },
   boatInfo: {
     backgroundColor: colors.bgSecondary,
     borderRadius: 8,
@@ -445,14 +870,41 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     marginTop: 8,
   },
-  checklistLabel: { color: colors.textPrimary, fontSize: 15, flex: 1 },
-  assessmentRow: { flexDirection: "row", gap: 6 },
+  checklistLabel: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    flex: 1,
+    marginRight: 4,
+  },
+  checklistActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  iconBtnActive: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldMuted,
+  },
+  iconBtnText: {
+    fontSize: 14,
+  },
+  assessmentRow: { flexDirection: "row", gap: 4 },
   assessBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
     backgroundColor: colors.bgCard,
@@ -461,7 +913,7 @@ const styles = StyleSheet.create({
   },
   assessBtnBad: { backgroundColor: colors.bad, borderColor: colors.bad },
   assessBtnGood: { backgroundColor: colors.good, borderColor: colors.good },
-  assessText: { fontSize: 12, fontWeight: "700", color: colors.textSecondary },
+  assessText: { fontSize: 11, fontWeight: "700", color: colors.textSecondary },
   assessTextBadActive: { color: colors.white },
   assessTextGoodActive: { color: colors.white },
   notesInput: {
@@ -477,6 +929,113 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     marginRight: 8,
   },
+  inlinePhotoScroll: {
+    marginTop: 6,
+    marginLeft: 8,
+    marginBottom: 2,
+  },
+  inlineThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  // Photo gallery
+  photoCatRow: {
+    marginBottom: 12,
+  },
+  photoCatChip: {
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginRight: 6,
+  },
+  photoCatChipActive: {
+    backgroundColor: colors.goldMuted,
+    borderColor: colors.gold,
+  },
+  photoCatChipText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  photoCatChipTextActive: {
+    color: colors.gold,
+    fontWeight: "600",
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  photoGridItem: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: colors.bgCard,
+  },
+  photoGridImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+  },
+  photoLabel: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+  },
+  photoLabelText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  photoRemoveBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoRemoveText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  addPhotoBtn: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bgCard,
+  },
+  addPhotoIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  addPhotoText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "500",
+  },
   submitButton: {
     backgroundColor: colors.gold,
     borderRadius: 10,
@@ -484,5 +1043,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 32,
   },
-  submitText: { color: colors.bgPrimary, fontSize: 16, fontWeight: "700" },
+  submitText: {
+    color: colors.bgPrimary,
+    fontSize: 16,
+    fontWeight: "700",
+  },
 });

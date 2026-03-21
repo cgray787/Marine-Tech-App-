@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary-bg: #060a12;
+  --secondary-bg: #0c1220;
+  --card-bg: #111827;
+  --gold: #C9A96E;
+  --gold-hover: #d4b87e;
+  --gold-muted: rgba(201, 169, 110, 0.15);
+  --border: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #8892A5;
+  --status-good: #22c55e;
+  --status-bad: #ef4444;
+  --status-new: #3b82f6;
+  --status-progress: #f59e0b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary-bg: var(--primary-bg);
+  --color-secondary-bg: var(--secondary-bg);
+  --color-card-bg: var(--card-bg);
+  --color-gold: var(--gold);
+  --color-gold-hover: var(--gold-hover);
+  --color-gold-muted: var(--gold-muted);
+  --color-border-line: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-status-good: var(--status-good);
+  --color-status-bad: var(--status-bad);
+  --color-status-new: var(--status-new);
+  --color-status-progress: var(--status-progress);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--primary-bg);
+  color: var(--text-primary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--primary-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Anchor animation */
+@keyframes anchor-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.anchor-bob {
+  animation: anchor-bob 3s ease-in-out infinite;
 }
