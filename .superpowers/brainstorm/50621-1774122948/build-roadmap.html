@@ -1,0 +1,196 @@
+<h2>Marine Tech — Full Build Roadmap</h2>
+<p class="subtitle">7 phases, from foundation to app on your techs' phones</p>
+
+<div class="section">
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+
+    <!-- Phase 1 -->
+    <div style="background: #1a1a2e; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #3b82f6; margin: 0;">Phase 1: Foundation</h3>
+        <span style="background: #3b82f622; color: #3b82f6; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Week 1</span>
+      </div>
+      <div style="font-size: 13px; color: #ccc; margin-top: 12px; line-height: 2;">
+        <div><strong style="color: #f1f5f9;">1.</strong> Create Expo project (React Native) for the mobile app</div>
+        <div><strong style="color: #f1f5f9;">2.</strong> Set up Supabase — new project or new schema in existing</div>
+        <div><strong style="color: #f1f5f9;">3.</strong> Run all database migrations (11 tables, RLS policies, storage buckets)</div>
+        <div><strong style="color: #f1f5f9;">4.</strong> Configure Supabase Auth (email/password)</div>
+        <div><strong style="color: #f1f5f9;">5.</strong> Set up Expo Router with 3-tab layout (My Jobs, Service, PDI)</div>
+      </div>
+      <div style="margin-top: 12px; font-size: 12px; color: #8892A5;">
+        <strong>Result:</strong> Empty app shell with tabs that you can run on your phone via Expo Go
+      </div>
+    </div>
+
+    <!-- Phase 2 -->
+    <div style="background: #1a1a2e; border-left: 4px solid #C9A96E; border-radius: 0 8px 8px 0; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #C9A96E; margin: 0;">Phase 2: Mobile Core</h3>
+        <span style="background: #C9A96E22; color: #C9A96E; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Weeks 2-3</span>
+      </div>
+      <div style="font-size: 13px; color: #ccc; margin-top: 12px; line-height: 2;">
+        <div><strong style="color: #f1f5f9;">6.</strong> Build Login screen (anchor icon, dark inputs, gold button)</div>
+        <div><strong style="color: #f1f5f9;">7.</strong> Build My Jobs tab — job cards with status badges</div>
+        <div><strong style="color: #f1f5f9;">8.</strong> Build Service form — vessel info section (customer/boat dropdowns)</div>
+        <div><strong style="color: #f1f5f9;">9.</strong> Build Service form — category tabs + checklist (BAD/GOOD toggles)</div>
+        <div><strong style="color: #f1f5f9;">10.</strong> Build inline camera capture per checklist item</div>
+        <div><strong style="color: #f1f5f9;">11.</strong> Build inline comment/notes per checklist item</div>
+        <div><strong style="color: #f1f5f9;">12.</strong> Build General Notes + "Create Job" submission</div>
+        <div><strong style="color: #f1f5f9;">13.</strong> Connect form → Supabase (insert report + checklist items + upload photos)</div>
+      </div>
+      <div style="margin-top: 12px; font-size: 12px; color: #8892A5;">
+        <strong>Result:</strong> Tech can log in, see jobs, fill out a full service form with photos, and submit
+      </div>
+    </div>
+
+    <!-- Phase 3 -->
+    <div style="background: #1a1a2e; border-left: 4px solid #22c55e; border-radius: 0 8px 8px 0; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #22c55e; margin: 0;">Phase 3: PDI</h3>
+        <span style="background: #22c55e22; color: #22c55e; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Week 3</span>
+      </div>
+      <div style="font-size: 13px; color: #ccc; margin-top: 12px; line-height: 2;">
+        <div><strong style="color: #f1f5f9;">14.</strong> Build PDI tab — same checklist UI, progress counter header (0/34)</div>
+        <div><strong style="color: #f1f5f9;">15.</strong> Build PDI submission with "items need attention" warning</div>
+        <div><strong style="color: #f1f5f9;">16.</strong> PDI-specific database writes (pdi_reports + pdi_checklist_items)</div>
+      </div>
+      <div style="margin-top: 12px; font-size: 12px; color: #8892A5;">
+        <strong>Result:</strong> Full Pre-Delivery Inspection workflow working
+      </div>
+    </div>
+
+    <!-- Phase 4 -->
+    <div style="background: #1a1a2e; border-left: 4px solid #a855f7; border-radius: 0 8px 8px 0; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #a855f7; margin: 0;">Phase 4: Job Summary</h3>
+        <span style="background: #a855f722; color: #a855f7; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Week 4</span>
+      </div>
+      <div style="font-size: 13px; color: #ccc; margin-top: 12px; line-height: 2;">
+        <div><strong style="color: #f1f5f9;">17.</strong> Build read-only Job Summary screen (vessel card, systems card, work description)</div>
+        <div><strong style="color: #f1f5f9;">18.</strong> Build photo gallery view</div>
+        <div><strong style="color: #f1f5f9;">19.</strong> Build Export PDF functionality</div>
+        <div><strong style="color: #f1f5f9;">20.</strong> Build Share functionality</div>
+      </div>
+      <div style="margin-top: 12px; font-size: 12px; color: #8892A5;">
+        <strong>Result:</strong> Completed jobs show full summary with PDF export
+      </div>
+    </div>
+
+    <!-- Phase 5 -->
+    <div style="background: #1a1a2e; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #f59e0b; margin: 0;">Phase 5: Offline + Notifications</h3>
+        <span style="background: #f59e0b22; color: #f59e0b; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Week 5</span>
+      </div>
+      <div style="font-size: 13px; color: #ccc; margin-top: 12px; line-height: 2;">
+        <div><strong style="color: #f1f5f9;">21.</strong> Implement expo-sqlite local storage + auto-save form progress</div>
+        <div><strong style="color: #f1f5f9;">22.</strong> Build sync queue — offline submissions upload when back online</div>
+        <div><strong style="color: #f1f5f9;">23.</strong> Set up Expo Push Notifications (expo-notifications)</div>
+        <div><strong style="color: #f1f5f9;">24.</strong> Create Supabase Edge Functions for notification triggers</div>
+      </div>
+      <div style="margin-top: 12px; font-size: 12px; color: #8892A5;">
+        <strong>Result:</strong> App works without wifi, syncs later, techs get notified of new jobs
+      </div>
+    </div>
+
+    <!-- Phase 6 -->
+    <div style="background: #1a1a2e; border-left: 4px solid #ec4899; border-radius: 0 8px 8px 0; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #ec4899; margin: 0;">Phase 6: Admin Dashboard (Web)</h3>
+        <span style="background: #ec489922; color: #ec4899; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Weeks 6-7</span>
+      </div>
+      <div style="font-size: 13px; color: #ccc; margin-top: 12px; line-height: 2;">
+        <div><strong style="color: #f1f5f9;">25.</strong> Build admin login + auth guard</div>
+        <div><strong style="color: #f1f5f9;">26.</strong> Build dashboard home — stats, recent submissions, quick actions</div>
+        <div><strong style="color: #f1f5f9;">27.</strong> Build reports list + detail view (same data as mobile Job Summary)</div>
+        <div><strong style="color: #f1f5f9;">28.</strong> Build job assignment UI (create jobs, assign to techs)</div>
+        <div><strong style="color: #f1f5f9;">29.</strong> Build tech management + invite flow</div>
+        <div><strong style="color: #f1f5f9;">30.</strong> Build customers & boats management (feeds mobile dropdowns)</div>
+        <div><strong style="color: #f1f5f9;">31.</strong> Build PDI reports view</div>
+        <div><strong style="color: #f1f5f9;">32.</strong> Deploy to Cloudflare Workers</div>
+      </div>
+      <div style="margin-top: 12px; font-size: 12px; color: #8892A5;">
+        <strong>Result:</strong> You can review reports, assign jobs, manage techs from your browser
+      </div>
+    </div>
+
+    <!-- Phase 7 -->
+    <div style="background: #1a1a2e; border-left: 4px solid #14b8a6; border-radius: 0 8px 8px 0; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #14b8a6; margin: 0;">Phase 7: Ship It</h3>
+        <span style="background: #14b8a622; color: #14b8a6; padding: 4px 12px; border-radius: 12px; font-size: 11px;">Week 8</span>
+      </div>
+      <div style="font-size: 13px; color: #ccc; margin-top: 12px; line-height: 2;">
+        <div><strong style="color: #f1f5f9;">33.</strong> Configure EAS Build profiles (development + production)</div>
+        <div><strong style="color: #f1f5f9;">34.</strong> Build iOS → submit to TestFlight → invite techs to test</div>
+        <div><strong style="color: #f1f5f9;">35.</strong> Build Android → generate APK → share directly with techs</div>
+        <div><strong style="color: #f1f5f9;">36.</strong> Set up EAS Update for over-the-air updates (push fixes without rebuilding)</div>
+      </div>
+      <div style="margin-top: 12px; font-size: 12px; color: #8892A5;">
+        <strong>Result:</strong> App on your techs' phones + iPad, admin dashboard live on the web
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>How The App Gets On A Phone</h3>
+  <div style="background: #1a1a2e; border: 2px solid #C9A96E; border-radius: 8px; padding: 20px; margin-top: 8px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div>
+        <h3 style="color: #f1f5f9; font-size: 14px; margin: 0 0 12px 0;">🍎 iPhone / iPad</h3>
+        <div style="font-size: 12px; color: #ccc; line-height: 2.2;">
+          <div>1. You run <code>eas build --platform ios</code></div>
+          <div>2. Expo builds the .ipa in the cloud (free)</div>
+          <div>3. You run <code>eas submit --platform ios</code></div>
+          <div>4. App uploads to <strong>TestFlight</strong></div>
+          <div>5. You invite techs by email in App Store Connect</div>
+          <div>6. Techs download TestFlight app → install Marine Tech</div>
+          <div>7. Future updates: <code>eas update</code> pushes OTA</div>
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: #f59e0b;">
+          ⚠️ Requires Apple Developer account ($99/year)
+        </div>
+      </div>
+      <div>
+        <h3 style="color: #f1f5f9; font-size: 14px; margin: 0 0 12px 0;">🤖 Android</h3>
+        <div style="font-size: 12px; color: #ccc; line-height: 2.2;">
+          <div>1. You run <code>eas build --platform android</code></div>
+          <div>2. Expo builds the .apk in the cloud (free)</div>
+          <div>3. Download the .apk file</div>
+          <div>4. Send .apk to techs (AirDrop, email, or link)</div>
+          <div>5. Techs tap the .apk → "Install from unknown sources"</div>
+          <div>6. App installed — done</div>
+          <div>7. OR submit to Play Store for official distribution</div>
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: #22c55e;">
+          ✓ No developer account needed for direct APK sharing
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>What You Need Before We Start</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 13px; margin: 0 0 8px 0;">Free</h3>
+      <div style="font-size: 12px; color: #8892A5; line-height: 2;">
+        <div>✓ Expo account (expo.dev)</div>
+        <div>✓ Supabase project (you have this)</div>
+        <div>✓ Node.js (you have this)</div>
+        <div>✓ EAS CLI (<code>npm i -g eas-cli</code>)</div>
+      </div>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #f59e0b; font-size: 13px; margin: 0 0 8px 0;">Paid (optional)</h3>
+      <div style="font-size: 12px; color: #8892A5; line-height: 2;">
+        <div>$99/yr — Apple Developer (for TestFlight/App Store)</div>
+        <div>$25 one-time — Google Play Console (for Play Store)</div>
+        <div>Free without these if distributing APK directly</div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,3 @@
+{"type":"server-started","port":51579,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:51579","screen_dir":"/Users/connorgray/Desktop/marine-tech-app/.superpowers/brainstorm/50621-1774122948"}
+{"type":"screen-added","file":"/Users/connorgray/Desktop/marine-tech-app/.superpowers/brainstorm/50621-1774122948/architecture.html"}
+{"type":"server-stopped","reason":"idle timeout"}

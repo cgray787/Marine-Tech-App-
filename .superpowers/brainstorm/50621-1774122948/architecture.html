@@ -1,0 +1,150 @@
+<h2>Marine Tech App — Architecture Overview</h2>
+<p class="subtitle">Two projects, one Supabase backend</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">System Architecture</div>
+    <div class="mockup-body" style="padding: 24px;">
+
+      <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;">
+
+        <!-- Mobile App -->
+        <div style="background: #1a1a2e; border: 2px solid #C9A96E; border-radius: 12px; padding: 20px; width: 260px; text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 8px;">📱</div>
+          <h3 style="color: #C9A96E; margin: 0 0 8px 0;">Mobile App</h3>
+          <p style="font-size: 13px; color: #8892A5; margin: 0 0 12px 0;">React Native + Expo</p>
+          <div style="text-align: left; font-size: 12px; color: #ccc; line-height: 1.8;">
+            <div>- Service report forms</div>
+            <div>- Camera (HIN, engine hours)</div>
+            <div>- Job list & assignments</div>
+            <div>- Offline queue + auto-sync</div>
+            <div>- Push notifications</div>
+            <div>- Signature capture</div>
+          </div>
+          <div style="margin-top: 12px; padding: 6px 12px; background: #C9A96E22; border-radius: 6px; font-size: 11px; color: #C9A96E;">
+            Deployed via TestFlight (iOS) + APK (Android)
+          </div>
+        </div>
+
+        <!-- Supabase -->
+        <div style="background: #1a1a2e; border: 2px solid #3b82f6; border-radius: 12px; padding: 20px; width: 260px; text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 8px;">🗄️</div>
+          <h3 style="color: #3b82f6; margin: 0 0 8px 0;">Supabase Backend</h3>
+          <p style="font-size: 13px; color: #8892A5; margin: 0 0 12px 0;">Shared by both apps</p>
+          <div style="text-align: left; font-size: 12px; color: #ccc; line-height: 1.8;">
+            <div><strong style="color: #3b82f6;">Auth</strong> — email/password + invite links</div>
+            <div><strong style="color: #3b82f6;">Database</strong> — Postgres (jobs, reports, users)</div>
+            <div><strong style="color: #3b82f6;">Storage</strong> — photo buckets</div>
+            <div><strong style="color: #3b82f6;">Realtime</strong> — live job updates</div>
+            <div><strong style="color: #3b82f6;">Edge Functions</strong> — push notifications</div>
+          </div>
+          <div style="margin-top: 12px; padding: 6px 12px; background: #3b82f622; border-radius: 6px; font-size: 11px; color: #3b82f6;">
+            Existing Supabase project or new one
+          </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div style="background: #1a1a2e; border: 2px solid #22c55e; border-radius: 12px; padding: 20px; width: 260px; text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 8px;">💻</div>
+          <h3 style="color: #22c55e; margin: 0 0 8px 0;">Admin Dashboard</h3>
+          <p style="font-size: 13px; color: #8892A5; margin: 0 0 12px 0;">Next.js Web App</p>
+          <div style="text-align: left; font-size: 12px; color: #ccc; line-height: 1.8;">
+            <div>- Review service reports</div>
+            <div>- Assign jobs to techs</div>
+            <div>- Manage tech accounts</div>
+            <div>- Invite new technicians</div>
+            <div>- View photos & signatures</div>
+            <div>- Export reports as PDF</div>
+          </div>
+          <div style="margin-top: 12px; padding: 6px 12px; background: #22c55e22; border-radius: 6px; font-size: 11px; color: #22c55e;">
+            Deployed to Cloudflare Workers
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Data flow arrows -->
+      <div style="text-align: center; margin-top: 24px; font-size: 13px; color: #8892A5;">
+        <div style="display: flex; justify-content: center; gap: 40px; flex-wrap: wrap;">
+          <span>📱 ←→ 🗄️ Supabase SDK + offline queue</span>
+          <span>💻 ←→ 🗄️ Supabase SDK (server-side)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>Database Tables</h3>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px;">
+
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 14px; margin: 0 0 8px 0;">profiles</h3>
+      <div style="font-size: 12px; color: #8892A5; line-height: 1.8;">
+        id, email, full_name, role (admin/tech), phone, avatar_url, invited_by, approved, created_at
+      </div>
+    </div>
+
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 14px; margin: 0 0 8px 0;">jobs</h3>
+      <div style="font-size: 12px; color: #8892A5; line-height: 1.8;">
+        id, assigned_to, boat_name, owner_name, marina, scheduled_date, status (new/in_progress/completed), notes, created_by, created_at
+      </div>
+    </div>
+
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 14px; margin: 0 0 8px 0;">service_reports</h3>
+      <div style="font-size: 12px; color: #8892A5; line-height: 1.8;">
+        id, job_id, tech_id, boat_name, owner_name, make_model, year, hin_number, marina, engine_make_model, engine_hours, oil_condition, fuel_system, battery_voltage, bilge_pump, service_types[], work_description, parts_used, hull_condition, gel_coat, propeller, zinc_anodes, concerns, signature_url, status (submitted/reviewed/approved), submitted_at
+      </div>
+    </div>
+
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 14px; margin: 0 0 8px 0;">report_photos</h3>
+      <div style="font-size: 12px; color: #8892A5; line-height: 1.8;">
+        id, report_id, photo_url, category (hin_plate/engine_hours/before/after/damage/other), caption, created_at
+      </div>
+    </div>
+
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 14px; margin: 0 0 8px 0;">invites</h3>
+      <div style="font-size: 12px; color: #8892A5; line-height: 1.8;">
+        id, email, invited_by, token, used, created_at, expires_at
+      </div>
+    </div>
+
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 14px; margin: 0 0 8px 0;">notifications</h3>
+      <div style="font-size: 12px; color: #8892A5; line-height: 1.8;">
+        id, user_id, title, body, type (job_assigned/report_reviewed/correction_needed), read, data_json, created_at
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>Build & Deploy Pipeline</h3>
+  <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; flex: 1; min-width: 200px;">
+      <h3 style="color: #C9A96E; font-size: 14px; margin: 0 0 8px 0;">Mobile App</h3>
+      <div style="font-size: 12px; color: #ccc; line-height: 2;">
+        <div>1. Code in React Native + Expo</div>
+        <div>2. <code>eas build --platform ios</code></div>
+        <div>3. <code>eas build --platform android</code></div>
+        <div>4. <code>eas submit</code> → TestFlight / Play Store</div>
+        <div>5. Or share APK / TestFlight link directly</div>
+      </div>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; flex: 1; min-width: 200px;">
+      <h3 style="color: #22c55e; font-size: 14px; margin: 0 0 8px 0;">Admin Dashboard</h3>
+      <div style="font-size: 12px; color: #ccc; line-height: 2;">
+        <div>1. Code in Next.js (existing project)</div>
+        <div>2. <code>npx opennextjs-cloudflare build</code></div>
+        <div>3. <code>npx wrangler deploy</code></div>
+        <div>4. Live at marinetech.grayyachts.com or similar</div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,161 @@
+<h2>Design Review — What I See In Your Screens</h2>
+<p class="subtitle">Confirming I've captured every detail before writing the spec</p>
+
+<div class="section">
+  <h3>Screen 1: Login</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-top: 8px;">
+    <div style="font-size: 13px; color: #ccc; line-height: 2;">
+      <div>- Gold anchor icon in rounded square container</div>
+      <div>- <strong style="color: #C9A96E;">"MARINE TECH"</strong> in serif font + "Service Management" subtitle</div>
+      <div>- Email + Password fields (dark inputs, rounded)</div>
+      <div>- Gold <strong style="color: #C9A96E;">"Sign In"</strong> button (full width)</div>
+      <div>- "Forgot Password?" link in gold</div>
+      <div>- No self-signup — admin creates accounts via invite</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Screen 2: My Jobs (Home Tab)</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-top: 8px;">
+    <div style="font-size: 13px; color: #ccc; line-height: 2;">
+      <div>- <strong style="color: #f1f5f9;">"My Jobs"</strong> header + current date + notification bell (red dot)</div>
+      <div>- <strong style="color: #C9A96E;">"+ New Job"</strong> button (gold outlined, top right)</div>
+      <div>- Job cards showing:</div>
+      <div style="padding-left: 16px;">
+        <div>&#x1F6A2; Boat name (bold) + status badge (right-aligned)</div>
+        <div>&#x1F464; Owner name</div>
+        <div>&#x1F6E5; Make/Model + &#x1F4C5; Year</div>
+        <div>&#x1F527; Service types (comma-separated)</div>
+        <div>&#x1F4CD; Marina, slip + date</div>
+      </div>
+      <div>- Status badges: <span style="color: #3b82f6;">New</span> | <span style="color: #f59e0b;">In Progress</span> | <span style="color: #22c55e;">Complete</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Screen 3: Service Form (Service Tab)</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-top: 8px;">
+    <div style="font-size: 13px; color: #ccc; line-height: 2;">
+      <div><strong style="color: #f1f5f9;">Top Section — Customer & Vessel:</strong></div>
+      <div style="padding-left: 16px;">
+        <div>Customer Name (dropdown — "Select customer...")</div>
+        <div>Boat Name (dropdown — "Select boat...")</div>
+        <div>Make / Model (dropdown)</div>
+        <div>Year (dropdown)</div>
+        <div>Hull ID / HIN (text input)</div>
+        <div>Location / Marina (dropdown — "Select marina...")</div>
+      </div>
+      <div style="margin-top: 8px;"><strong style="color: #f1f5f9;">Category Tabs:</strong>
+        <span style="background: #C9A96E; color: #060a12; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">Engine</span>
+        <span style="background: #1e293b; color: #8892A5; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Electrical</span>
+        <span style="background: #1e293b; color: #8892A5; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Hull</span>
+        <span style="background: #1e293b; color: #8892A5; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Safety</span>
+        <span style="background: #1e293b; color: #8892A5; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Nav</span>
+      </div>
+      <div style="margin-top: 8px;"><strong style="color: #f1f5f9;">Each Inspection Item Row:</strong></div>
+      <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; margin-top: 8px; display: flex; align-items: center; gap: 12px;">
+        <span style="color: #f1f5f9; flex: 1; font-size: 13px;">Oil Pressure</span>
+        <span style="color: #8892A5; font-size: 16px;">&#x1F4F7;</span>
+        <span style="color: #8892A5; font-size: 16px;">&#x1F4AC;</span>
+        <span style="background: #1e293b; color: #8892A5; padding: 2px 10px; border-radius: 4px; font-size: 11px;">BAD</span>
+        <span style="background: #22c55e; color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 11px;">GOOD</span>
+      </div>
+      <div style="margin-top: 8px; font-size: 12px; color: #8892A5;">
+        &#x2191; Camera icon = take photo | Comment icon = add note | BAD/GOOD toggle
+      </div>
+      <div style="margin-top: 8px;"><strong style="color: #ef4444;">When BAD is selected:</strong> a text field appears below for notes (e.g. "Low coolant — needs top-up")</div>
+      <div style="margin-top: 8px;"><strong style="color: #f1f5f9;">Section checkbox:</strong> top-right checkbox to mark entire section complete</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Screen 4: Pre-Delivery Inspection (PDI Tab)</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-top: 8px;">
+    <div style="font-size: 13px; color: #ccc; line-height: 2;">
+      <div>- <strong style="color: #f1f5f9;">"Pre-Delivery Inspection"</strong> header + progress counter <span style="color: #8892A5;">"0 / 34"</span></div>
+      <div>- Vessel info bar: <em>Sea Breeze IV — 2024 Boston Whaler 280</em> + <span style="background: #3b82f6; color: #fff; padding: 1px 6px; border-radius: 3px; font-size: 10px;">Navy Blue</span> color tag</div>
+      <div>- Same category tabs + inspection checklist as Service form</div>
+      <div>- Same BAD/GOOD toggle pattern per item</div>
+      <div>- Same sections: Engine, Electrical, Hull & Exterior, Safety Equipment, Navigation & Electronics</div>
+      <div>- General Notes text area at bottom</div>
+      <div>- <strong style="color: #C9A96E;">"Submit PDI Report"</strong> button</div>
+      <div>- <span style="color: #ef4444;">"2 items need attention"</span> warning when BAD items exist</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Screen 5: Job Summary (Read-Only)</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-top: 8px;">
+    <div style="font-size: 13px; color: #ccc; line-height: 2;">
+      <div><strong style="color: #f1f5f9;">Vessel Card:</strong> Boat Name, Owner, Make/Model, Year, HIN, Marina</div>
+      <div><strong style="color: #f1f5f9;">Systems Card:</strong> Engine, Engine Hours, Oil Condition, Fuel System, Battery Voltage, Bilge Pump — with <span style="color: #22c55e;">Good</span> / <span style="color: #ef4444;">Bad</span> / <span style="color: #f1f5f9;">value</span> indicators</div>
+      <div><strong style="color: #f1f5f9;">Service Chips:</strong> Service type tags (e.g. Oil Change, Filter Replacement)</div>
+      <div><strong style="color: #f1f5f9;">Work Description:</strong> Free text block + Parts Used list</div>
+      <div><strong style="color: #f1f5f9;">Photo Gallery:</strong> Horizontal scroll of captured photos with labels</div>
+      <div><strong style="color: #C9A96E;">Two gold action buttons</strong> at bottom (Export PDF? Share?)</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Bottom Tab Bar</h3>
+  <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-top: 8px; text-align: center;">
+    <div style="display: flex; justify-content: center; gap: 48px;">
+      <div style="text-align: center;">
+        <div style="font-size: 24px;">&#x1F3E0;</div>
+        <div style="font-size: 12px; color: #C9A96E; margin-top: 4px;"><strong>My Jobs</strong></div>
+      </div>
+      <div style="text-align: center;">
+        <div style="font-size: 24px;">&#x1F527;</div>
+        <div style="font-size: 12px; color: #8892A5; margin-top: 4px;">Service</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="font-size: 24px;">&#x1F4CB;</div>
+        <div style="font-size: 12px; color: #8892A5; margin-top: 4px;">PDI</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>Key Design Patterns Identified</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+    <div style="background: #1a1a2e; border: 1px solid #C9A96E; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 13px; margin: 0 0 6px 0;">BAD / GOOD Toggle</h3>
+      <p style="font-size: 12px; color: #8892A5; margin: 0;">Binary assessment per checklist item. Not dropdowns — simple tap toggle. BAD triggers a notes field.</p>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #C9A96E; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 13px; margin: 0 0 6px 0;">Inline Camera + Comment</h3>
+      <p style="font-size: 12px; color: #8892A5; margin: 0;">Every inspection item has camera and comment icons inline — no separate photo screen needed.</p>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #C9A96E; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 13px; margin: 0 0 6px 0;">Category Tabs</h3>
+      <p style="font-size: 12px; color: #8892A5; margin: 0;">Engine | Electrical | Hull | Safety | Nav — horizontal scroll tabs to organize long checklists.</p>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #C9A96E; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 13px; margin: 0 0 6px 0;">3-Tab Navigation</h3>
+      <p style="font-size: 12px; color: #8892A5; margin: 0;">My Jobs (home) | Service (new service form) | PDI (pre-delivery inspection) — not 4 tabs.</p>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #C9A96E; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 13px; margin: 0 0 6px 0;">Two Form Types</h3>
+      <p style="font-size: 12px; color: #8892A5; margin: 0;">Service jobs AND Pre-Delivery Inspections are separate workflows with the same checklist UI pattern.</p>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #C9A96E; border-radius: 8px; padding: 16px;">
+      <h3 style="color: #C9A96E; font-size: 13px; margin: 0 0 6px 0;">Section Checkboxes</h3>
+      <p style="font-size: 12px; color: #8892A5; margin: 0;">Each section header (Engine Systems, Electrical, etc.) has a checkbox to mark the entire section complete.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px; padding: 20px; background: #1a1a2e; border: 2px solid #C9A96E; border-radius: 8px;">
+  <h3 style="color: #C9A96E; margin-top: 0;">Questions Before I Write The Spec</h3>
+  <div style="font-size: 13px; color: #ccc; line-height: 2.2;">
+    <div>1. The two gold buttons on Job Summary — are those <strong>Export PDF</strong> and <strong>Share</strong>?</div>
+    <div>2. The "New Job" form and "Service" tab — is "Service" the tab where you create/fill out service forms, and "New Job" from the home screen also goes there?</div>
+    <div>3. Do you want a customer/boat database (pre-loaded list of your clients and their boats), or does the tech type in boat info fresh each time?</div>
+  </div>
+</div>
