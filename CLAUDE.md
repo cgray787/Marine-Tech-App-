@@ -67,8 +67,9 @@ https://github.com/cgray787/Marine-Tech-App-.git
 ## Supabase
 
 - **Project:** Marine Tech App
-- **Project ID:** `ikfcnqdrlvhvlyhiuphs`
-- **URL:** `https://ikfcnqdrlvhvlyhiuphs.supabase.co`
+- **Project ID:** `jwedhavnxqwkczefjifs`
+- **URL:** `https://jwedhavnxqwkczefjifs.supabase.co`
+- **Region:** West US (Oregon)
 - **Admin email:** connorgray41@gmail.com
 - **Env vars:** `.env.local` (gitignored)
 
