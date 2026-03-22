@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
+import { useNotifications } from "@/lib/notification-context";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
 
@@ -43,6 +44,7 @@ function formatDate(dateStr: string | null) {
 
 export default function MyJobsScreen() {
   const { profile, signOut } = useAuth();
+  const { notification } = useNotifications();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -55,6 +57,16 @@ export default function MyJobsScreen() {
       .order("scheduled_date", { ascending: false });
     if (data) setJobs(data as unknown as Job[]);
   }, [profile]);
+
+  // Re-fetch jobs when a push notification arrives (new job assigned)
+  useEffect(() => {
+    if (notification) {
+      fetchJobs();
+    }
+  }, [notification, fetchJobs]);
+
+  // Count of unread / new jobs
+  const newJobCount = jobs.filter((j) => j.status === "new").length;
 
   useEffect(() => {
     fetchJobs();
@@ -77,7 +89,14 @@ export default function MyJobsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>My Jobs</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>My Jobs</Text>
+            {newJobCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{newJobCount}</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.date}>{today}</Text>
         </View>
         <View style={styles.headerRight}>
@@ -193,10 +212,29 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",
     color: colors.textPrimary,
+  },
+  badge: {
+    backgroundColor: colors.statusNew,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 7,
+  },
+  badgeText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: "700",
   },
   date: {
     fontSize: 14,

@@ -13,7 +13,9 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/lib/auth-context";
+import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
+import { savePendingReport } from "@/lib/offline-db";
 import { colors } from "@/constants/Colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -102,6 +104,7 @@ type GalleryPhoto = {
 
 export default function ServiceScreen() {
   const { profile } = useAuth();
+  const { isOnline } = useOffline();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [boats, setBoats] = useState<Boat[]>([]);
   const [marinas, setMarinas] = useState<Marina[]>([]);
@@ -306,7 +309,78 @@ export default function ServiceScreen() {
     }
   }
 
-  async function handleSubmit() {
+  async function handleSubmitOffline() {
+    if (!profile) return;
+
+    const customer = customers.find((c) => c.id === customerId);
+
+    setSubmitting(true);
+
+    try {
+      // Build checklist items for offline storage
+      const checklistItems = Object.entries(checklist)
+        .filter(([, val]) => val.assessment !== null)
+        .map(([itemName, val], i) => {
+          const category =
+            Object.entries(CHECKLIST).find(([, items]) =>
+              items.includes(itemName)
+            )?.[0] || "Engine";
+          return {
+            category: category.toLowerCase(),
+            itemName,
+            assessment: val.assessment as string,
+            notes: val.notes || null,
+            sortOrder: i,
+          };
+        });
+
+      // Collect all photos (checklist + gallery)
+      const photos: { localUri: string; category: string; caption?: string }[] = [];
+
+      for (const [itemName, val] of Object.entries(checklist)) {
+        if (val.photos && val.photos.length > 0) {
+          for (const photo of val.photos) {
+            photos.push({ localUri: photo.uri, category: "other", caption: itemName });
+          }
+        }
+      }
+
+      for (const photo of galleryPhotos) {
+        const categorySlug = photo.category.toLowerCase().replace(/\s+/g, "_");
+        photos.push({ localUri: photo.uri, category: categorySlug });
+      }
+
+      await savePendingReport({
+        jobId: "",
+        techId: profile.id,
+        boatId: boatId || null,
+        customerId: customerId || null,
+        boatName: selectedBoat?.name || "",
+        ownerName: customer?.name || "",
+        makeModel: selectedBoat?.make_model || "",
+        year: selectedBoat?.year || null,
+        hin: hin || selectedBoat?.hin || "",
+        marina: marinas.find((m) => m.id === marinaId)?.name || "",
+        marinaId: marinaId || null,
+        generalNotes: generalNotes,
+        checklistItems,
+        photos,
+      });
+
+      setSubmitting(false);
+      Alert.alert(
+        "Saved Offline",
+        "Service report saved locally. It will sync when you have a connection.",
+        [{ text: "OK", onPress: resetForm }]
+      );
+    } catch (err) {
+      console.error("Offline save failed:", err);
+      setSubmitting(false);
+      Alert.alert("Error", "Failed to save report offline.");
+    }
+  }
+
+  async function handleSubmitOnline() {
     if (!profile) return;
 
     const customer = customers.find((c) => c.id === customerId);
@@ -430,6 +504,16 @@ export default function ServiceScreen() {
     Alert.alert("Success", "Service report submitted!", [
       { text: "OK", onPress: resetForm },
     ]);
+  }
+
+  async function handleSubmit() {
+    if (!profile) return;
+
+    if (isOnline) {
+      await handleSubmitOnline();
+    } else {
+      await handleSubmitOffline();
+    }
   }
 
   function resetForm() {

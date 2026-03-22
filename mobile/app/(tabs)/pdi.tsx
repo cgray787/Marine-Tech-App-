@@ -13,7 +13,9 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/lib/auth-context";
+import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
+import { savePendingPDIReport } from "@/lib/offline-db";
 import { colors } from "@/constants/Colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -104,6 +106,7 @@ type GalleryPhoto = {
 
 export default function PDIScreen() {
   const { profile } = useAuth();
+  const { isOnline } = useOffline();
   const [boats, setBoats] = useState<Boat[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [boatId, setBoatId] = useState("");
@@ -299,7 +302,87 @@ export default function PDIScreen() {
     }
   }
 
-  async function handleSubmit() {
+  function resetForm() {
+    setBoatId("");
+    setGeneralNotes("");
+    setChecklist({});
+    setActiveTab("Engine");
+    setGalleryPhotos([]);
+    setSelectedPhotoCategory("Other");
+  }
+
+  async function handleSubmitOffline() {
+    if (!profile || !boatId) {
+      Alert.alert("Error", "Please select a boat before submitting.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const checklistItems = Object.entries(checklist)
+        .filter(([, val]) => val.assessment !== null)
+        .map(([itemName, val], i) => {
+          const category =
+            Object.entries(CHECKLIST).find(([, items]) =>
+              items.includes(itemName)
+            )?.[0] || "Engine";
+          return {
+            category: category.toLowerCase(),
+            itemName,
+            assessment: val.assessment as string,
+            notes: val.notes || null,
+            sortOrder: i,
+          };
+        });
+
+      const photos: { localUri: string; category: string; caption?: string }[] = [];
+
+      for (const [itemName, val] of Object.entries(checklist)) {
+        if (val.photos && val.photos.length > 0) {
+          for (const photo of val.photos) {
+            photos.push({ localUri: photo.uri, category: "other", caption: `PDI: ${itemName}` });
+          }
+        }
+      }
+
+      for (const photo of galleryPhotos) {
+        const categorySlug = photo.category.toLowerCase().replace(/\s+/g, "_");
+        photos.push({ localUri: photo.uri, category: categorySlug });
+      }
+
+      await savePendingPDIReport({
+        techId: profile.id,
+        boatId,
+        customerId: selectedBoat?.customer_id || null,
+        boatName: selectedBoat?.name || "",
+        ownerName: owner?.name || "",
+        makeModel: selectedBoat?.make_model || "",
+        year: selectedBoat?.year || null,
+        hin: selectedBoat?.hin || "",
+        color: selectedBoat?.color || "",
+        totalItems: TOTAL_ITEMS,
+        completedItems: completedCount,
+        flaggedItems: flaggedCount,
+        generalNotes: generalNotes,
+        checklistItems,
+        photos,
+      });
+
+      setSubmitting(false);
+      Alert.alert(
+        "Saved Offline",
+        "PDI report saved locally. It will sync when you have a connection.",
+        [{ text: "OK", onPress: resetForm }]
+      );
+    } catch (err) {
+      console.error("Offline save failed:", err);
+      setSubmitting(false);
+      Alert.alert("Error", "Failed to save PDI report offline.");
+    }
+  }
+
+  async function handleSubmitOnline() {
     if (!profile || !boatId) {
       Alert.alert("Error", "Please select a boat before submitting.");
       return;
@@ -392,18 +475,21 @@ export default function PDIScreen() {
 
     setSubmitting(false);
     Alert.alert("Success", "PDI Report submitted!", [
-      {
-        text: "OK",
-        onPress: () => {
-          setBoatId("");
-          setGeneralNotes("");
-          setChecklist({});
-          setActiveTab("Engine");
-          setGalleryPhotos([]);
-          setSelectedPhotoCategory("Other");
-        },
-      },
+      { text: "OK", onPress: resetForm },
     ]);
+  }
+
+  async function handleSubmit() {
+    if (!profile || !boatId) {
+      Alert.alert("Error", "Please select a boat before submitting.");
+      return;
+    }
+
+    if (isOnline) {
+      await handleSubmitOnline();
+    } else {
+      await handleSubmitOffline();
+    }
   }
 
   return (

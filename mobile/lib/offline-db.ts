@@ -1,0 +1,427 @@
+import * as SQLite from "expo-sqlite";
+
+let db: SQLite.SQLiteDatabase | null = null;
+
+export async function getDB(): Promise<SQLite.SQLiteDatabase> {
+  if (!db) {
+    db = await SQLite.openDatabaseAsync("marine_tech_offline.db");
+  }
+  return db;
+}
+
+export async function initDB(): Promise<void> {
+  const database = await getDB();
+
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS pending_jobs (
+      id TEXT PRIMARY KEY,
+      assigned_to TEXT NOT NULL,
+      customer_id TEXT,
+      boat_id TEXT,
+      marina_id TEXT,
+      service_types TEXT DEFAULT '[]',
+      status TEXT DEFAULT 'completed',
+      created_by TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pending_service_reports (
+      id TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL,
+      tech_id TEXT NOT NULL,
+      boat_id TEXT,
+      customer_id TEXT,
+      boat_name TEXT DEFAULT '',
+      owner_name TEXT DEFAULT '',
+      make_model TEXT DEFAULT '',
+      year INTEGER,
+      hin TEXT DEFAULT '',
+      marina TEXT DEFAULT '',
+      general_notes TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pending_checklist_items (
+      id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL,
+      report_type TEXT NOT NULL DEFAULT 'service',
+      category TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      assessment TEXT,
+      notes TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pending_photos (
+      id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL,
+      local_uri TEXT NOT NULL,
+      category TEXT DEFAULT 'other',
+      caption TEXT,
+      bucket TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name TEXT NOT NULL,
+      record_id TEXT NOT NULL,
+      action TEXT NOT NULL CHECK(action IN ('insert', 'update', 'delete')),
+      payload TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      synced INTEGER DEFAULT 0
+    );
+  `);
+}
+
+function generateId(): string {
+  return "offline_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+}
+
+export type PendingServiceReport = {
+  jobId: string;
+  techId: string;
+  boatId: string | null;
+  customerId: string | null;
+  boatName: string;
+  ownerName: string;
+  makeModel: string;
+  year: number | null;
+  hin: string;
+  marina: string;
+  marinaId: string | null;
+  generalNotes: string;
+  checklistItems: {
+    category: string;
+    itemName: string;
+    assessment: string;
+    notes: string | null;
+    sortOrder: number;
+  }[];
+  photos: {
+    localUri: string;
+    category: string;
+    caption?: string;
+  }[];
+};
+
+export type PendingPDIReport = {
+  techId: string;
+  boatId: string;
+  customerId: string | null;
+  boatName: string;
+  ownerName: string;
+  makeModel: string;
+  year: number | null;
+  hin: string;
+  color: string;
+  totalItems: number;
+  completedItems: number;
+  flaggedItems: number;
+  generalNotes: string;
+  checklistItems: {
+    category: string;
+    itemName: string;
+    assessment: string;
+    notes: string | null;
+    sortOrder: number;
+  }[];
+  photos: {
+    localUri: string;
+    category: string;
+    caption?: string;
+  }[];
+};
+
+export async function savePendingReport(report: PendingServiceReport): Promise<string> {
+  const database = await getDB();
+  const jobId = generateId();
+  const reportId = generateId();
+
+  // Save the job
+  await database.runAsync(
+    `INSERT INTO pending_jobs (id, assigned_to, customer_id, boat_id, marina_id, status, created_by)
+     VALUES (?, ?, ?, ?, ?, 'completed', ?)`,
+    [jobId, report.techId, report.customerId, report.boatId, report.marinaId, report.techId]
+  );
+
+  // Enqueue job sync
+  await database.runAsync(
+    `INSERT INTO sync_queue (table_name, record_id, action, payload)
+     VALUES ('jobs', ?, 'insert', ?)`,
+    [
+      jobId,
+      JSON.stringify({
+        assigned_to: report.techId,
+        customer_id: report.customerId,
+        boat_id: report.boatId,
+        marina_id: report.marinaId,
+        service_types: [],
+        status: "completed",
+        created_by: report.techId,
+      }),
+    ]
+  );
+
+  // Save the service report
+  await database.runAsync(
+    `INSERT INTO pending_service_reports (id, job_id, tech_id, boat_id, customer_id, boat_name, owner_name, make_model, year, hin, marina, general_notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      reportId,
+      jobId,
+      report.techId,
+      report.boatId,
+      report.customerId,
+      report.boatName,
+      report.ownerName,
+      report.makeModel,
+      report.year,
+      report.hin,
+      report.marina,
+      report.generalNotes,
+    ]
+  );
+
+  // Enqueue report sync (job_id will be resolved during sync)
+  await database.runAsync(
+    `INSERT INTO sync_queue (table_name, record_id, action, payload)
+     VALUES ('service_reports', ?, 'insert', ?)`,
+    [
+      reportId,
+      JSON.stringify({
+        _offline_job_id: jobId,
+        tech_id: report.techId,
+        boat_id: report.boatId,
+        customer_id: report.customerId,
+        boat_name: report.boatName,
+        owner_name: report.ownerName,
+        make_model: report.makeModel,
+        year: report.year,
+        hin: report.hin,
+        marina: report.marina,
+        general_notes: report.generalNotes,
+      }),
+    ]
+  );
+
+  // Save checklist items
+  for (const item of report.checklistItems) {
+    const itemId = generateId();
+    await database.runAsync(
+      `INSERT INTO pending_checklist_items (id, report_id, report_type, category, item_name, assessment, notes, sort_order)
+       VALUES (?, ?, 'service', ?, ?, ?, ?, ?)`,
+      [itemId, reportId, item.category, item.itemName, item.assessment, item.notes, item.sortOrder]
+    );
+
+    await database.runAsync(
+      `INSERT INTO sync_queue (table_name, record_id, action, payload)
+       VALUES ('checklist_items', ?, 'insert', ?)`,
+      [
+        itemId,
+        JSON.stringify({
+          _offline_report_id: reportId,
+          category: item.category,
+          item_name: item.itemName,
+          assessment: item.assessment,
+          notes: item.notes,
+          sort_order: item.sortOrder,
+        }),
+      ]
+    );
+  }
+
+  // Save photos
+  for (const photo of report.photos) {
+    await savePendingPhoto(reportId, photo.localUri, "report-photos", photo.category, photo.caption);
+  }
+
+  return reportId;
+}
+
+export async function savePendingPDIReport(report: PendingPDIReport): Promise<string> {
+  const database = await getDB();
+  const reportId = generateId();
+
+  // Enqueue PDI report sync
+  await database.runAsync(
+    `INSERT INTO sync_queue (table_name, record_id, action, payload)
+     VALUES ('pdi_reports', ?, 'insert', ?)`,
+    [
+      reportId,
+      JSON.stringify({
+        tech_id: report.techId,
+        boat_id: report.boatId,
+        customer_id: report.customerId,
+        boat_name: report.boatName,
+        owner_name: report.ownerName,
+        make_model: report.makeModel,
+        year: report.year,
+        hin: report.hin,
+        color: report.color,
+        marina: "",
+        total_items: report.totalItems,
+        completed_items: report.completedItems,
+        flagged_items: report.flaggedItems,
+        general_notes: report.generalNotes,
+      }),
+    ]
+  );
+
+  // Save checklist items
+  for (const item of report.checklistItems) {
+    const itemId = generateId();
+    await database.runAsync(
+      `INSERT INTO pending_checklist_items (id, report_id, report_type, category, item_name, assessment, notes, sort_order)
+       VALUES (?, ?, 'pdi', ?, ?, ?, ?, ?)`,
+      [itemId, reportId, item.category, item.itemName, item.assessment, item.notes, item.sortOrder]
+    );
+
+    await database.runAsync(
+      `INSERT INTO sync_queue (table_name, record_id, action, payload)
+       VALUES ('pdi_checklist_items', ?, 'insert', ?)`,
+      [
+        itemId,
+        JSON.stringify({
+          _offline_report_id: reportId,
+          category: item.category,
+          item_name: item.itemName,
+          assessment: item.assessment,
+          notes: item.notes,
+          sort_order: item.sortOrder,
+        }),
+      ]
+    );
+  }
+
+  // Save photos
+  for (const photo of report.photos) {
+    await savePendingPhoto(reportId, photo.localUri, "pdi-photos", photo.category, photo.caption);
+  }
+
+  return reportId;
+}
+
+export async function savePendingChecklistItem(
+  reportId: string,
+  reportType: "service" | "pdi",
+  category: string,
+  itemName: string,
+  assessment: string,
+  notes: string | null,
+  sortOrder: number
+): Promise<string> {
+  const database = await getDB();
+  const itemId = generateId();
+
+  await database.runAsync(
+    `INSERT INTO pending_checklist_items (id, report_id, report_type, category, item_name, assessment, notes, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [itemId, reportId, reportType, category, itemName, assessment, notes, sortOrder]
+  );
+
+  const tableName = reportType === "pdi" ? "pdi_checklist_items" : "checklist_items";
+  await database.runAsync(
+    `INSERT INTO sync_queue (table_name, record_id, action, payload)
+     VALUES (?, ?, 'insert', ?)`,
+    [
+      tableName,
+      itemId,
+      JSON.stringify({
+        _offline_report_id: reportId,
+        category,
+        item_name: itemName,
+        assessment,
+        notes,
+        sort_order: sortOrder,
+      }),
+    ]
+  );
+
+  return itemId;
+}
+
+export async function savePendingPhoto(
+  reportId: string,
+  localUri: string,
+  bucket: string,
+  category: string,
+  caption?: string
+): Promise<string> {
+  const database = await getDB();
+  const photoId = generateId();
+
+  await database.runAsync(
+    `INSERT INTO pending_photos (id, report_id, local_uri, category, caption, bucket)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [photoId, reportId, localUri, category, caption ?? null, bucket]
+  );
+
+  await database.runAsync(
+    `INSERT INTO sync_queue (table_name, record_id, action, payload)
+     VALUES ('report_photos', ?, 'insert', ?)`,
+    [
+      photoId,
+      JSON.stringify({
+        _offline_report_id: reportId,
+        local_uri: localUri,
+        category,
+        caption: caption ?? null,
+        bucket,
+      }),
+    ]
+  );
+
+  return photoId;
+}
+
+export type SyncQueueItem = {
+  id: number;
+  table_name: string;
+  record_id: string;
+  action: string;
+  payload: string;
+  created_at: string;
+  synced: number;
+};
+
+export async function getPendingSync(): Promise<SyncQueueItem[]> {
+  const database = await getDB();
+  const results = await database.getAllAsync<SyncQueueItem>(
+    `SELECT * FROM sync_queue WHERE synced = 0 ORDER BY created_at ASC`
+  );
+  return results;
+}
+
+export async function getPendingSyncCount(): Promise<number> {
+  const database = await getDB();
+  const result = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM sync_queue WHERE synced = 0`
+  );
+  return result?.count ?? 0;
+}
+
+export async function markSynced(id: number): Promise<void> {
+  const database = await getDB();
+  await database.runAsync(`UPDATE sync_queue SET synced = 1 WHERE id = ?`, [id]);
+}
+
+export async function markSyncedBatch(ids: number[]): Promise<void> {
+  if (ids.length === 0) return;
+  const database = await getDB();
+  const placeholders = ids.map(() => "?").join(",");
+  await database.runAsync(
+    `UPDATE sync_queue SET synced = 1 WHERE id IN (${placeholders})`,
+    ids
+  );
+}
+
+export async function clearSyncedItems(): Promise<void> {
+  const database = await getDB();
+  await database.execAsync(`DELETE FROM sync_queue WHERE synced = 1`);
+  await database.execAsync(`DELETE FROM pending_jobs WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'jobs')`);
+  await database.execAsync(`DELETE FROM pending_service_reports WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'service_reports')`);
+  await database.execAsync(`DELETE FROM pending_checklist_items WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1)`);
+  await database.execAsync(`DELETE FROM pending_photos WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'report_photos')`);
+}

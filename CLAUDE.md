@@ -49,15 +49,22 @@ Two codebases, one Supabase backend:
 npm start              # Start Expo dev server
 npm run ios            # Run on iOS simulator
 npm run android        # Run on Android emulator
-npx eas build --platform ios     # Build for TestFlight
-npx eas build --platform android # Build APK
+
+# EAS Build — run from /mobile
+npx eas build --platform ios --profile development   # Dev client (iOS simulator)
+npx eas build --platform android --profile development # Dev client (Android)
+npx eas build --platform ios --profile preview       # Internal iOS build (real devices via TestFlight)
+npx eas build --platform android --profile preview   # Internal Android APK (side-load)
+npx eas build --platform ios --profile production    # App Store build
+npx eas build --platform android --profile production # Play Store build
+npx eas submit --platform ios                        # Submit to TestFlight / App Store
 
 # Admin Dashboard (from root /)
 npm run dev            # Start Next.js dev server
 npx opennextjs-cloudflare build && npx wrangler deploy  # Deploy to CF Workers
 
 # Type check
-npx tsc --noEmit
+npx tsc --noEmit       # Run from /mobile or root as needed
 ```
 
 ## GitHub Repo
