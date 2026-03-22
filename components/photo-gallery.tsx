@@ -140,7 +140,7 @@ export function PhotoGallery({
       {/* Lightbox Modal */}
       {lightboxIndex !== null && currentPhoto && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 print:hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 no-print"
           onClick={() => setLightboxIndex(null)}
         >
           {/* Close button */}

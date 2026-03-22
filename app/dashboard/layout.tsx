@@ -9,11 +9,11 @@ export default async function DashboardLayout({
   const { profile } = await requireAdmin();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-primary-bg print:block print:h-auto print:overflow-visible">
-      <div className="print:hidden">
+    <div className="flex h-screen overflow-hidden bg-primary-bg print-layout">
+      <div className="no-print">
         <Sidebar profile={profile} />
       </div>
-      <main className="flex-1 overflow-y-auto p-6 lg:p-8 print:overflow-visible print:p-0">
+      <main className="flex-1 overflow-y-auto p-6 lg:p-8 print-main">
         {children}
       </main>
     </div>

@@ -88,19 +88,19 @@ body {
   /* Hide sidebar and non-print elements */
   nav,
   aside,
-  .print\\:hidden {
+  .no-print {
     display: none !important;
   }
 
-  /* Make main content full width */
-  main {
-    padding: 0 !important;
+  /* Print layout overrides */
+  .print-layout {
+    display: block !important;
+    height: auto !important;
     overflow: visible !important;
   }
 
-  .flex.h-screen {
-    display: block !important;
-    height: auto !important;
+  .print-main {
+    padding: 0 !important;
     overflow: visible !important;
   }
 
