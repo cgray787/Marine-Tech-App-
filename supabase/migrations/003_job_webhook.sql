@@ -1,0 +1,79 @@
+-- ============================================================================
+-- Migration 003: Job Notification Webhook
+-- ============================================================================
+-- Supabase Database Webhooks are configured via the Supabase Dashboard
+-- (Database → Webhooks), not via SQL migrations. This file documents the
+-- webhook configuration that should be set up in the Dashboard.
+--
+-- ┌──────────────────────────────────────────────────────────────────────────┐
+-- │  Webhook Configuration                                                  │
+-- ├──────────────────────────────────────────────────────────────────────────┤
+-- │  Name:    job-notification-webhook                                      │
+-- │  Table:   public.jobs                                                   │
+-- │  Events:  INSERT, UPDATE                                                │
+-- │  Type:    Supabase Edge Function (HTTP Request)                         │
+-- │  Method:  POST                                                          │
+-- │  URL:     https://jwedhavnxqwkczefjifs.supabase.co/functions/v1/        │
+-- │           job-notification-webhook                                      │
+-- │  Headers:                                                               │
+-- │    Authorization: Bearer [SUPABASE_SERVICE_ROLE_KEY]                    │
+-- │    Content-Type:  application/json                                      │
+-- └──────────────────────────────────────────────────────────────────────────┘
+--
+-- The webhook sends a payload in this format:
+-- {
+--   "type": "INSERT" | "UPDATE",
+--   "table": "jobs",
+--   "schema": "public",
+--   "record": { <full new row> },
+--   "old_record": { <full old row, UPDATE only> }
+-- }
+--
+-- The Edge Function (supabase/functions/job-notification-webhook/index.ts):
+--   - On INSERT: Sends push notification to the assigned technician
+--     → "New Job Assigned — [Boat Name] for [Customer Name]"
+--   - On UPDATE (status → 'completed'): Notifies all admins
+--     → "Job Completed — [Boat Name]"
+--   - On UPDATE (status → 'in_progress'): Notifies all admins
+--     → "Job In Progress — [Boat Name]"
+--   - Logs every notification to the `notifications` table
+
+-- If you prefer a pg_net-based approach (requires pg_net extension enabled),
+-- you can use the following trigger + function instead of the Dashboard webhook.
+-- Uncomment the block below to use it.
+
+-- CREATE OR REPLACE FUNCTION public.notify_job_change()
+-- RETURNS trigger
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- AS $$
+-- DECLARE
+--   payload jsonb;
+--   webhook_url text := 'https://jwedhavnxqwkczefjifs.supabase.co/functions/v1/job-notification-webhook';
+--   service_role_key text := current_setting('app.settings.service_role_key', true);
+-- BEGIN
+--   payload := jsonb_build_object(
+--     'type', TG_OP,
+--     'table', TG_TABLE_NAME,
+--     'schema', TG_TABLE_SCHEMA,
+--     'record', row_to_json(NEW),
+--     'old_record', CASE WHEN TG_OP = 'UPDATE' THEN row_to_json(OLD) ELSE NULL END
+--   );
+--
+--   PERFORM net.http_post(
+--     url := webhook_url,
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'Authorization', 'Bearer ' || service_role_key
+--     ),
+--     body := payload
+--   );
+--
+--   RETURN NEW;
+-- END;
+-- $$;
+--
+-- CREATE TRIGGER job_notification_trigger
+--   AFTER INSERT OR UPDATE ON public.jobs
+--   FOR EACH ROW
+--   EXECUTE FUNCTION public.notify_job_change();

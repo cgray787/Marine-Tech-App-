@@ -28,6 +28,7 @@ export default function RootLayout() {
           >
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="login" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="register" options={{ gestureEnabled: true, headerShown: false }} />
             <Stack.Screen
               name="job/[id]"
               options={{

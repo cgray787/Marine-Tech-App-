@@ -64,3 +64,103 @@ body {
 .anchor-bob {
   animation: anchor-bob 3s ease-in-out infinite;
 }
+
+/* Print styles for PDF export */
+@media print {
+  /* Reset dark theme for print */
+  :root {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f8fafc;
+    --card-bg: #ffffff;
+    --border: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --gold: #92722e;
+  }
+
+  body {
+    background: white !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide sidebar and non-print elements */
+  nav,
+  aside,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Make main content full width */
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .flex.h-screen {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Card styling for print */
+  .rounded-xl {
+    border-color: #e2e8f0 !important;
+    background: white !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure text is dark */
+  .text-text-primary {
+    color: #0f172a !important;
+  }
+
+  .text-text-secondary {
+    color: #475569 !important;
+  }
+
+  .text-gold {
+    color: #92722e !important;
+  }
+
+  /* Photo grid for print */
+  .grid.grid-cols-2 img {
+    max-height: 200px;
+    object-fit: cover;
+    break-inside: avoid;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 0.75in;
+    size: letter;
+  }
+
+  /* Ensure good spacing */
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  /* Status badges for print */
+  .bg-emerald-500\/15 {
+    background-color: #dcfce7 !important;
+    color: #166534 !important;
+  }
+
+  .bg-red-500\/15 {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+  }
+
+  .bg-blue-500\/15 {
+    background-color: #dbeafe !important;
+    color: #1e40af !important;
+  }
+
+  .bg-amber-500\/15 {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+  }
+}

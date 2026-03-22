@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
 export function InviteTechForm() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -12,12 +14,14 @@ export function InviteTechForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccess("");
+    setInviteLink("");
 
     if (!email || !fullName) {
       setError("Email and name are required");
@@ -27,20 +31,49 @@ export function InviteTechForm() {
 
     const supabase = createClient();
 
-    // Generate invite token
-    const token = crypto.randomUUID();
+    // Get current admin user for invited_by
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    // Create invite record
-    const { error: inviteError } = await supabase.from("invites").insert({
-      email,
-      token,
-    });
-
-    if (inviteError) {
-      setError(inviteError.message);
+    if (!user) {
+      setError("You must be logged in to invite technicians");
       setLoading(false);
       return;
     }
+
+    // Look up admin profile ID
+    const { data: adminProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("auth_id", user.id)
+      .single();
+
+    if (!adminProfile) {
+      setError("Admin profile not found");
+      setLoading(false);
+      return;
+    }
+
+    // Call the send-invite Edge Function
+    const { data: fnData, error: fnError } = await supabase.functions.invoke(
+      "send-invite",
+      {
+        body: {
+          email,
+          invited_by: adminProfile.id,
+        },
+      }
+    );
+
+    if (fnError) {
+      setError(fnError.message || "Failed to send invite");
+      setLoading(false);
+      return;
+    }
+
+    const token = fnData?.token;
+    const link = fnData?.invite_link || `marine-tech://register?token=${token}`;
 
     // Create profile in invited status
     const { error: profileError } = await supabase.from("profiles").insert({
@@ -51,16 +84,24 @@ export function InviteTechForm() {
     });
 
     if (profileError) {
-      setError(profileError.message);
-      setLoading(false);
-      return;
+      // Ignore duplicate profile errors (e.g. re-inviting)
+      if (!profileError.message.includes("duplicate")) {
+        setError(profileError.message);
+        setLoading(false);
+        return;
+      }
     }
 
-    setSuccess(`Invite created for ${email}. Token: ${token}`);
+    setInviteLink(link);
+    setSuccess(`Invite sent to ${email}. Share the link below if the email doesn't arrive.`);
     setEmail("");
     setFullName("");
     setLoading(false);
     router.refresh();
+  }
+
+  function copyToClipboard() {
+    navigator.clipboard.writeText(inviteLink);
   }
 
   return (
@@ -83,6 +124,7 @@ export function InviteTechForm() {
                 setOpen(false);
                 setError("");
                 setSuccess("");
+                setInviteLink("");
               }}
               className="text-text-secondary hover:text-text-primary"
             >
@@ -101,6 +143,25 @@ export function InviteTechForm() {
           {success && (
             <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
               {success}
+            </div>
+          )}
+
+          {inviteLink && (
+            <div className="mb-4 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
+              <p className="mb-2 text-xs font-medium text-gold">
+                Invite Link (share with technician):
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 truncate rounded bg-primary-bg px-3 py-2 text-xs text-text-primary">
+                  {inviteLink}
+                </code>
+                <button
+                  onClick={copyToClipboard}
+                  className="shrink-0 rounded-lg border border-gold/30 px-3 py-2 text-xs font-medium text-gold transition-colors hover:bg-gold/10"
+                >
+                  Copy
+                </button>
+              </div>
             </div>
           )}
 
@@ -148,6 +209,7 @@ export function InviteTechForm() {
                   setOpen(false);
                   setError("");
                   setSuccess("");
+                  setInviteLink("");
                 }}
                 className="rounded-lg border border-border-line px-6 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
               >

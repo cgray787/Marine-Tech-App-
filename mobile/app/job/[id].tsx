@@ -12,8 +12,11 @@ import {
   Share,
   Dimensions,
 } from "react-native";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
+import { generateServiceReportHTML, generatePDIReportHTML } from "@/lib/pdf-template";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PHOTO_SIZE = SCREEN_WIDTH * 0.6;
@@ -129,32 +132,68 @@ export default function JobDetailScreen() {
     });
   }
 
-  function handleExportPDF() {
-    Alert.alert(
-      "Export PDF",
-      "PDF export will be available in a future update.",
-      [{ text: "OK" }]
-    );
+  async function handleExportPDF() {
+    if (!report) return;
+
+    try {
+      const html = generateServiceReportHTML(report, checklistItems, photos);
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: `Service Report - ${report.boat_name}`,
+        UTI: "com.adobe.pdf",
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message?.includes("cancel")) {
+        // User cancelled sharing — do nothing
+        return;
+      }
+      Alert.alert("Error", "Failed to generate PDF. Please try again.");
+    }
   }
 
   async function handleShare() {
-    let title = `Job ${id}`;
-    let message = `Job ID: ${id}`;
-
-    if (report) {
-      title = `Service Report - ${report.boat_name}`;
-      const partsArray: string[] = Array.isArray(report.parts_used)
-        ? report.parts_used
-        : typeof report.parts_used === "string"
-        ? (() => { try { return JSON.parse(report.parts_used as unknown as string); } catch { return []; } })()
-        : [];
-      message = `Service Report for ${report.boat_name}\nOwner: ${report.owner_name}\nMarina: ${report.marina}\n${report.make_model} (${report.year})\nHIN: ${report.hin}\n\nEngine: ${report.engine_make_model || "N/A"}\nEngine Hours: ${report.engine_hours ?? "N/A"}\nBattery Voltage: ${report.battery_voltage || "N/A"}\n\nWork Description:\n${report.work_description || "N/A"}\n\nParts Used:\n${partsArray.map((p) => `- ${p}`).join("\n")}\n\nNotes: ${report.general_notes || "N/A"}`;
+    if (!report) {
+      try {
+        await Share.share({
+          title: `Job ${id}`,
+          message: `Job ID: ${id}`,
+        });
+      } catch {
+        // User cancelled
+      }
+      return;
     }
 
+    // Offer to share as PDF
     try {
-      await Share.share({ title, message });
-    } catch {
-      // User cancelled
+      const html = generateServiceReportHTML(report, checklistItems, photos);
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: `Service Report - ${report.boat_name}`,
+        UTI: "com.adobe.pdf",
+      });
+    } catch (error) {
+      // If PDF sharing fails or is cancelled, fall back to text share
+      if (error instanceof Error && error.message?.includes("cancel")) {
+        return;
+      }
+      // Fallback to text-based share
+      try {
+        const partsArray: string[] = Array.isArray(report.parts_used)
+          ? report.parts_used
+          : typeof report.parts_used === "string"
+          ? (() => { try { return JSON.parse(report.parts_used as unknown as string); } catch { return []; } })()
+          : [];
+        const message = `Service Report for ${report.boat_name}\nOwner: ${report.owner_name}\nMarina: ${report.marina}\n${report.make_model} (${report.year})\nHIN: ${report.hin}\n\nEngine: ${report.engine_make_model || "N/A"}\nEngine Hours: ${report.engine_hours ?? "N/A"}\nBattery Voltage: ${report.battery_voltage || "N/A"}\n\nWork Description:\n${report.work_description || "N/A"}\n\nParts Used:\n${partsArray.map((p) => `- ${p}`).join("\n")}\n\nNotes: ${report.general_notes || "N/A"}`;
+        await Share.share({
+          title: `Service Report - ${report.boat_name}`,
+          message,
+        });
+      } catch {
+        // User cancelled
+      }
     }
   }
 

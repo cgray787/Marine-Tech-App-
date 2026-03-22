@@ -2,6 +2,8 @@ import { requireAdmin } from "@/lib/admin";
 import { formatDateTime } from "@/lib/utils";
 import Link from "next/link";
 import { ReportDetailActions } from "./report-detail-actions";
+import { PhotoGallery } from "@/components/photo-gallery";
+import { PrintButton } from "@/components/print-button";
 
 type Params = Promise<{ id: string }>;
 
@@ -81,7 +83,10 @@ export default async function ReportDetailPage({ params }: { params: Params }) {
             {tech?.full_name || "Unknown"}
           </p>
         </div>
-        <ReportDetailActions reportId={id} currentStatus={report.status} />
+        <div className="flex items-center gap-3">
+          <PrintButton />
+          <ReportDetailActions reportId={id} currentStatus={report.status} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -216,36 +221,7 @@ export default async function ReportDetailPage({ params }: { params: Params }) {
 
           {/* Photo Gallery */}
           {photos && photos.length > 0 && (
-            <div className="rounded-xl border border-border-line bg-card-bg p-6">
-              <h2 className="mb-4 text-lg font-semibold text-text-primary">
-                Photos ({photos.length})
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {photos.map((photo) => (
-                  <a
-                    key={photo.id}
-                    href={photo.photo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative overflow-hidden rounded-lg border border-border-line"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.photo_url}
-                      alt={photo.caption || photo.category || "Report photo"}
-                      className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
-                    />
-                    {photo.category && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
-                        <p className="text-xs text-white">
-                          {photo.category}
-                        </p>
-                      </div>
-                    )}
-                  </a>
-                ))}
-              </div>
-            </div>
+            <PhotoGallery photos={photos} storageBucket="report-photos" />
           )}
         </div>
 

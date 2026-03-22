@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { formatDateTime } from "@/lib/utils";
 import Link from "next/link";
+import { PhotoGallery } from "@/components/photo-gallery";
 
 type Params = Promise<{ id: string }>;
 
@@ -28,6 +29,12 @@ export default async function PdiDetailPage({ params }: { params: Params }) {
     .eq("pdi_report_id", id)
     .order("category")
     .order("sort_order");
+
+  const { data: photos } = await supabase
+    .from("report_photos")
+    .select("*")
+    .eq("pdi_report_id", id)
+    .order("created_at");
 
   const tech = (pdi.profiles as unknown) as { full_name: string; email: string } | null;
 
@@ -140,6 +147,11 @@ export default async function PdiDetailPage({ params }: { params: Params }) {
                 {pdi.general_notes}
               </p>
             </div>
+          )}
+
+          {/* Photo Gallery */}
+          {photos && photos.length > 0 && (
+            <PhotoGallery photos={photos} storageBucket="pdi-photos" />
           )}
         </div>
 
