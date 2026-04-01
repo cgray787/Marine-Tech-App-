@@ -8,7 +8,7 @@ directory = ".open-next/assets"
 binding = "ASSETS"
 
 [vars]
-NEXT_PUBLIC_SUPABASE_URL = "https://jwedhavnxqwkczefjifs.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZWRoYXZueHF3a2N6ZWZqaWZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMjYxMzYsImV4cCI6MjA4OTcwMjEzNn0.Qt6pzzNGd4dnHajss6BF0NhH53Q1SQIQMDj4CiuxGlQ"
+NEXT_PUBLIC_SUPABASE_URL = "https://ikfcnqdrlvhvlyhiuphs.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ"
 # SUPABASE_SERVICE_ROLE_KEY should be set as a Cloudflare secret:
 # npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY

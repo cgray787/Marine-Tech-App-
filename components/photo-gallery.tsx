@@ -53,7 +53,7 @@ export function PhotoGallery({
   function getPhotoUrl(photo: Photo): string {
     if (photo.photo_url) return photo.photo_url;
     if (photo.photo_path) {
-      return `https://jwedhavnxqwkczefjifs.supabase.co/storage/v1/object/public/${storageBucket}/${photo.photo_path}`;
+      return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${storageBucket}/${photo.photo_path}`;
     }
     return "";
   }

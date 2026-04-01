@@ -13,14 +13,20 @@ export function JobStatusActions({
   const router = useRouter();
 
   async function updateStatus(newStatus: string) {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("jobs")
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq("id", jobId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("jobs")
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", jobId);
 
-    if (!error) {
+      if (error) {
+        alert(`Failed to update job: ${error.message}`);
+        return;
+      }
       router.refresh();
+    } catch (err) {
+      alert("Failed to update job status. Please try again.");
     }
   }
 

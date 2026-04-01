@@ -73,11 +73,13 @@ https://github.com/cgray787/Marine-Tech-App-.git
 
 ## Supabase
 
-- **Project:** Marine Tech App
-- **Project ID:** `jwedhavnxqwkczefjifs`
-- **URL:** `https://jwedhavnxqwkczefjifs.supabase.co`
+- **Project:** Marine Tech App Project
+- **Org:** JBY Yachts
+- **Project ID:** `ikfcnqdrlvhvlyhiuphs`
+- **URL:** `https://ikfcnqdrlvhvlyhiuphs.supabase.co`
 - **Region:** West US (Oregon)
-- **Admin email:** connorgray41@gmail.com
+- **Admin email:** connorgray@jeffbrownyachts.com
+- **Admin auth_id:** `ec4c6451-623a-4a41-9dde-0cd48afc767d`
 - **Env vars:** `.env.local` (gitignored)
 
 ## Database Schema

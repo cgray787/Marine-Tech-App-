@@ -35,9 +35,8 @@ function getStorage() {
   return noopStorage;
 }
 
-const supabaseUrl = "https://jwedhavnxqwkczefjifs.supabase.co";
-const supabaseAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZWRoYXZueHF3a2N6ZWZqaWZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMjYxMzYsImV4cCI6MjA4OTcwMjEzNn0.Qt6pzzNGd4dnHajss6BF0NhH53Q1SQIQMDj4CiuxGlQ";
+const supabaseUrl = "https://ikfcnqdrlvhvlyhiuphs.supabase.co";
+const supabaseAnonKey = "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

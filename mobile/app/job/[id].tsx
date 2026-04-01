@@ -57,12 +57,36 @@ type ReportPhoto = {
   caption: string | null;
 };
 
+type Customer = {
+  name: string;
+  email: string | null;
+  phone: string | null;
+};
+
+type Boat = {
+  name: string;
+  make_model: string | null;
+  year: number | null;
+  hin: string | null;
+  engine_make: string | null;
+  engine_model: string | null;
+  color: string | null;
+};
+
+type Marina = {
+  name: string;
+  address: string | null;
+};
+
 type Job = {
   id: string;
   status: string;
   service_types: string[] | null;
   scheduled_date: string | null;
   notes: string | null;
+  customers: Customer | null;
+  boats: Boat | null;
+  marinas: Marina | null;
 };
 
 export default function JobDetailScreen() {
@@ -81,14 +105,14 @@ export default function JobDetailScreen() {
     if (!id) return;
     setLoading(true);
 
-    // Fetch job
+    // Fetch job with customer, boat, and marina details
     const { data: jobData } = await supabase
       .from("jobs")
-      .select("id, status, service_types, scheduled_date, notes")
+      .select("id, status, service_types, scheduled_date, notes, customers(name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, color), marinas(name, address)")
       .eq("id", id)
       .single();
 
-    if (jobData) setJob(jobData);
+    if (jobData) setJob(jobData as unknown as Job);
 
     // Fetch service report for this job
     const { data: reportData } = await supabase
@@ -286,28 +310,78 @@ export default function JobDetailScreen() {
         </View>
       )}
 
-      {/* Vessel Info Card */}
-      {report && (
+      {/* Customer Info Card */}
+      {job.customers && (
         <View style={styles.vesselCard}>
           <View style={styles.vesselCardAccent} />
           <View style={styles.vesselCardContent}>
-            <Text style={styles.cardTitle}>Vessel Information</Text>
+            <Text style={styles.cardTitle}>Customer</Text>
             <View style={styles.infoGrid}>
-              <InfoRow label="Boat Name" value={report.boat_name} />
-              <InfoRow label="Owner" value={report.owner_name} />
-              <InfoRow label="Make / Model" value={report.make_model} />
-              <InfoRow
-                label="Year"
-                value={report.year ? String(report.year) : "—"}
-              />
-              <InfoRow label="HIN" value={report.hin || "—"} />
-              <InfoRow label="Marina" value={report.marina || "—"} />
+              <InfoRow label="Name" value={job.customers.name} />
+              {job.customers.phone && (
+                <InfoRow label="Phone" value={job.customers.phone} />
+              )}
+              {job.customers.email && (
+                <InfoRow label="Email" value={job.customers.email} />
+              )}
             </View>
           </View>
         </View>
       )}
 
-      {/* Systems Card */}
+      {/* Vessel Info Card */}
+      {job.boats && (
+        <View style={styles.vesselCard}>
+          <View style={styles.vesselCardAccent} />
+          <View style={styles.vesselCardContent}>
+            <Text style={styles.cardTitle}>Vessel Information</Text>
+            <View style={styles.infoGrid}>
+              <InfoRow label="Boat Name" value={job.boats.name} />
+              {job.boats.make_model && (
+                <InfoRow label="Make / Model" value={job.boats.make_model} />
+              )}
+              {job.boats.year && (
+                <InfoRow label="Year" value={String(job.boats.year)} />
+              )}
+              {job.boats.hin && (
+                <InfoRow label="HIN" value={job.boats.hin} />
+              )}
+              {job.boats.color && (
+                <InfoRow label="Color" value={job.boats.color} />
+              )}
+              {job.boats.engine_make && (
+                <InfoRow
+                  label="Engine"
+                  value={`${job.boats.engine_make}${job.boats.engine_model ? " " + job.boats.engine_model : ""}`}
+                />
+              )}
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Marina Card */}
+      {job.marinas && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Marina</Text>
+          <View style={styles.infoGrid}>
+            <InfoRow label="Name" value={job.marinas.name} />
+            {job.marinas.address && (
+              <InfoRow label="Address" value={job.marinas.address} />
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Job Notes */}
+      {job.notes && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Job Notes</Text>
+          <Text style={styles.bodyText}>{job.notes}</Text>
+        </View>
+      )}
+
+      {/* Systems Card (from service report) */}
       {report && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Systems</Text>

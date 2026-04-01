@@ -13,17 +13,23 @@ export function ReportDetailActions({
   const router = useRouter();
 
   async function updateStatus(newStatus: string) {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("service_reports")
-      .update({
-        status: newStatus,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", reportId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("service_reports")
+        .update({
+          status: newStatus,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", reportId);
 
-    if (!error) {
+      if (error) {
+        alert(`Failed to update report: ${error.message}`);
+        return;
+      }
       router.refresh();
+    } catch (err) {
+      alert("Failed to update report status. Please try again.");
     }
   }
 

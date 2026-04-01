@@ -13,14 +13,20 @@ export function PdiStatusActions({
   const router = useRouter();
 
   async function updateStatus(newStatus: string) {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("pdi_reports")
-      .update({ status: newStatus })
-      .eq("id", pdiId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("pdi_reports")
+        .update({ status: newStatus })
+        .eq("id", pdiId);
 
-    if (!error) {
+      if (error) {
+        alert(`Failed to update PDI status: ${error.message}`);
+        return;
+      }
       router.refresh();
+    } catch (err) {
+      alert("Failed to update PDI status. Please try again.");
     }
   }
 

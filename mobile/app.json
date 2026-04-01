@@ -56,8 +56,7 @@
           "color": "#C9A96E"
         }
       ],
-      "expo-sqlite",
-      "expo-sharing"
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

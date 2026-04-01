@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marine Tech — Connect Device</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #060a12; color: #f1f5f9; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: #111827; border: 1px solid #1e293b; border-radius: 16px; padding: 48px; text-align: center; max-width: 480px; width: 90%; }
+    .anchor { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: 2px; color: #C9A96E; margin-bottom: 8px; }
+    .subtitle { color: #8892A5; font-size: 14px; margin-bottom: 32px; }
+    .qr-container { background: white; border-radius: 12px; padding: 16px; display: inline-block; margin-bottom: 24px; }
+    .qr-container img { display: block; width: 280px; height: 280px; }
+    .url { background: #0c1220; border: 1px solid #1e293b; border-radius: 8px; padding: 12px 16px; font-family: monospace; font-size: 13px; color: #C9A96E; margin-top: 16px; }
+    .sdk-note { background: #0c1220; border: 1px solid #C9A96E; border-radius: 8px; padding: 12px; margin-top: 16px; font-size: 13px; color: #C9A96E; }
+    .instructions { text-align: left; margin-top: 24px; border-top: 1px solid #1e293b; padding-top: 24px; }
+    .step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+    .step-num { background: #C9A96E; color: #060a12; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+    .step-text { font-size: 15px; line-height: 1.5; }
+    .step-text strong { color: #C9A96E; }
+    .login-info { margin-top: 24px; border-top: 1px solid #1e293b; padding-top: 24px; }
+    .login-info h3 { color: #C9A96E; font-size: 16px; margin-bottom: 12px; }
+    .cred { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e293b; font-size: 14px; }
+    .cred-label { color: #8892A5; }
+    .cred-value { color: #f1f5f9; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="anchor">&#9875;</div>
+    <h1>MARINE TECH</h1>
+    <p class="subtitle">Scan to open app on your iPhone or iPad</p>
+    <div class="qr-container">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUoAAAFKAQAAAABTUiuoAAAB9ElEQVR4nO2bTWrDQAyFn2Tv7RvkKPbNSo/UG9RH6Q3sZcFBRZKdhIDLlEIiMnobezzfQiA0o5+EBIWauJQEEuVEkWixOFEkWixOFCra1AITEQFLCxqX/fMYydYi8Uujg6hme1th7pFPNPZVgtlaIn5tdNlDaKJWHXX2pcdbMFvrRdu7NQ1zr89mBZZHGMCJ4j9oIzR23/Q8A47EqB1tt2ent9MCyNQ3ECw9aPgAJJKtnChMmgkS9QC9zdAso1E/nT0lDGZrxSjkTp+dJYFbOni7wc+2lROFysLqWmoB3YqbjVC21ozCK6phbsSKLnuzysuizN8ytoKdhLO+aXVsYTVYnXxdprdixZbsTrkJJt32eEtvhcsygEu/yRwFyze6NU/CePcW9jjSG0wdZS4TkfRWTG+pRDTL8Iau+y3vrXhot5VaRCfrwWth3J/p6kbEsbVA/NroQoThq90SQz8OfSN78HF7GfB6a88EPejy3go7Oz6tvvSw0pMwZ8fh6i2VNzQ0Cby0Ni6IZGwh3OxY3m1YrPMtbxvauCuWrQXiWtBOE8N+S+OfYcCh+HirVnSwhq5dWX4mPtqAY/Eve3Wh3da88N/OjFoTTzqczIlJ5NkxdGK8b2p1rO3eBxhQIkbtKOW/FpBosThRJFosThSJFusPvYwfybxj6lyG+bMAAAAASUVORK5CYII=" alt="QR Code" />
+    </div>
+    <div class="url">exp://192.168.10.108:8081</div>
+    <div class="sdk-note">Expo SDK 54 — close Expo Go fully and rescan to see updates</div>
+    <div class="instructions">
+      <div class="step"><div class="step-num">1</div><div class="step-text">Install <strong>Expo Go</strong> from the App Store</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">Connect your device to the <strong>same WiFi</strong> as this computer</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">Open your <strong>iPhone Camera</strong> and point it at the QR code</div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text">Tap the banner to open in <strong>Expo Go</strong></div></div>
+    </div>
+    <div class="login-info">
+      <h3>Login Credentials</h3>
+      <div class="cred"><span class="cred-label">Email</span><span class="cred-value">connorgray41@gmail.com</span></div>
+      <div class="cred"><span class="cred-label">Password</span><span class="cred-value">GrayYachts2026</span></div>
+    </div>
+  </div>
+</body>
+</html>

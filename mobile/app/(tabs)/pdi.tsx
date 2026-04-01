@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,13 +10,19 @@ import {
   ActivityIndicator,
   Image,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
 import { savePendingPDIReport } from "@/lib/offline-db";
 import { colors } from "@/constants/Colors";
+
+const PDI_DRAFT_KEY = "pdi_draft";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THUMB_SIZE = (SCREEN_WIDTH - 40 - 24) / 3;
@@ -87,7 +93,7 @@ const PHOTO_CATEGORIES = [
 ] as const;
 type PhotoCategory = (typeof PHOTO_CATEGORIES)[number];
 
-type Assessment = "good" | "bad" | null;
+type Assessment = "good" | "bad" | "na" | null;
 type ChecklistState = Record<
   string,
   {
@@ -109,6 +115,9 @@ export default function PDIScreen() {
   const { isOnline } = useOffline();
   const [boats, setBoats] = useState<Boat[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerId, setCustomerId] = useState("");
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
   const [boatId, setBoatId] = useState("");
   const [activeTab, setActiveTab] = useState<Category>("Engine");
   const [generalNotes, setGeneralNotes] = useState("");
@@ -120,6 +129,10 @@ export default function PDIScreen() {
   const [selectedPhotoCategory, setSelectedPhotoCategory] =
     useState<PhotoCategory>("Other");
 
+  const draftLoaded = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load saved draft on mount
   useEffect(() => {
     supabase
       .from("boats")
@@ -135,10 +148,44 @@ export default function PDIScreen() {
       .then(({ data }) => {
         if (data) setCustomers(data);
       });
+
+    // Restore draft
+    AsyncStorage.getItem(PDI_DRAFT_KEY).then((json) => {
+      if (json) {
+        try {
+          const draft = JSON.parse(json);
+          if (draft.customerId) setCustomerId(draft.customerId);
+          if (draft.boatId) setBoatId(draft.boatId);
+          if (draft.activeTab) setActiveTab(draft.activeTab);
+          if (draft.generalNotes) setGeneralNotes(draft.generalNotes);
+          if (draft.checklist) setChecklist(draft.checklist);
+        } catch {}
+      }
+      draftLoaded.current = true;
+    });
   }, []);
 
+  // Auto-save draft on changes (debounced 1s)
+  const saveDraft = useCallback(() => {
+    if (!draftLoaded.current) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const draft = { customerId, boatId, activeTab, generalNotes, checklist };
+      AsyncStorage.setItem(PDI_DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
+    }, 1000);
+  }, [customerId, boatId, activeTab, generalNotes, checklist]);
+
+  useEffect(() => {
+    saveDraft();
+  }, [saveDraft]);
+
+  const filteredBoats = customerId
+    ? boats.filter((b) => b.customer_id === customerId)
+    : boats;
   const selectedBoat = boats.find((b) => b.id === boatId);
-  const owner = customers.find((c) => c.id === selectedBoat?.customer_id);
+  const owner = customerId
+    ? customers.find((c) => c.id === customerId)
+    : customers.find((c) => c.id === selectedBoat?.customer_id);
 
   const completedCount = Object.values(checklist).filter(
     (v) => v.assessment !== null
@@ -303,12 +350,16 @@ export default function PDIScreen() {
   }
 
   function resetForm() {
+    setCustomerId("");
+    setShowClientDropdown(false);
+    setClientSearch("");
     setBoatId("");
     setGeneralNotes("");
     setChecklist({});
     setActiveTab("Engine");
     setGalleryPhotos([]);
     setSelectedPhotoCategory("Other");
+    AsyncStorage.removeItem(PDI_DRAFT_KEY).catch(() => {});
   }
 
   async function handleSubmitOffline() {
@@ -354,7 +405,7 @@ export default function PDIScreen() {
       await savePendingPDIReport({
         techId: profile.id,
         boatId,
-        customerId: selectedBoat?.customer_id || null,
+        customerId: customerId || selectedBoat?.customer_id || null,
         boatName: selectedBoat?.name || "",
         ownerName: owner?.name || "",
         makeModel: selectedBoat?.make_model || "",
@@ -395,7 +446,7 @@ export default function PDIScreen() {
       .insert({
         tech_id: profile.id,
         boat_id: boatId,
-        customer_id: selectedBoat?.customer_id || null,
+        customer_id: customerId || selectedBoat?.customer_id || null,
         boat_name: selectedBoat?.name || "",
         owner_name: owner?.name || "",
         make_model: selectedBoat?.make_model || "",
@@ -493,13 +544,22 @@ export default function PDIScreen() {
   }
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
     >
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backArrow}>{"\u2039"}</Text>
+          </TouchableOpacity>
           <Text style={styles.title}>Pre-Delivery Inspection</Text>
         </View>
         <View style={styles.counter}>
@@ -509,30 +569,118 @@ export default function PDIScreen() {
         </View>
       </View>
 
+      {/* Client Dropdown */}
+      <Text style={styles.label}>Select Client</Text>
+      <TouchableOpacity
+        style={styles.dropdown}
+        onPress={() => setShowClientDropdown(!showClientDropdown)}
+      >
+        <Text
+          style={[
+            styles.dropdownText,
+            !customerId && styles.dropdownPlaceholder,
+          ]}
+        >
+          {customerId
+            ? customers.find((c) => c.id === customerId)?.name || "Select Client"
+            : "Select a client..."}
+        </Text>
+        <Text style={styles.dropdownArrow}>
+          {showClientDropdown ? "\u25B2" : "\u25BC"}
+        </Text>
+      </TouchableOpacity>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search clients..."
+        placeholderTextColor={colors.textSecondary + "80"}
+        value={clientSearch}
+        onChangeText={(text) => {
+          setClientSearch(text);
+          if (text.length > 0) setShowClientDropdown(true);
+        }}
+        onFocus={() => setShowClientDropdown(true)}
+      />
+      {showClientDropdown && (() => {
+        const filtered = clientSearch
+          ? customers.filter((c) =>
+              c.name.toLowerCase().includes(clientSearch.toLowerCase())
+            )
+          : customers;
+        return (
+          <View style={styles.dropdownList}>
+            {filtered.length === 0 ? (
+              <View style={styles.dropdownItem}>
+                <Text style={styles.dropdownItemText}>
+                  {customers.length === 0 ? "No customers yet" : "No matches"}
+                </Text>
+              </View>
+            ) : (
+              filtered.map((c) => (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[
+                    styles.dropdownItem,
+                    customerId === c.id && styles.dropdownItemActive,
+                  ]}
+                  onPress={() => {
+                    setCustomerId(c.id);
+                    setBoatId("");
+                    setClientSearch("");
+                    setShowClientDropdown(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      customerId === c.id && styles.dropdownItemTextActive,
+                    ]}
+                  >
+                    {c.name}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        );
+      })()}
+
       {/* Boat Selection */}
       <Text style={styles.label}>Select Vessel</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.chipScroll}
-      >
-        {boats.map((b) => (
-          <TouchableOpacity
-            key={b.id}
-            style={[styles.chip, boatId === b.id && styles.chipActive]}
-            onPress={() => setBoatId(b.id)}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                boatId === b.id && styles.chipTextActive,
-              ]}
+      {filteredBoats.length === 0 ? (
+        <Text style={styles.emptyBoatsHint}>
+          {customerId
+            ? "No boats for this client. Add a boat from the client page first."
+            : "Select a client above to see their boats."}
+        </Text>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipScroll}
+        >
+          {filteredBoats.map((b) => (
+            <TouchableOpacity
+              key={b.id}
+              style={[styles.chip, boatId === b.id && styles.chipActive]}
+              onPress={() => {
+                setBoatId(b.id);
+                if (!customerId && b.customer_id) {
+                  setCustomerId(b.customer_id);
+                }
+              }}
             >
-              {b.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              <Text
+                style={[
+                  styles.chipText,
+                  boatId === b.id && styles.chipTextActive,
+                ]}
+              >
+                {b.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {selectedBoat && (
         <View style={styles.boatBar}>
@@ -573,75 +721,59 @@ export default function PDIScreen() {
       {/* Checklist */}
       <Text style={styles.sectionTitle}>{activeTab} Systems</Text>
 
+      {/* Status Legend */}
+      <View style={styles.legendRow}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: "#FF3B30" }]} />
+          <Text style={styles.legendText}>Bad</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: "#34C759" }]} />
+          <Text style={styles.legendText}>Good</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <Text style={styles.legendTextNA}>N/A</Text>
+        </View>
+      </View>
+
       {CHECKLIST[activeTab].map((item) => {
         const state = checklist[item];
         return (
           <View key={item}>
             <View style={styles.checklistRow}>
               <Text style={styles.checklistLabel}>{item}</Text>
+              <TouchableOpacity
+                style={styles.inlineIcon}
+                onPress={() => takeItemPhoto(item)}
+              >
+                <Text style={styles.inlineIconText}>{"\u{1F4F7}"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.inlineIcon, state?.showNotes && styles.inlineIconActive]}
+                onPress={() => toggleItemNotes(item)}
+              >
+                <Text style={styles.inlineIconText}>{"\uD83D\uDCAC"}</Text>
+              </TouchableOpacity>
               <View style={styles.checklistActions}>
-                {/* Camera button */}
-                <TouchableOpacity
-                  style={styles.iconBtn}
-                  onPress={() => takeItemPhoto(item)}
-                >
-                  <Text style={styles.iconBtnText}>{"\uD83D\uDCF7"}</Text>
-                </TouchableOpacity>
-                {/* Notes toggle */}
-                <TouchableOpacity
-                  style={[
-                    styles.iconBtn,
-                    state?.showNotes && styles.iconBtnActive,
-                  ]}
-                  onPress={() => toggleItemNotes(item)}
-                >
-                  <Text style={styles.iconBtnText}>{"\uD83D\uDCDD"}</Text>
-                </TouchableOpacity>
-                {/* Assessment buttons */}
-                <View style={styles.assessmentRow}>
+                {/* Sliding toggle */}
+                <View style={styles.toggleTrack}>
                   <TouchableOpacity
-                    style={[
-                      styles.assessBtn,
-                      state?.assessment === "bad" && styles.assessBtnBad,
-                    ]}
-                    onPress={() =>
-                      setAssessment(
-                        item,
-                        state?.assessment === "bad" ? null : "bad"
-                      )
-                    }
+                    style={[styles.toggleSeg, state?.assessment === "bad" && styles.toggleSegBad]}
+                    onPress={() => setAssessment(item, state?.assessment === "bad" ? null : "bad")}
                   >
-                    <Text
-                      style={[
-                        styles.assessText,
-                        state?.assessment === "bad" &&
-                          styles.assessTextActive,
-                      ]}
-                    >
-                      BAD
-                    </Text>
+                    <Text style={[styles.toggleText, state?.assessment === "bad" && styles.toggleTextActive]}>BAD</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[
-                      styles.assessBtn,
-                      state?.assessment === "good" && styles.assessBtnGood,
-                    ]}
-                    onPress={() =>
-                      setAssessment(
-                        item,
-                        state?.assessment === "good" ? null : "good"
-                      )
-                    }
+                    style={[styles.toggleSeg, state?.assessment === "good" && styles.toggleSegGood]}
+                    onPress={() => setAssessment(item, state?.assessment === "good" ? null : "good")}
                   >
-                    <Text
-                      style={[
-                        styles.assessText,
-                        state?.assessment === "good" &&
-                          styles.assessTextActive,
-                      ]}
-                    >
-                      GOOD
-                    </Text>
+                    <Text style={[styles.toggleText, state?.assessment === "good" && styles.toggleTextActive]}>GOOD</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.toggleSeg, state?.assessment === "na" && styles.toggleSegNA]}
+                    onPress={() => setAssessment(item, state?.assessment === "na" ? null : "na")}
+                  >
+                    <Text style={[styles.toggleText, state?.assessment === "na" && styles.toggleTextActive]}>N/A</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -781,19 +913,41 @@ export default function PDIScreen() {
 
       <View style={{ height: 40 }} />
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgPrimary },
-  content: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
+  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
   },
-  title: { fontSize: 24, fontWeight: "700", color: colors.textPrimary },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backArrow: {
+    fontSize: 22,
+    color: colors.gold,
+    marginTop: -2,
+  },
+  title: { fontSize: 22, fontWeight: "700", color: colors.textPrimary, flex: 1 },
   counter: {
     backgroundColor: colors.bgSecondary,
     borderRadius: 12,
@@ -811,7 +965,75 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 8,
   },
+  dropdown: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 4,
+  },
+  dropdownText: {
+    fontSize: 15,
+    color: colors.textPrimary,
+    fontWeight: "500",
+  },
+  dropdownPlaceholder: {
+    color: colors.textSecondary,
+    fontWeight: "400",
+  },
+  dropdownArrow: {
+    fontSize: 10,
+    color: colors.textSecondary,
+  },
+  searchInput: {
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  dropdownList: {
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + "60",
+  },
+  dropdownItemActive: {
+    backgroundColor: colors.gold + "15",
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  dropdownItemTextActive: {
+    color: colors.gold,
+    fontWeight: "600",
+  },
   chipScroll: { marginBottom: 8 },
+  emptyBoatsHint: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontStyle: "italic",
+    marginBottom: 8,
+    paddingVertical: 8,
+  },
   chip: {
     backgroundColor: colors.bgSecondary,
     borderWidth: 1,
@@ -911,36 +1133,58 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
+  inlineIcon: {
+    padding: 4,
+  },
+  inlineIconActive: {
+    opacity: 1,
+  },
+  inlineIconText: {
+    fontSize: 16,
+    opacity: 0.5,
+  },
+  legendRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 12,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
+  toggleTrack: {
+    flexDirection: "row",
     backgroundColor: colors.bgCard,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: "hidden",
   },
-  iconBtnActive: {
-    borderColor: colors.gold,
-    backgroundColor: colors.goldMuted,
-  },
-  iconBtnText: {
-    fontSize: 14,
-  },
-  assessmentRow: { flexDirection: "row", gap: 4 },
-  assessBtn: {
+  toggleSeg: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: colors.bgCard,
-    borderWidth: 1,
-    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  assessBtnBad: { backgroundColor: colors.bad, borderColor: colors.bad },
-  assessBtnGood: { backgroundColor: colors.good, borderColor: colors.good },
-  assessText: { fontSize: 11, fontWeight: "700", color: colors.textSecondary },
-  assessTextActive: { color: colors.white },
+  toggleSegBad: { backgroundColor: "#FF3B30" },
+  toggleSegGood: { backgroundColor: "#34C759" },
+  toggleSegNA: { backgroundColor: colors.textSecondary },
+  toggleText: { fontSize: 10, fontWeight: "700", color: colors.textSecondary },
+  toggleTextActive: { color: "#fff" },
+  legendTextNA: { fontSize: 10, color: colors.textSecondary, fontWeight: "600" },
   notesInput: {
     backgroundColor: colors.bgCard,
     borderWidth: 1,
