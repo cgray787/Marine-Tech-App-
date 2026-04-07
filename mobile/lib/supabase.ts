@@ -14,6 +14,7 @@ const noopStorage = {
 function getStorage() {
   if (Platform.OS !== "web") {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const SecureStore = require("expo-secure-store");
       return {
         getItem: (key: string) => SecureStore.getItemAsync(key),

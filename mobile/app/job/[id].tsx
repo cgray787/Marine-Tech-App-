@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import {
   View,
@@ -97,11 +97,7 @@ export default function JobDetailScreen() {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [photos, setPhotos] = useState<ReportPhoto[]>([]);
 
-  useEffect(() => {
-    fetchJobData();
-  }, [id]);
-
-  async function fetchJobData() {
+  const fetchJobData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
 
@@ -144,7 +140,12 @@ export default function JobDetailScreen() {
     }
 
     setLoading(false);
-  }
+  }, [id]);
+
+  useEffect(() => {
+    void fetchJobData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+  }, [fetchJobData]);
 
   function formatDate(dateStr: string | null) {
     if (!dateStr) return "";

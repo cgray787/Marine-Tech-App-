@@ -112,8 +112,8 @@ export default function NewClientScreen() {
       Alert.alert("Success", `${name.trim()} has been added.`, [
         { text: "OK", onPress: () => router.back() },
       ]);
-    } catch (err: any) {
-      Alert.alert("Unexpected Error", err?.message || String(err));
+    } catch (err: unknown) {
+      Alert.alert("Unexpected Error", err instanceof Error ? err.message : String(err));
       setSubmitting(false);
     }
   }

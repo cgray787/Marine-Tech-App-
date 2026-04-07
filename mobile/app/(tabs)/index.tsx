@@ -124,7 +124,7 @@ export default function ClientsScreen() {
             <Text style={styles.emptyIcon}>{"\uD83D\uDC64"}</Text>
             <Text style={styles.emptyTitle}>No Clients Yet</Text>
             <Text style={styles.emptyText}>
-              Tap "+ Add Client" to add your first customer.
+              Tap &quot;+ Add Client&quot; to add your first customer.
             </Text>
           </View>
         }

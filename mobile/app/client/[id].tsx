@@ -129,7 +129,7 @@ export default function ClientDetailScreen() {
   const [creatingPdi, setCreatingPdi] = useState(false);
   const [pdiBoatId, setPdiBoatId] = useState("");
   const [expandedPdiId, setExpandedPdiId] = useState<string | null>(null);
-  const [pdiChecklistItems, setPdiChecklistItems] = useState<Record<string, any[]>>({});
+  const [pdiChecklistItems, setPdiChecklistItems] = useState<Record<string, { id: string; item_name: string; status: string; notes: string | null }[]>>({});
 
   // New job modal
   const [showNewJob, setShowNewJob] = useState(false);
@@ -169,7 +169,8 @@ export default function ClientDetailScreen() {
   }, [id]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [fetchData]);
 
   const onRefresh = useCallback(async () => {
@@ -535,7 +536,7 @@ export default function ClientDetailScreen() {
         {boats.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No boats yet. Tap "+ Add Boat" to add one.
+              No boats yet. Tap &quot;+ Add Boat&quot; to add one.
             </Text>
           </View>
         ) : (
@@ -619,7 +620,7 @@ export default function ClientDetailScreen() {
         {jobs.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No jobs yet. Tap "+ New Job" to create one.
+              No jobs yet. Tap &quot;+ New Job&quot; to create one.
             </Text>
           </View>
         ) : (
@@ -694,7 +695,7 @@ export default function ClientDetailScreen() {
         {pdiReports.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No PDI reports yet. Tap "+ Create PDI" to start one.
+              No PDI reports yet. Tap &quot;+ Create PDI&quot; to start one.
             </Text>
           </View>
         ) : (
@@ -788,10 +789,10 @@ export default function ClientDetailScreen() {
                 <View style={styles.pdiExpandedSection}>
                   {pdiChecklistItems[pdi.id].length === 0 ? (
                     <Text style={styles.pdiExpandedEmpty}>
-                      No checklist items yet. Tap "Edit PDI" to fill in the inspection.
+                      No checklist items yet. Tap &quot;Edit PDI&quot; to fill in the inspection.
                     </Text>
                   ) : (
-                    pdiChecklistItems[pdi.id].map((item: any) => (
+                    pdiChecklistItems[pdi.id].map((item) => (
                       <View key={item.id} style={styles.pdiChecklistRow}>
                         <View
                           style={[
