@@ -143,8 +143,8 @@ export default function JobDetailScreen() {
   }, [id]);
 
   useEffect(() => {
-    void fetchJobData();
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchJobData();
   }, [fetchJobData]);
 
   function formatDate(dateStr: string | null) {

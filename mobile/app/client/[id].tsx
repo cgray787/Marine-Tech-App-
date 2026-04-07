@@ -169,8 +169,8 @@ export default function ClientDetailScreen() {
   }, [id]);
 
   useEffect(() => {
-    void fetchData();
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchData();
   }, [fetchData]);
 
   const onRefresh = useCallback(async () => {

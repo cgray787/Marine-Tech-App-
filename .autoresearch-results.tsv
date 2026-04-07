@@ -1,3 +1,4 @@
 iteration	timestamp	metric	delta	decision	change_summary	commit_sha
 0	2026-04-07T00:00:00	355	0	baseline	Initial state: 0 TS errors, 645 ESLint errors	-
 1	2026-04-07T00:01:00	981	+626	keep	Add .open-next and mobile/.expo to ESLint ignores	521627a
+2	2026-04-07T00:02:00	998	+17	keep	Fix all remaining ESLint errors in source files	bab01bb
