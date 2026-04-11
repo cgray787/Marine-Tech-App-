@@ -92,10 +92,29 @@ CREATE POLICY "auth_read_invites" ON public.invites
   FOR SELECT TO authenticated
   USING (public.is_admin());
 
--- Allow anon users to read only their specific invite by token (for registration)
-CREATE POLICY "anon_read_invite_by_token" ON public.invites
-  FOR SELECT TO anon
-  USING (
-    used = false
-    AND expires_at > now()
-  );
+-- Invite validation via SECURITY DEFINER function — prevents token enumeration.
+-- Anon users cannot read the invites table directly; instead they call this
+-- function with a specific token, which returns the matching row or null.
+CREATE OR REPLACE FUNCTION public.validate_invite_token(invite_token text)
+RETURNS TABLE (
+  id uuid,
+  email text,
+  token text,
+  used boolean,
+  expires_at timestamptz
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT i.id, i.email, i.token, i.used, i.expires_at
+  FROM public.invites i
+  WHERE i.token = invite_token
+    AND i.used = false
+    AND i.expires_at > now()
+  LIMIT 1;
+$$;
+
+-- Grant anon and authenticated users permission to call the function
+GRANT EXECUTE ON FUNCTION public.validate_invite_token(text) TO anon;
+GRANT EXECUTE ON FUNCTION public.validate_invite_token(text) TO authenticated;

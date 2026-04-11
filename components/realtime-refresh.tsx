@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -10,6 +10,9 @@ import { createBrowserClient } from "@supabase/ssr";
  */
 export function RealtimeRefresh({ tables }: { tables: string[] }) {
   const router = useRouter();
+  // Use a ref to avoid re-subscribing when the parent re-renders with a new array reference
+  const tablesRef = useRef(tables);
+  tablesRef.current = tables;
 
   useEffect(() => {
     const supabase = createBrowserClient(
@@ -17,19 +20,12 @@ export function RealtimeRefresh({ tables }: { tables: string[] }) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    const channel = supabase
-      .channel("dashboard-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: tables[0] },
-        () => router.refresh()
-      );
+    const channel = supabase.channel("dashboard-realtime");
 
-    // Subscribe to additional tables
-    for (let i = 1; i < tables.length; i++) {
+    for (const table of tablesRef.current) {
       channel.on(
         "postgres_changes",
-        { event: "*", schema: "public", table: tables[i] },
+        { event: "*", schema: "public", table },
         () => router.refresh()
       );
     }
@@ -39,7 +35,7 @@ export function RealtimeRefresh({ tables }: { tables: string[] }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [router, tables]);
+  }, [router]);
 
   return null;
 }

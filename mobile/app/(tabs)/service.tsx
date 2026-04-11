@@ -372,7 +372,7 @@ export default function ServiceScreen() {
     try {
       // Build checklist items for offline storage
       const checklistItems = Object.entries(checklist)
-        .filter(([, val]) => val.assessment !== null)
+        .filter(([, val]) => val.assessment === "good" || val.assessment === "bad")
         .map(([itemName, val], i) => {
           const category =
             Object.entries(CHECKLIST).find(([, items]) =>
@@ -495,9 +495,9 @@ export default function ServiceScreen() {
       return;
     }
 
-    // Insert checklist items
+    // Insert checklist items (filter out "na" — DB only allows 'good' or 'bad')
     const checklistRows = Object.entries(checklist)
-      .filter(([, val]) => val.assessment !== null)
+      .filter(([, val]) => val.assessment === "good" || val.assessment === "bad")
       .map(([itemName, val], i) => {
         const category =
           Object.entries(CHECKLIST).find(([, items]) =>

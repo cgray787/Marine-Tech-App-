@@ -372,7 +372,7 @@ export default function PDIScreen() {
 
     try {
       const checklistItems = Object.entries(checklist)
-        .filter(([, val]) => val.assessment !== null)
+        .filter(([, val]) => val.assessment === "good" || val.assessment === "bad")
         .map(([itemName, val], i) => {
           const category =
             Object.entries(CHECKLIST).find(([, items]) =>
@@ -472,7 +472,7 @@ export default function PDIScreen() {
     }
 
     const rows = Object.entries(checklist)
-      .filter(([, val]) => val.assessment !== null)
+      .filter(([, val]) => val.assessment === "good" || val.assessment === "bad")
       .map(([itemName, val], i) => {
         const category =
           Object.entries(CHECKLIST).find(([, items]) =>

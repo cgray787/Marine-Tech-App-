@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
 
 export default function AccountSettingsScreen() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || "");
   const [phone, setPhone] = useState(profile?.phone || "");
   const [saving, setSaving] = useState(false);
@@ -45,6 +45,7 @@ export default function AccountSettingsScreen() {
     if (error) {
       Alert.alert("Error", error.message);
     } else {
+      await refreshProfile();
       Alert.alert("Saved", "Your profile has been updated.");
     }
   }

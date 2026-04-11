@@ -522,8 +522,12 @@ export async function clearSyncedItems(): Promise<void> {
   }
   // Now delete from sync_queue LAST
   await database.execAsync(`DELETE FROM sync_queue WHERE synced = 1`);
-  // Clean up old ID mappings that are no longer needed
-  await database.execAsync(
-    `DELETE FROM id_map WHERE offline_id NOT IN (SELECT record_id FROM sync_queue WHERE synced = 0)`
+  // Only clean up id_map when the entire queue is empty — this prevents
+  // deleting parent mappings while children still reference them.
+  const remaining = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM sync_queue WHERE synced = 0`
   );
+  if ((remaining?.count ?? 0) === 0) {
+    await database.execAsync(`DELETE FROM id_map`);
+  }
 }

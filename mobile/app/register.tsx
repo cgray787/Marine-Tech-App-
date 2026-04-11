@@ -39,28 +39,14 @@ export default function RegisterScreen() {
       return;
     }
 
-    const { data: invite, error: inviteError } = await supabase
-      .from("invites")
-      .select("*")
-      .eq("token", token)
-      .single();
+    // Validate invite via server-side function (prevents token enumeration)
+    const { data: inviteRows, error: inviteError } = await supabase
+      .rpc("validate_invite_token", { invite_token: token });
+
+    const invite = inviteRows?.[0] ?? null;
 
     if (inviteError || !invite) {
-      setError("Invalid invite token. Please contact your admin for a new invite.");
-      setValidating(false);
-      return;
-    }
-
-    // Check if already used
-    if (invite.used_at) {
-      setError("This invite has already been used. Please contact your admin if you need a new one.");
-      setValidating(false);
-      return;
-    }
-
-    // Check expiration
-    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-      setError("This invite has expired. Please contact your admin for a new invite.");
+      setError("Invalid or expired invite token. Please contact your admin for a new invite.");
       setValidating(false);
       return;
     }
@@ -145,7 +131,7 @@ export default function RegisterScreen() {
       // 3. Mark invite as used
       await supabase
         .from("invites")
-        .update({ used_at: new Date().toISOString() })
+        .update({ used: true })
         .eq("token", token);
 
       // 4. Sign out so the tech can sign in fresh on the login screen
