@@ -70,14 +70,72 @@ export async function initDB(): Promise<void> {
       action TEXT NOT NULL CHECK(action IN ('insert', 'update', 'delete')),
       payload TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now')),
-      synced INTEGER DEFAULT 0
+      synced INTEGER DEFAULT 0,
+      retry_count INTEGER DEFAULT 0,
+      last_error TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS id_map (
+      offline_id TEXT PRIMARY KEY,
+      real_id TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Add columns if upgrading from older schema
+  try {
+    await database.execAsync(`ALTER TABLE sync_queue ADD COLUMN retry_count INTEGER DEFAULT 0`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execAsync(`ALTER TABLE sync_queue ADD COLUMN last_error TEXT`);
+  } catch {
+    // Column already exists
+  }
 }
 
 function generateId(): string {
   return "offline_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
 }
+
+// ── ID Map persistence ──────────────────────────────────────────────────────
+
+export async function saveIdMapping(offlineId: string, realId: string): Promise<void> {
+  const database = await getDB();
+  await database.runAsync(
+    `INSERT OR REPLACE INTO id_map (offline_id, real_id) VALUES (?, ?)`,
+    [offlineId, realId]
+  );
+}
+
+export async function getIdMapping(offlineId: string): Promise<string | null> {
+  const database = await getDB();
+  const row = await database.getFirstAsync<{ real_id: string }>(
+    `SELECT real_id FROM id_map WHERE offline_id = ?`,
+    [offlineId]
+  );
+  return row?.real_id ?? null;
+}
+
+export async function getAllIdMappings(): Promise<Map<string, string>> {
+  const database = await getDB();
+  const rows = await database.getAllAsync<{ offline_id: string; real_id: string }>(
+    `SELECT offline_id, real_id FROM id_map`
+  );
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    map.set(row.offline_id, row.real_id);
+  }
+  return map;
+}
+
+export async function clearIdMappings(): Promise<void> {
+  const database = await getDB();
+  await database.execAsync(`DELETE FROM id_map`);
+}
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export type PendingServiceReport = {
   jobId: string;
@@ -92,6 +150,9 @@ export type PendingServiceReport = {
   marina: string;
   marinaId: string | null;
   generalNotes: string;
+  jobName: string;
+  jobDescription: string;
+  serviceTypes: string[];
   checklistItems: {
     category: string;
     itemName: string;
@@ -157,9 +218,10 @@ export async function savePendingReport(report: PendingServiceReport): Promise<s
         customer_id: report.customerId,
         boat_id: report.boatId,
         marina_id: report.marinaId,
-        service_types: [],
+        service_types: report.serviceTypes,
         status: "completed",
         created_by: report.techId,
+        notes: report.jobDescription || null,
       }),
     ]
   );
@@ -384,20 +446,34 @@ export type SyncQueueItem = {
   payload: string;
   created_at: string;
   synced: number;
+  retry_count: number;
+  last_error: string | null;
 };
+
+const MAX_RETRIES = 10;
 
 export async function getPendingSync(): Promise<SyncQueueItem[]> {
   const database = await getDB();
   const results = await database.getAllAsync<SyncQueueItem>(
-    `SELECT * FROM sync_queue WHERE synced = 0 ORDER BY created_at ASC`
+    `SELECT * FROM sync_queue WHERE synced = 0 AND retry_count < ? ORDER BY created_at ASC`,
+    [MAX_RETRIES]
   );
   return results;
+}
+
+export async function getFailedSyncItems(): Promise<SyncQueueItem[]> {
+  const database = await getDB();
+  return database.getAllAsync<SyncQueueItem>(
+    `SELECT * FROM sync_queue WHERE synced = 0 AND retry_count >= ? ORDER BY created_at ASC`,
+    [MAX_RETRIES]
+  );
 }
 
 export async function getPendingSyncCount(): Promise<number> {
   const database = await getDB();
   const result = await database.getFirstAsync<{ count: number }>(
-    `SELECT COUNT(*) as count FROM sync_queue WHERE synced = 0`
+    `SELECT COUNT(*) as count FROM sync_queue WHERE synced = 0 AND retry_count < ?`,
+    [MAX_RETRIES]
   );
   return result?.count ?? 0;
 }
@@ -405,6 +481,14 @@ export async function getPendingSyncCount(): Promise<number> {
 export async function markSynced(id: number): Promise<void> {
   const database = await getDB();
   await database.runAsync(`UPDATE sync_queue SET synced = 1 WHERE id = ?`, [id]);
+}
+
+export async function markFailed(id: number, error: string): Promise<void> {
+  const database = await getDB();
+  await database.runAsync(
+    `UPDATE sync_queue SET retry_count = retry_count + 1, last_error = ? WHERE id = ?`,
+    [error, id]
+  );
 }
 
 export async function markSyncedBatch(ids: number[]): Promise<void> {
@@ -419,9 +503,27 @@ export async function markSyncedBatch(ids: number[]): Promise<void> {
 
 export async function clearSyncedItems(): Promise<void> {
   const database = await getDB();
+  // Clean up pending tables FIRST (while sync_queue still has the synced=1 rows)
+  try {
+    await database.execAsync(
+      `DELETE FROM pending_photos WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'report_photos')`
+    );
+    await database.execAsync(
+      `DELETE FROM pending_checklist_items WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1)`
+    );
+    await database.execAsync(
+      `DELETE FROM pending_service_reports WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'service_reports')`
+    );
+    await database.execAsync(
+      `DELETE FROM pending_jobs WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'jobs')`
+    );
+  } catch (err) {
+    console.error("[Sync] Error cleaning pending tables:", err);
+  }
+  // Now delete from sync_queue LAST
   await database.execAsync(`DELETE FROM sync_queue WHERE synced = 1`);
-  await database.execAsync(`DELETE FROM pending_jobs WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'jobs')`);
-  await database.execAsync(`DELETE FROM pending_service_reports WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'service_reports')`);
-  await database.execAsync(`DELETE FROM pending_checklist_items WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1)`);
-  await database.execAsync(`DELETE FROM pending_photos WHERE id IN (SELECT record_id FROM sync_queue WHERE synced = 1 AND table_name = 'report_photos')`);
+  // Clean up old ID mappings that are no longer needed
+  await database.execAsync(
+    `DELETE FROM id_map WHERE offline_id NOT IN (SELECT record_id FROM sync_queue WHERE synced = 0)`
+  );
 }

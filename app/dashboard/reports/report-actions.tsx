@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,11 +12,15 @@ export function ReportStatusActions({
   currentStatus: string;
 }) {
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function updateStatus(newStatus: string) {
+    setError(null);
+    setLoading(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from("service_reports")
         .update({
           status: newStatus,
@@ -23,13 +28,15 @@ export function ReportStatusActions({
         })
         .eq("id", reportId);
 
-      if (error) {
-        alert(`Failed to update status: ${error.message}`);
+      if (updateError) {
+        setError(updateError.message);
         return;
       }
       router.refresh();
-    } catch (err) {
-      alert("Failed to update report status. Please try again.");
+    } catch {
+      setError("Failed to update report status.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -37,20 +44,25 @@ export function ReportStatusActions({
 
   return (
     <div className="flex items-center gap-1">
+      {error && (
+        <span className="text-xs text-red-400">{error}</span>
+      )}
       {currentStatus === "submitted" && (
         <button
           onClick={() => updateStatus("reviewed")}
-          className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/25"
+          disabled={loading}
+          className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/25 disabled:opacity-50"
         >
-          Review
+          {loading ? "..." : "Review"}
         </button>
       )}
       {(currentStatus === "submitted" || currentStatus === "reviewed") && (
         <button
           onClick={() => updateStatus("approved")}
-          className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25"
+          disabled={loading}
+          className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
         >
-          Approve
+          {loading ? "..." : "Approve"}
         </button>
       )}
     </div>

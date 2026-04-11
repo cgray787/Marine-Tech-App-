@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/admin";
 import { formatDate, statusColor } from "@/lib/utils";
 import { CreateJobForm } from "./create-job-form";
 import { JobStatusActions } from "./job-actions";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 export default async function JobsPage() {
   const { supabase } = await requireAdmin();
@@ -32,6 +33,7 @@ export default async function JobsPage() {
 
   return (
     <div>
+      <RealtimeRefresh tables={["jobs"]} />
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Jobs</h1>

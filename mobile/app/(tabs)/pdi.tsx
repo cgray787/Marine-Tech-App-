@@ -489,7 +489,16 @@ export default function PDIScreen() {
       });
 
     if (rows.length > 0) {
-      await supabase.from("pdi_checklist_items").insert(rows);
+      const { error: checklistError } = await supabase
+        .from("pdi_checklist_items")
+        .insert(rows);
+      if (checklistError) {
+        console.error("PDI checklist insert error:", checklistError);
+        Alert.alert(
+          "Warning",
+          "PDI report saved but some checklist items may not have been recorded. Please check the report."
+        );
+      }
     }
 
     // Upload checklist item photos

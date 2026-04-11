@@ -131,10 +131,7 @@ function UserMenu() {
               style={styles.menuItem}
               onPress={() => {
                 setVisible(false);
-                Alert.alert(
-                  "Account Settings",
-                  "Account settings coming soon."
-                );
+                router.push("/account-settings" as never);
               }}
             >
               <Text style={styles.menuItemIcon}>&#9881;</Text>

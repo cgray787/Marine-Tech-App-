@@ -416,6 +416,9 @@ export default function ServiceScreen() {
         marina: location.trim(),
         marinaId: null,
         generalNotes: generalNotes,
+        jobName: jobName,
+        jobDescription: jobDescription,
+        serviceTypes: jobName ? [jobName] : [],
         checklistItems,
         photos,
       });
@@ -446,8 +449,9 @@ export default function ServiceScreen() {
       customer_id: customerId || null,
       boat_id: boatId || null,
       marina_id: null,
-      service_types: [],
+      service_types: jobName ? [jobName] : [],
       status: "completed",
+      notes: jobDescription || null,
       created_by: profile.id,
     };
 
@@ -510,50 +514,58 @@ export default function ServiceScreen() {
       });
 
     if (checklistRows.length > 0) {
-      await supabase.from("checklist_items").insert(checklistRows);
+      const { error: checklistError } = await supabase
+        .from("checklist_items")
+        .insert(checklistRows);
+      if (checklistError) {
+        console.error("Checklist insert error:", checklistError);
+        Alert.alert(
+          "Warning",
+          "Report saved but some checklist items may not have been recorded. Please check the report."
+        );
+      }
     }
 
-    // Upload checklist item photos
+    // Upload all photos in parallel (checklist + gallery)
+    const photoUploads: Promise<void>[] = [];
+
     for (const [itemName, val] of Object.entries(checklist)) {
       if (val.photos && val.photos.length > 0) {
         for (const photo of val.photos) {
-          const url = await uploadPhoto(
-            photo.uri,
-            "report-photos",
-            report.id,
-            "checklist"
+          photoUploads.push(
+            (async () => {
+              const url = await uploadPhoto(photo.uri, "report-photos", report.id, "checklist");
+              if (url) {
+                await supabase.from("report_photos").insert({
+                  report_id: report.id,
+                  photo_url: url,
+                  category: "other",
+                  caption: itemName,
+                });
+              }
+            })()
           );
-          if (url) {
-            await supabase.from("report_photos").insert({
-              report_id: report.id,
-              photo_url: url,
-              category: "other",
-              caption: itemName,
-            });
-          }
         }
       }
     }
 
-    // Upload gallery photos
     for (const photo of galleryPhotos) {
-      const categorySlug = photo.category
-        .toLowerCase()
-        .replace(/\s+/g, "_") as string;
-      const url = await uploadPhoto(
-        photo.uri,
-        "report-photos",
-        report.id,
-        categorySlug
+      const categorySlug = photo.category.toLowerCase().replace(/\s+/g, "_") as string;
+      photoUploads.push(
+        (async () => {
+          const url = await uploadPhoto(photo.uri, "report-photos", report.id, categorySlug);
+          if (url) {
+            await supabase.from("report_photos").insert({
+              report_id: report.id,
+              photo_url: url,
+              category: categorySlug,
+            });
+          }
+        })()
       );
-      if (url) {
-        await supabase.from("report_photos").insert({
-          report_id: report.id,
-          photo_url: url,
-          category: categorySlug,
-        });
-      }
     }
+
+    await Promise.allSettled(photoUploads);
 
     setSubmitting(false);
     Alert.alert("Success", "Service report submitted!", [

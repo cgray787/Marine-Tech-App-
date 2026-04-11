@@ -2,19 +2,25 @@ import { requireAdmin } from "@/lib/admin";
 import { formatDate, statusColor } from "@/lib/utils";
 import Link from "next/link";
 import { ReportStatusActions } from "./report-actions";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 export default async function ReportsPage() {
   const { supabase } = await requireAdmin();
 
-  const { data: reports } = await supabase
+  const { data: reports, error: reportsError } = await supabase
     .from("service_reports")
     .select(
       "id, boat_name, owner_name, make_model, status, submitted_at, service_types, tech_id, profiles:tech_id(full_name)"
     )
     .order("submitted_at", { ascending: false });
 
+  if (reportsError) {
+    console.error("Failed to load reports:", reportsError);
+  }
+
   return (
     <div>
+      <RealtimeRefresh tables={["service_reports"]} />
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-text-primary">
           Service Reports

@@ -51,13 +51,35 @@ export async function registerForPushNotifications(): Promise<string | null> {
     });
   }
 
-  // Get the Expo push token
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  const tokenResponse = await Notifications.getExpoPushTokenAsync({
-    projectId,
-  });
+  // Get the Expo push token — projectId is required for production builds
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ||
+    Constants.easConfig?.projectId;
 
-  return tokenResponse.data;
+  if (!projectId) {
+    console.warn(
+      "EAS projectId not found — push notifications will not work in production. " +
+      "Run 'eas init' from the mobile directory to configure."
+    );
+    // In development, try without projectId (works in Expo Go)
+    try {
+      const tokenResponse = await Notifications.getExpoPushTokenAsync();
+      return tokenResponse.data;
+    } catch (err) {
+      console.error("Failed to get push token without projectId:", err);
+      return null;
+    }
+  }
+
+  try {
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({
+      projectId,
+    });
+    return tokenResponse.data;
+  } catch (err) {
+    console.error("Failed to get push token:", err);
+    return null;
+  }
 }
 
 /**

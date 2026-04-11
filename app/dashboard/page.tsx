@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { formatDateTime, statusColor } from "@/lib/utils";
 import Link from "next/link";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 export default async function DashboardPage() {
   const { supabase } = await requireAdmin();
@@ -69,6 +70,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
+      <RealtimeRefresh tables={["jobs", "service_reports", "pdi_reports"]} />
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
         <p className="mt-1 text-sm text-text-secondary">

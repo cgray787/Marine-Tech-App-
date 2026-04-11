@@ -38,6 +38,13 @@ export default function RootLayout() {
                 headerTitle: "Job Details",
               }}
             />
+            <Stack.Screen
+              name="account-settings"
+              options={{
+                headerShown: false,
+                gestureEnabled: true,
+              }}
+            />
           </Stack>
         </NotificationProvider>
       </OfflineProvider>

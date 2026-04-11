@@ -1,27 +1,25 @@
 #!/bin/bash
 # Seed script for Marine Tech App - run with: bash scripts/seed-data.sh
 # Inserts sample customers, boats, marinas, jobs, and a completed service report
+#
+# Usage:
+#   SUPABASE_URL=https://... SUPABASE_SERVICE_KEY=... bash scripts/seed-data.sh
 
-SK="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZWRoYXZueHF3a2N6ZWZqaWZzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDEyNjEzNiwiZXhwIjoyMDg5NzAyMTM2fQ.zKtGXbFGKkA9tRsVj8SRQ0SMpPd_n3X6-TnS7QqvOwE"
-URL="https://jwedhavnxqwkczefjifs.supabase.co/rest/v1"
+if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+  echo "Error: SUPABASE_URL and SUPABASE_SERVICE_KEY env vars are required."
+  echo "Usage: SUPABASE_URL=https://... SUPABASE_SERVICE_KEY=... bash scripts/seed-data.sh"
+  exit 1
+fi
+
+SK="$SUPABASE_SERVICE_KEY"
+URL="$SUPABASE_URL/rest/v1"
 ADMIN="076a5c35-481f-4ad5-a498-9196989a0215"
 
-# Already inserted customers:
-# Robert Johnson: 73c3c290-b9b5-440f-87fd-fabd7d51f369
-# Mike Thompson: 96079dc6-3568-4b22-a810-835bb38ea63e
+# Previously inserted data IDs (from initial seed run)
 ROBERT="73c3c290-b9b5-440f-87fd-fabd7d51f369"
 MIKE="96079dc6-3568-4b22-a810-835bb38ea63e"
-
-# Already inserted marinas:
-# Bay Marina: b841f692-cb17-4b1d-a01c-1337c2199fb1
-# Sunset Harbor: 0b3eaf02-39cc-4c15-8f85-e18377973bbe
 MARINA1="b841f692-cb17-4b1d-a01c-1337c2199fb1"
 MARINA2="0b3eaf02-39cc-4c15-8f85-e18377973bbe"
-
-# Already inserted boats:
-# Sea Breeze IV: 52305f82-7887-41ca-8098-124259434ee7
-# Lucky Tide: 9afc3cd4-75fb-444d-84ee-78536f0e5283
-# Island Drifter: 7678ad87-7374-4619-9787-84cb04432dc0
 BOAT1="52305f82-7887-41ca-8098-124259434ee7"
 BOAT2="9afc3cd4-75fb-444d-84ee-78536f0e5283"
 BOAT3="7678ad87-7374-4619-9787-84cb04432dc0"
@@ -43,7 +41,6 @@ JOBS=$(post jobs "[
 ]")
 echo "$JOBS"
 
-# Extract the completed job ID (3rd job)
 JOB3_ID=$(echo "$JOBS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[2]['id'])")
 echo "Completed Job ID: $JOB3_ID"
 
@@ -53,9 +50,8 @@ REPORT=$(post service_reports "{
   \"job_id\":\"$JOB3_ID\",\"tech_id\":\"$ADMIN\",\"boat_id\":\"$BOAT3\",\"customer_id\":\"$ROBERT\",
   \"boat_name\":\"Island Drifter\",\"owner_name\":\"Robert Johnson\",\"make_model\":\"Yellowfin 36\",
   \"year\":2023,\"hin\":\"YFN36001C323\",\"marina\":\"Bay Marina\",
-  \"engine_make\":\"Yamaha\",\"engine_model\":\"F350 Twin\",\"engine_hours\":342,
-  \"oil_condition\":\"good\",\"fuel_type\":\"gasoline\",
-  \"work_description\":\"Performed complete 300-hour engine service on twin Yamaha F350s. Changed oil and filters on both engines. Replaced impellers. Inspected all belts and hoses - found starboard engine raw water hose showing wear, replaced. Hull inspection revealed minor gel coat damage on port bow, documented with photos. All zincs replaced. Propellers inspected - minor nicks on port prop, within tolerance.\",
+  \"engine_make_model\":\"Yamaha F350 Twin\",\"engine_hours\":342,
+  \"work_description\":\"Performed complete 300-hour engine service on twin Yamaha F350s. Changed oil and filters on both engines. Replaced impellers.\",
   \"parts_used\":[\"Oil Filter (x2)\",\"Yamaha 10W-30 Oil (12qt)\",\"Impeller Kit (x2)\",\"Raw Water Hose 1.5in\",\"Zinc Anodes (x6)\",\"Fuel Filter (x2)\"],
   \"general_notes\":\"Vessel in good overall condition. Recommend prop refinishing at next haul-out.\"
 }")

@@ -129,7 +129,7 @@ export default function ClientDetailScreen() {
   const [creatingPdi, setCreatingPdi] = useState(false);
   const [pdiBoatId, setPdiBoatId] = useState("");
   const [expandedPdiId, setExpandedPdiId] = useState<string | null>(null);
-  const [pdiChecklistItems, setPdiChecklistItems] = useState<Record<string, { id: string; item_name: string; status: string; notes: string | null }[]>>({});
+  const [pdiChecklistItems, setPdiChecklistItems] = useState<Record<string, { id: string; item_name: string; assessment: string | null; notes: string | null }[]>>({});
 
   // New job modal
   const [showNewJob, setShowNewJob] = useState(false);

@@ -4,6 +4,9 @@
  *
  * ALREADY RUN -- data is in Supabase. Re-running will create duplicates.
  *
+ * Usage:
+ *   SUPABASE_URL=https://... SUPABASE_SERVICE_KEY=... node scripts/seed.mjs
+ *
  * Created data:
  * - Customers: Robert Johnson, Mike Thompson
  * - Marinas: Bay Marina, Sunset Harbor
@@ -12,9 +15,15 @@
  * - Service Report for completed job with 20 checklist items
  */
 
-const SUPABASE_URL = "https://jwedhavnxqwkczefjifs.supabase.co";
-const SERVICE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZWRoYXZueHF3a2N6ZWZqaWZzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDEyNjEzNiwiZXhwIjoyMDg5NzAyMTM2fQ.zKtGXbFGKkA9tRsVj8SRQ0SMpPd_n3X6-TnS7QqvOwE";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_KEY) {
+  console.error("Error: SUPABASE_URL and SUPABASE_SERVICE_KEY env vars are required.");
+  console.error("Usage: SUPABASE_URL=https://... SUPABASE_SERVICE_KEY=... node scripts/seed.mjs");
+  process.exit(1);
+}
+
 const ADMIN_PROFILE_ID = "076a5c35-481f-4ad5-a498-9196989a0215";
 
 async function post(table, body) {
@@ -88,7 +97,7 @@ async function main() {
   ]);
   console.log("Jobs:", jobs.map((j) => `${j.status}: ${j.id}`));
 
-  // Step 5: Service Report (note: uses engine_make_model, not separate columns)
+  // Step 5: Service Report
   console.log("\n=== Inserting Service Report ===");
   const [report] = await post("service_reports", {
     job_id: jobs[2].id,

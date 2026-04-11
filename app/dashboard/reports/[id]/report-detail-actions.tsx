@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,11 +12,15 @@ export function ReportDetailActions({
   currentStatus: string;
 }) {
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function updateStatus(newStatus: string) {
+    setError(null);
+    setLoading(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from("service_reports")
         .update({
           status: newStatus,
@@ -23,13 +28,15 @@ export function ReportDetailActions({
         })
         .eq("id", reportId);
 
-      if (error) {
-        alert(`Failed to update report: ${error.message}`);
+      if (updateError) {
+        setError(updateError.message);
         return;
       }
       router.refresh();
-    } catch (err) {
-      alert("Failed to update report status. Please try again.");
+    } catch {
+      setError("Failed to update report status.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -43,17 +50,22 @@ export function ReportDetailActions({
 
   return (
     <div className="flex items-center gap-2">
+      {error && (
+        <span className="text-sm text-red-400">{error}</span>
+      )}
       <button
         onClick={() => updateStatus("correction_needed")}
-        className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
+        disabled={loading}
+        className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
       >
-        Request Correction
+        {loading ? "..." : "Request Correction"}
       </button>
       <button
         onClick={() => updateStatus("approved")}
-        className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-primary-bg transition-colors hover:bg-gold-hover"
+        disabled={loading}
+        className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-primary-bg transition-colors hover:bg-gold-hover disabled:opacity-50"
       >
-        Approve Report
+        {loading ? "..." : "Approve Report"}
       </button>
     </div>
   );

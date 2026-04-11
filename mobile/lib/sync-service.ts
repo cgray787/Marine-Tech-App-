@@ -3,12 +3,13 @@ import { supabase } from "./supabase";
 import {
   getPendingSync,
   markSynced,
+  markFailed,
   getPendingSyncCount,
+  clearSyncedItems,
+  saveIdMapping,
+  getAllIdMappings,
   type SyncQueueItem,
 } from "./offline-db";
-
-// Map offline IDs to real Supabase IDs after inserts
-const idMap = new Map<string, string>();
 
 export async function checkConnectivity(): Promise<boolean> {
   const state: NetInfoState = await NetInfo.fetch();
@@ -54,7 +55,10 @@ async function uploadPhotoToStorage(
   }
 }
 
-async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
+async function processSyncItem(
+  item: SyncQueueItem,
+  idMap: Map<string, string>
+): Promise<boolean> {
   const payload = JSON.parse(item.payload);
 
   try {
@@ -70,26 +74,36 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
             service_types: payload.service_types,
             status: payload.status,
             created_by: payload.created_by,
+            notes: payload.notes || null,
           })
           .select("id")
           .single();
 
         if (error) {
           console.error("[Sync] Job insert error:", error);
+          await markFailed(item.id, error.message);
           return false;
         }
         if (data) {
           idMap.set(item.record_id, data.id);
+          await saveIdMapping(item.record_id, data.id);
         }
         return true;
       }
 
       case "service_reports": {
         // Resolve the job_id from offline to real
-        const realJobId =
-          payload._offline_job_id
-            ? idMap.get(payload._offline_job_id) ?? payload._offline_job_id
-            : payload.job_id;
+        const realJobId = payload._offline_job_id
+          ? idMap.get(payload._offline_job_id) ?? payload._offline_job_id
+          : payload.job_id;
+
+        // If the real job ID is still an offline ID, the parent failed — skip
+        if (typeof realJobId === "string" && realJobId.startsWith("offline_")) {
+          const errMsg = `Parent job ${payload._offline_job_id} not yet synced`;
+          console.warn("[Sync]", errMsg);
+          await markFailed(item.id, errMsg);
+          return false;
+        }
 
         const { data, error } = await supabase
           .from("service_reports")
@@ -111,10 +125,12 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
 
         if (error) {
           console.error("[Sync] Service report insert error:", error);
+          await markFailed(item.id, error.message);
           return false;
         }
         if (data) {
           idMap.set(item.record_id, data.id);
+          await saveIdMapping(item.record_id, data.id);
         }
         return true;
       }
@@ -143,19 +159,27 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
 
         if (error) {
           console.error("[Sync] PDI report insert error:", error);
+          await markFailed(item.id, error.message);
           return false;
         }
         if (data) {
           idMap.set(item.record_id, data.id);
+          await saveIdMapping(item.record_id, data.id);
         }
         return true;
       }
 
       case "checklist_items": {
-        const realReportId =
-          payload._offline_report_id
-            ? idMap.get(payload._offline_report_id) ?? payload._offline_report_id
-            : payload.report_id;
+        const realReportId = payload._offline_report_id
+          ? idMap.get(payload._offline_report_id) ?? payload._offline_report_id
+          : payload.report_id;
+
+        if (typeof realReportId === "string" && realReportId.startsWith("offline_")) {
+          const errMsg = `Parent report ${payload._offline_report_id} not yet synced`;
+          console.warn("[Sync]", errMsg);
+          await markFailed(item.id, errMsg);
+          return false;
+        }
 
         const { error } = await supabase.from("checklist_items").insert({
           report_id: realReportId,
@@ -168,16 +192,23 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
 
         if (error) {
           console.error("[Sync] Checklist item insert error:", error);
+          await markFailed(item.id, error.message);
           return false;
         }
         return true;
       }
 
       case "pdi_checklist_items": {
-        const realReportId =
-          payload._offline_report_id
-            ? idMap.get(payload._offline_report_id) ?? payload._offline_report_id
-            : payload.pdi_report_id;
+        const realReportId = payload._offline_report_id
+          ? idMap.get(payload._offline_report_id) ?? payload._offline_report_id
+          : payload.pdi_report_id;
+
+        if (typeof realReportId === "string" && realReportId.startsWith("offline_")) {
+          const errMsg = `Parent PDI report ${payload._offline_report_id} not yet synced`;
+          console.warn("[Sync]", errMsg);
+          await markFailed(item.id, errMsg);
+          return false;
+        }
 
         const { error } = await supabase.from("pdi_checklist_items").insert({
           pdi_report_id: realReportId,
@@ -190,16 +221,23 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
 
         if (error) {
           console.error("[Sync] PDI checklist item insert error:", error);
+          await markFailed(item.id, error.message);
           return false;
         }
         return true;
       }
 
       case "report_photos": {
-        const realReportId =
-          payload._offline_report_id
-            ? idMap.get(payload._offline_report_id) ?? payload._offline_report_id
-            : payload.report_id;
+        const realReportId = payload._offline_report_id
+          ? idMap.get(payload._offline_report_id) ?? payload._offline_report_id
+          : payload.report_id;
+
+        if (typeof realReportId === "string" && realReportId.startsWith("offline_")) {
+          const errMsg = `Parent report ${payload._offline_report_id} not yet synced`;
+          console.warn("[Sync]", errMsg);
+          await markFailed(item.id, errMsg);
+          return false;
+        }
 
         const photoUrl = await uploadPhotoToStorage(
           payload.local_uri,
@@ -208,7 +246,7 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
         );
 
         if (!photoUrl) {
-          console.error("[Sync] Photo upload failed for:", payload.local_uri);
+          await markFailed(item.id, "Photo upload failed");
           return false;
         }
 
@@ -221,6 +259,7 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
 
         if (error) {
           console.error("[Sync] Report photo insert error:", error);
+          await markFailed(item.id, error.message);
           return false;
         }
         return true;
@@ -228,10 +267,13 @@ async function processSyncItem(item: SyncQueueItem): Promise<boolean> {
 
       default:
         console.warn("[Sync] Unknown table:", item.table_name);
+        await markFailed(item.id, `Unknown table: ${item.table_name}`);
         return false;
     }
   } catch (err) {
-    console.error("[Sync] Error processing item:", err);
+    const errMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[Sync] Error processing item:", errMsg);
+    await markFailed(item.id, errMsg);
     return false;
   }
 }
@@ -247,8 +289,8 @@ export async function syncAll(): Promise<{
     return { synced: 0, failed: 0, remaining };
   }
 
-  // Clear the ID map at the start of each full sync
-  idMap.clear();
+  // Load persisted ID mappings from SQLite (crash-safe)
+  const idMap = await getAllIdMappings();
 
   const pending = await getPendingSync();
   let synced = 0;
@@ -257,7 +299,7 @@ export async function syncAll(): Promise<{
   // Process items in order (jobs first, then reports, then checklist items, then photos)
   // The sync_queue is already ordered by created_at ASC which respects insertion order
   for (const item of pending) {
-    const success = await processSyncItem(item);
+    const success = await processSyncItem(item, idMap);
     if (success) {
       await markSynced(item.id);
       synced++;
@@ -275,6 +317,11 @@ export async function syncAll(): Promise<{
         );
       }
     }
+  }
+
+  // Clean up successfully synced items
+  if (synced > 0) {
+    await clearSyncedItems();
   }
 
   const remaining = await getPendingSyncCount();

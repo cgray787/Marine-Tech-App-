@@ -95,8 +95,8 @@ Deno.serve(async (req: Request) => {
       user_id,
       title,
       body,
-      data,
-      sent_at: new Date().toISOString(),
+      type: "push",
+      data_json: data ?? {},
     }).then(() => {});
 
     return new Response(

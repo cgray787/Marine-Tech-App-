@@ -8,9 +8,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
 
 export default function LoginScreen() {
@@ -19,6 +21,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
 
   async function handleSignIn() {
     if (!email || !password) {
@@ -34,6 +37,36 @@ export default function LoginScreen() {
       setLoading(false);
     } else {
       router.replace("/(tabs)");
+    }
+  }
+
+  async function handleForgotPassword() {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      Alert.alert(
+        "Enter Your Email",
+        "Please enter your email address above, then tap Forgot Password."
+      );
+      return;
+    }
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        trimmedEmail,
+        { redirectTo: "marine-tech://reset-password" }
+      );
+
+      if (resetError) {
+        Alert.alert("Error", resetError.message);
+      } else {
+        setResetSent(true);
+        Alert.alert(
+          "Check Your Email",
+          `If an account exists for ${trimmedEmail}, you'll receive a password reset link.`
+        );
+      }
+    } catch {
+      Alert.alert("Error", "Failed to send reset email. Please try again.");
     }
   }
 
@@ -56,6 +89,15 @@ export default function LoginScreen() {
         {error && (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Reset sent confirmation */}
+        {resetSent && (
+          <View style={styles.successBox}>
+            <Text style={styles.successText}>
+              Password reset email sent. Check your inbox.
+            </Text>
           </View>
         )}
 
@@ -102,7 +144,10 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         {/* Forgot Password */}
-        <TouchableOpacity style={styles.forgotButton}>
+        <TouchableOpacity
+          style={styles.forgotButton}
+          onPress={handleForgotPassword}
+        >
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
       </View>
@@ -159,6 +204,18 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.bad,
+    fontSize: 14,
+  },
+  successBox: {
+    backgroundColor: "#22c55e20",
+    borderWidth: 1,
+    borderColor: "#22c55e40",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+  },
+  successText: {
+    color: "#22c55e",
     fontSize: 14,
   },
   fieldGroup: {
