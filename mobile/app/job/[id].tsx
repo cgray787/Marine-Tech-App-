@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/constants/Colors";
 import { generateServiceReportHTML, generatePDIReportHTML } from "@/lib/pdf-template";
 
@@ -91,11 +92,14 @@ type Job = {
 
 export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<Job | null>(null);
   const [report, setReport] = useState<ServiceReport | null>(null);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [photos, setPhotos] = useState<ReportPhoto[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchJobData = useCallback(async () => {
     if (!id) return;
@@ -155,6 +159,50 @@ export default function JobDetailScreen() {
       day: "numeric",
       year: "numeric",
     });
+  }
+
+  function handleEdit() {
+    if (!id) return;
+    router.push({ pathname: "/(tabs)/service", params: { editJobId: id } });
+  }
+
+  async function handleDelete() {
+    if (!id) return;
+    Alert.alert(
+      "Delete Job?",
+      "This permanently removes the job, its service report, checklist, and photos. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            // Delete service_reports first (cascades to checklist_items & report_photos).
+            // jobs has no cascade to service_reports, so we must delete reports explicitly.
+            const { error: reportErr } = await supabase
+              .from("service_reports")
+              .delete()
+              .eq("job_id", id);
+            if (reportErr) {
+              setDeleting(false);
+              Alert.alert("Error", reportErr.message);
+              return;
+            }
+            const { error: jobErr } = await supabase
+              .from("jobs")
+              .delete()
+              .eq("id", id);
+            setDeleting(false);
+            if (jobErr) {
+              Alert.alert("Error", jobErr.message);
+              return;
+            }
+            router.back();
+          },
+        },
+      ]
+    );
   }
 
   async function handleExportPDF() {
@@ -272,6 +320,41 @@ export default function JobDetailScreen() {
   };
 
   return (
+    <>
+      {profile && (
+        <Stack.Screen
+          options={{
+            headerRight: () => (
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  onPress={handleEdit}
+                  disabled={deleting}
+                  activeOpacity={0.7}
+                  style={styles.headerBtn}
+                  accessibilityLabel="Edit job"
+                >
+                  <Text style={styles.headerBtnText}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDelete}
+                  disabled={deleting}
+                  activeOpacity={0.7}
+                  style={styles.headerBtn}
+                  accessibilityLabel="Delete job"
+                >
+                  {deleting ? (
+                    <ActivityIndicator size="small" color={colors.bad} />
+                  ) : (
+                    <Text style={[styles.headerBtnText, styles.headerBtnTextDanger]}>
+                      Delete
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ),
+          }}
+        />
+      )}
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Status Badge */}
       <View style={styles.statusRow}>
@@ -573,6 +656,7 @@ export default function JobDetailScreen() {
 
       <View style={{ height: 40 }} />
     </ScrollView>
+    </>
   );
 }
 
@@ -634,6 +718,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginRight: 4,
+  },
+  headerBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  headerBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.gold,
+  },
+  headerBtnTextDanger: {
+    color: colors.bad,
   },
   statusText: {
     fontSize: 13,

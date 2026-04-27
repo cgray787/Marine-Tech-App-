@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  TextInput,
 } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -65,6 +66,7 @@ export default function ClientsScreen() {
   const { profile } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fetchClients = useCallback(async () => {
     if (!profile) return;
@@ -107,9 +109,38 @@ export default function ClientsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Search bar */}
+      <View style={styles.searchWrapper}>
+        <Text style={styles.searchIcon}>{"\uD83D\uDD0D"}</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search clients..."
+          placeholderTextColor={colors.textSecondary}
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch("")} style={styles.searchClear}>
+            <Text style={styles.searchClearText}>×</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Client List */}
       <FlatList
-        data={clients}
+        data={clients.filter((c) => {
+          if (!search.trim()) return true;
+          const q = search.toLowerCase().trim();
+          const boatNames = (c.boats || []).map((b) => b.name?.toLowerCase() || "").join(" ");
+          return (
+            c.name.toLowerCase().includes(q) ||
+            (c.email || "").toLowerCase().includes(q) ||
+            (c.phone || "").toLowerCase().includes(q) ||
+            boatNames.includes(q)
+          );
+        })}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -368,5 +399,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: "center",
+  },
+  searchWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    backgroundColor: colors.bgCard,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchIcon: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    color: colors.textPrimary,
+    fontSize: 14,
+  },
+  searchClear: {
+    paddingHorizontal: 8,
+  },
+  searchClearText: {
+    color: colors.textSecondary,
+    fontSize: 22,
+    lineHeight: 22,
   },
 });

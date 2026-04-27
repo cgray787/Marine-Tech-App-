@@ -33,11 +33,11 @@ async function uploadPhotoToStorage(
   try {
     const fileName = `${reportId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
     const response = await fetch(localUri);
-    const blob = await response.blob();
+    const arrayBuffer = await response.arrayBuffer();
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(fileName, blob, { contentType: "image/jpeg" });
+      .upload(fileName, arrayBuffer, { contentType: "image/jpeg" });
 
     if (uploadError) {
       console.error("[Sync] Photo upload error:", uploadError);
