@@ -18,6 +18,7 @@
       "bundleIdentifier": "com.grayyachts.marinetech",
       "buildNumber": "17",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Marine Tech needs camera access to photograph boat conditions, HIN plates, and engine hours during service inspections.",
         "NSPhotoLibraryUsageDescription": "Marine Tech needs photo library access to attach existing photos to service reports.",
         "NSPhotoLibraryAddUsageDescription": "Marine Tech needs permission to save inspection photos to your photo library."
