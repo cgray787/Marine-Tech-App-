@@ -1,0 +1,10 @@
+.modal-input {
+  width: 100%;
+  background: #060a12;
+  border: 1px solid #1a2236;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.modal-input:focus { outline: none; border-color: #C9A96E; }
