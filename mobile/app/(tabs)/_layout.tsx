@@ -17,6 +17,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     Clients: "\uD83D\uDC64",
     Service: "\uD83D\uDD27",
     PDI: "\uD83D\uDCCB",
+    Calendar: "\uD83D\uDCC5",
   };
   return (
     <View style={styles.iconContainer}>
@@ -242,6 +243,15 @@ export default function TabLayout() {
             title: "PDI",
             tabBarIcon: ({ focused }) => (
               <TabIcon name="PDI" focused={focused} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="calendar"
+          options={{
+            title: "Calendar",
+            tabBarIcon: ({ focused }) => (
+              <TabIcon name="Calendar" focused={focused} />
             ),
           }}
         />
