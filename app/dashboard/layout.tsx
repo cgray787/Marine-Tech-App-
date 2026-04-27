@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/admin";
 import { Sidebar } from "./sidebar";
+import { QueryProvider } from "./QueryProvider";
 
 export default async function DashboardLayout({
   children,
@@ -14,7 +15,7 @@ export default async function DashboardLayout({
         <Sidebar profile={profile} />
       </div>
       <main className="flex-1 overflow-y-auto p-6 lg:p-8 print-main">
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </main>
     </div>
   );
