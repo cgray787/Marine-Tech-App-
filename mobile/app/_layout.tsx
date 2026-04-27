@@ -3,7 +3,6 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/lib/auth-context";
-import { NotificationProvider } from "@/lib/notification-context";
 import { OfflineProvider } from "@/lib/offline-context";
 
 export { ErrorBoundary } from "expo-router";
@@ -18,7 +17,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <OfflineProvider>
-        <NotificationProvider>
+        <>
           <StatusBar style="light" />
           <Stack
             screenOptions={{
@@ -46,7 +45,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
-        </NotificationProvider>
+        </>
       </OfflineProvider>
     </AuthProvider>
   );

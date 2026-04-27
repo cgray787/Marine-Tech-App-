@@ -16,6 +16,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
@@ -132,24 +133,28 @@ export default function PDIScreen() {
   const draftLoaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load saved draft on mount
-  useEffect(() => {
-    supabase
-      .from("boats")
-      .select("id, name, make_model, year, hin, color, customer_id")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setBoats(data);
-      });
-    supabase
-      .from("customers")
-      .select("id, name")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setCustomers(data);
-      });
+  // Re-fetch reference data whenever the tab gains focus (also waits for auth).
+  const fetchReferenceData = useCallback(async () => {
+    if (!profile) return;
+    const [boatRes, custRes] = await Promise.all([
+      supabase
+        .from("boats")
+        .select("id, name, make_model, year, hin, color, customer_id")
+        .order("name"),
+      supabase.from("customers").select("id, name").order("name"),
+    ]);
+    if (boatRes.data) setBoats(boatRes.data);
+    if (custRes.data) setCustomers(custRes.data);
+  }, [profile]);
 
-    // Restore draft
+  useFocusEffect(
+    useCallback(() => {
+      fetchReferenceData();
+    }, [fetchReferenceData])
+  );
+
+  // Restore draft (once on mount)
+  useEffect(() => {
     AsyncStorage.getItem(PDI_DRAFT_KEY).then((json) => {
       if (json) {
         try {
@@ -327,11 +332,11 @@ export default function PDIScreen() {
     try {
       const fileName = `${reportId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
       const response = await fetch(uri);
-      const blob = await response.blob();
+      const arrayBuffer = await response.arrayBuffer();
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(fileName, blob, { contentType: "image/jpeg" });
+        .upload(fileName, arrayBuffer, { contentType: "image/jpeg" });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);

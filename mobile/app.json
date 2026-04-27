@@ -2,7 +2,7 @@
   "expo": {
     "name": "Marine Tech",
     "slug": "marine-tech",
-    "owner": "cgray787",
+    "owner": "cgrayy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -16,20 +16,23 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.grayyachts.marinetech",
-      "buildNumber": "1",
+      "buildNumber": "14",
       "infoPlist": {
         "NSCameraUsageDescription": "Marine Tech needs camera access to photograph boat conditions, HIN plates, and engine hours during service inspections.",
         "NSPhotoLibraryUsageDescription": "Marine Tech needs photo library access to attach existing photos to service reports.",
-        "NSPhotoLibraryAddUsageDescription": "Marine Tech needs permission to save inspection photos to your photo library."
+        "NSPhotoLibraryAddUsageDescription": "Marine Tech needs permission to save inspection photos to your photo library.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.grayyachts.marinetech",
       "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "NOTIFICATIONS"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#060a12",
@@ -49,19 +52,13 @@
       "expo-camera",
       "expo-image-picker",
       "expo-secure-store",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/icon.png",
-          "color": "#C9A96E"
-        }
-      ],
       "expo-sqlite"
     ],
     "extra": {
       "eas": {
-        "projectId": ""
-      }
+        "projectId": "5e70f74a-b7b2-49e0-a65f-4e40d2527fb0"
+      },
+      "router": {}
     },
     "experiments": {
       "typedRoutes": true

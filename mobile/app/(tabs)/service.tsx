@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   View,
   Text,
@@ -110,6 +112,11 @@ type GalleryPhoto = {
 export default function ServiceScreen() {
   const { profile } = useAuth();
   const { isOnline } = useOffline();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ editJobId?: string }>();
+  const editJobId = typeof params.editJobId === "string" ? params.editJobId : null;
+  const [editReportId, setEditReportId] = useState<string | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [boats, setBoats] = useState<Boat[]>([]);
   const [marinas, setMarinas] = useState<Marina[]>([]);
@@ -177,29 +184,124 @@ export default function ServiceScreen() {
   const [selectedPhotoCategory, setSelectedPhotoCategory] =
     useState<PhotoCategory>("Other");
 
+  const fetchReferenceData = useCallback(async () => {
+    if (!profile) return;
+    const [custRes, boatRes, marinaRes] = await Promise.all([
+      supabase.from("customers").select("id, name").order("name"),
+      supabase
+        .from("boats")
+        .select("id, name, make_model, year, hin, customer_id")
+        .order("name"),
+      supabase.from("marinas").select("id, name").order("name"),
+    ]);
+    if (custRes.data) setCustomers(custRes.data);
+    if (boatRes.data) setBoats(boatRes.data);
+    if (marinaRes.data) setMarinas(marinaRes.data);
+  }, [profile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchReferenceData();
+    }, [fetchReferenceData])
+  );
+
+  // Prefill from an existing job when editJobId is set.
   useEffect(() => {
-    supabase
-      .from("customers")
-      .select("id, name")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setCustomers(data);
-      });
-    supabase
-      .from("boats")
-      .select("id, name, make_model, year, hin, customer_id")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setBoats(data);
-      });
-    supabase
-      .from("marinas")
-      .select("id, name")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setMarinas(data);
-      });
-  }, []);
+    if (!editJobId || !profile) return;
+    let cancelled = false;
+
+    async function loadEdit() {
+      setLoadingEdit(true);
+      try {
+        const { data: jobData } = await supabase
+          .from("jobs")
+          .select("id, customer_id, boat_id, service_types, notes")
+          .eq("id", editJobId)
+          .single();
+        if (!jobData || cancelled) return;
+
+        const { data: reportData } = await supabase
+          .from("service_reports")
+          .select("id, hin, marina, general_notes")
+          .eq("job_id", editJobId)
+          .single();
+
+        const { data: items } = reportData
+          ? await supabase
+              .from("checklist_items")
+              .select("category, item_name, assessment, notes, sort_order")
+              .eq("report_id", reportData.id)
+              .order("sort_order")
+          : { data: [] as { category: string; item_name: string; assessment: string; notes: string | null; sort_order: number }[] };
+
+        const { data: photoRows } = reportData
+          ? await supabase
+              .from("report_photos")
+              .select("photo_url, category, caption")
+              .eq("report_id", reportData.id)
+          : { data: [] as { photo_url: string; category: string | null; caption: string | null }[] };
+
+        if (cancelled) return;
+
+        setJobName((jobData.service_types?.[0] as string) || "");
+        setJobDescription((jobData.notes as string) || "");
+        setCustomerId((jobData.customer_id as string) || "");
+        setBoatId((jobData.boat_id as string) || "");
+        setHin(reportData?.hin || "");
+        setHinSaved(!!reportData?.hin);
+        setLocation(reportData?.marina || "");
+        setLocationSaved(!!reportData?.marina);
+        setGeneralNotes(reportData?.general_notes || "");
+        setEditReportId(reportData?.id ?? null);
+
+        // Build checklist state from DB items.
+        const checklistItemNames = new Set<string>();
+        const nextChecklist: ChecklistState = {};
+        for (const it of items || []) {
+          const assessment = (it.assessment === "good" || it.assessment === "bad") ? it.assessment : null;
+          nextChecklist[it.item_name] = {
+            assessment: assessment as Assessment,
+            notes: it.notes || "",
+            showNotes: !!it.notes,
+            photos: [],
+          };
+          checklistItemNames.add(it.item_name);
+        }
+
+        // Split photos: caption matching a checklist item → checklist photos; else → gallery.
+        const slugToCategory: Record<string, PhotoCategory> = {
+          hin_plate: "HIN Plate",
+          engine_hours: "Engine Hours",
+          before: "Before",
+          after: "After",
+          damage: "Damage",
+          other: "Other",
+        };
+        const nextGallery: GalleryPhoto[] = [];
+        for (const p of photoRows || []) {
+          if (p.caption && checklistItemNames.has(p.caption)) {
+            const entry = nextChecklist[p.caption];
+            if (entry) {
+              entry.photos = [...entry.photos, { uri: p.photo_url, uploaded: true }];
+            }
+          } else {
+            const cat = (p.category && slugToCategory[p.category]) || "Other";
+            nextGallery.push({ uri: p.photo_url, category: cat, uploaded: true });
+          }
+        }
+
+        setChecklist(nextChecklist);
+        setGalleryPhotos(nextGallery);
+      } finally {
+        if (!cancelled) setLoadingEdit(false);
+      }
+    }
+
+    void loadEdit();
+    return () => {
+      cancelled = true;
+    };
+  }, [editJobId, profile]);
 
   const filteredBoats = customerId
     ? boats.filter((b) => b.customer_id === customerId)
@@ -337,14 +439,18 @@ export default function ServiceScreen() {
     reportId: string,
     category: string
   ): Promise<string | null> {
+    // Already an uploaded URL (from edit-mode prefill) — just return it.
+    if (uri.startsWith("http://") || uri.startsWith("https://")) {
+      return uri;
+    }
     try {
       const fileName = `${reportId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
       const response = await fetch(uri);
-      const blob = await response.blob();
+      const arrayBuffer = await response.arrayBuffer();
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(fileName, blob, { contentType: "image/jpeg" });
+        .upload(fileName, arrayBuffer, { contentType: "image/jpeg" });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
@@ -440,39 +546,37 @@ export default function ServiceScreen() {
     if (!profile) return;
 
     const customer = customers.find((c) => c.id === customerId);
+    const isEditing = !!editJobId;
 
     setSubmitting(true);
 
-    // Create job
     const jobPayload = {
-      assigned_to: profile.id,
       customer_id: customerId || null,
       boat_id: boatId || null,
       marina_id: null,
       service_types: jobName ? [jobName] : [],
       status: "completed",
       notes: jobDescription || null,
-      created_by: profile.id,
     };
 
-    const { data: job, error: jobError } = await supabase
-      .from("jobs")
-      .insert(jobPayload)
-      .select("id")
-      .single();
+    let reportId: string;
+    let jobId: string;
 
-    if (jobError || !job) {
-      Alert.alert("Error", jobError?.message || "Failed to create job");
-      setSubmitting(false);
-      return;
-    }
+    if (isEditing && editJobId) {
+      // UPDATE existing job
+      const { error: jobErr } = await supabase
+        .from("jobs")
+        .update(jobPayload)
+        .eq("id", editJobId);
+      if (jobErr) {
+        Alert.alert("Error", jobErr.message);
+        setSubmitting(false);
+        return;
+      }
+      jobId = editJobId;
 
-    // Create service report
-    const { data: report, error: reportError } = await supabase
-      .from("service_reports")
-      .insert({
-        job_id: job.id,
-        tech_id: profile.id,
+      // UPDATE existing service_report (or create if none — defensive)
+      const reportPayload = {
         boat_id: boatId || null,
         customer_id: customerId || null,
         boat_name: selectedBoat?.name || "",
@@ -482,18 +586,80 @@ export default function ServiceScreen() {
         hin: hin || selectedBoat?.hin || "",
         marina: location.trim(),
         general_notes: generalNotes,
-      })
-      .select("id")
-      .single();
+      };
 
-    if (reportError || !report) {
-      Alert.alert(
-        "Error",
-        reportError?.message || "Failed to create report"
-      );
-      setSubmitting(false);
-      return;
+      if (editReportId) {
+        const { error: reportErr } = await supabase
+          .from("service_reports")
+          .update(reportPayload)
+          .eq("id", editReportId);
+        if (reportErr) {
+          Alert.alert("Error", reportErr.message);
+          setSubmitting(false);
+          return;
+        }
+        reportId = editReportId;
+
+        // Clear existing checklist items and photos — we re-insert from state.
+        await supabase.from("checklist_items").delete().eq("report_id", reportId);
+        await supabase.from("report_photos").delete().eq("report_id", reportId);
+      } else {
+        const { data: newReport, error: reportErr } = await supabase
+          .from("service_reports")
+          .insert({ ...reportPayload, job_id: jobId, tech_id: profile.id })
+          .select("id")
+          .single();
+        if (reportErr || !newReport) {
+          Alert.alert("Error", reportErr?.message || "Failed to create report");
+          setSubmitting(false);
+          return;
+        }
+        reportId = newReport.id;
+      }
+    } else {
+      // INSERT new job
+      const { data: job, error: jobError } = await supabase
+        .from("jobs")
+        .insert({ ...jobPayload, assigned_to: profile.id, created_by: profile.id })
+        .select("id")
+        .single();
+
+      if (jobError || !job) {
+        Alert.alert("Error", jobError?.message || "Failed to create job");
+        setSubmitting(false);
+        return;
+      }
+      jobId = job.id;
+
+      // INSERT new service_report
+      const { data: report, error: reportError } = await supabase
+        .from("service_reports")
+        .insert({
+          job_id: jobId,
+          tech_id: profile.id,
+          boat_id: boatId || null,
+          customer_id: customerId || null,
+          boat_name: selectedBoat?.name || "",
+          owner_name: customer?.name || "",
+          make_model: selectedBoat?.make_model || "",
+          year: selectedBoat?.year || null,
+          hin: hin || selectedBoat?.hin || "",
+          marina: location.trim(),
+          general_notes: generalNotes,
+        })
+        .select("id")
+        .single();
+
+      if (reportError || !report) {
+        Alert.alert("Error", reportError?.message || "Failed to create report");
+        setSubmitting(false);
+        return;
+      }
+      reportId = report.id;
     }
+
+    // Wrap reportId in a shape compatible with code below that expects `report.id`.
+    const report = { id: reportId };
 
     // Insert checklist items (filter out "na" — DB only allows 'good' or 'bad')
     const checklistRows = Object.entries(checklist)
@@ -568,9 +734,26 @@ export default function ServiceScreen() {
     await Promise.allSettled(photoUploads);
 
     setSubmitting(false);
-    Alert.alert("Success", "Service report submitted!", [
-      { text: "OK", onPress: resetForm },
-    ]);
+    if (isEditing) {
+      Alert.alert("Saved", "Changes saved.", [
+        {
+          text: "OK",
+          onPress: () => {
+            resetForm();
+            setEditReportId(null);
+            // Clear the editJobId param so the Service tab returns to "New Job" state.
+            router.setParams({ editJobId: "" });
+            router.back();
+          },
+        },
+      ]);
+    } else {
+      Alert.alert("Success", "Service report submitted!", [
+        { text: "OK", onPress: resetForm },
+      ]);
+    }
+    // Reference jobId so TS doesn't complain about unused binding in edit path.
+    void jobId;
   }
 
   async function handleSubmit() {
@@ -619,7 +802,10 @@ export default function ServiceScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>New Job</Text>
+        <Text style={styles.title}>{editJobId ? "Edit Job" : "New Job"}</Text>
+        {loadingEdit && (
+          <ActivityIndicator size="small" color={colors.gold} style={{ marginLeft: 12 }} />
+        )}
       </View>
 
       {/* Job Name */}
@@ -1244,7 +1430,7 @@ export default function ServiceScreen() {
         {submitting ? (
           <ActivityIndicator color={colors.bgPrimary} />
         ) : (
-          <Text style={styles.submitText}>Create Job</Text>
+          <Text style={styles.submitText}>{editJobId ? "Save Changes" : "Create Job"}</Text>
         )}
       </TouchableOpacity>
 
