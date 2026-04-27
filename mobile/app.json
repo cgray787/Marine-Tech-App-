@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.grayyachts.marinetech",
-      "buildNumber": "15",
+      "buildNumber": "17",
       "infoPlist": {
         "NSCameraUsageDescription": "Marine Tech needs camera access to photograph boat conditions, HIN plates, and engine hours during service inspections.",
         "NSPhotoLibraryUsageDescription": "Marine Tech needs photo library access to attach existing photos to service reports.",
