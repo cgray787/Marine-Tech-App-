@@ -1,6 +1,6 @@
 'use client';
 import * as Dialog from '@radix-ui/react-dialog';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addHours, format } from 'date-fns';
 import { X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,7 +19,7 @@ type Props = {
 };
 
 export function NewJobModal({ open, defaultStart, customers, boats, marinas, techs, onClose }: Props) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
 
   const [customerId, setCustomerId] = useState('');

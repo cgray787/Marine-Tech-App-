@@ -4,8 +4,9 @@ export function subscribeToJobs(
   supabase: SupabaseClient,
   onChange: () => void,
 ): RealtimeChannel {
+  const channelName = `calendar-jobs-${Math.random().toString(36).slice(2, 10)}`;
   const channel = supabase
-    .channel('calendar-jobs')
+    .channel(channelName)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'jobs' },

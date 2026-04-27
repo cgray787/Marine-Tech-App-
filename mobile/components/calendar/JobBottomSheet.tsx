@@ -10,7 +10,9 @@ export type JobBottomSheetHandle = {
   dismiss: () => void;
 };
 
-export const JobBottomSheet = forwardRef<JobBottomSheetHandle, {}>((_, ref) => {
+type JobBottomSheetProps = object;
+
+export const JobBottomSheet = forwardRef<JobBottomSheetHandle, JobBottomSheetProps>((_, ref) => {
   const sheetRef = useRef<BottomSheet>(null);
   const [job, setJob] = useState<CalendarJob | null>(null);
   const snapPoints = useMemo(() => ['25%', '60%'], []);
@@ -54,6 +56,8 @@ export const JobBottomSheet = forwardRef<JobBottomSheetHandle, {}>((_, ref) => {
     </BottomSheet>
   );
 });
+
+JobBottomSheet.displayName = 'JobBottomSheet';
 
 const styles = StyleSheet.create({
   body: { padding: 20 },

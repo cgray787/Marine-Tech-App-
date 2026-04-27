@@ -8,6 +8,7 @@ import {
 import { getJobsInRange, getUnscheduledJobs } from '@/lib/calendar/queries';
 import { subscribeToJobs, unsubscribe } from '@/lib/calendar/realtime';
 import { createClient } from '@/lib/supabase/client';
+import { techColor, statusStripeColor } from '@/lib/calendar/colors';
 import type { CalendarJob, CalendarView as ViewMode } from '@/lib/calendar/types';
 
 export default function CalendarPage() {
@@ -47,7 +48,7 @@ export default function CalendarPage() {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name')
-        .eq('role', 'technician')
+        .eq('role', 'tech')
         .order('full_name');
       if (error) throw error;
       return (data ?? []).map((t) => ({ id: t.id, fullName: t.full_name }));
@@ -112,6 +113,29 @@ export default function CalendarPage() {
         onSelectSlot={(start) => { setNewJobStart(start); setNewJobOpen(true); }}
       />
 
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[#8892A5]">
+        <span className="text-[#C9A96E] uppercase tracking-wider">Techs:</span>
+        {(techsQuery.data ?? []).map((t) => (
+          <span key={t.id} className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: techColor(t.id) }} />
+            {t.fullName}
+          </span>
+        ))}
+        <span className="ml-4 text-[#C9A96E] uppercase tracking-wider">Status:</span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-[3px] h-2.5" style={{ background: statusStripeColor('new') }} />
+          New
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-[3px] h-2.5" style={{ background: statusStripeColor('in_progress') }} />
+          In progress
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-[3px] h-2.5" style={{ background: statusStripeColor('completed') }} />
+          Completed
+        </span>
+      </div>
+
       <JobPopover job={popoverJob} anchor={popoverAnchor} onClose={() => setPopoverJob(null)} />
 
       <NewJobModal
@@ -126,11 +150,24 @@ export default function CalendarPage() {
 
       {jobsQuery.data && jobs.length === 0 && unscheduledQuery.data?.length === 0 && (
         <div className="text-center text-[#8892A5] mt-12">
-          <p className="text-lg mb-3">No jobs scheduled this {view}</p>
-          <button onClick={() => { setNewJobStart(new Date()); setNewJobOpen(true); }}
-            className="bg-[#C9A96E] text-[#060a12] px-4 py-2 rounded font-semibold">
-            + Schedule a job
-          </button>
+          {techId ? (
+            <>
+              <p className="text-lg mb-3">
+                No jobs for {techsQuery.data?.find((t) => t.id === techId)?.fullName ?? 'this tech'} this {view}
+              </p>
+              <button onClick={() => setTechId(null)} className="text-[#C9A96E] hover:text-[#D4B87D] text-sm">
+                Show all techs
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-lg mb-3">No jobs scheduled this {view}</p>
+              <button onClick={() => { setNewJobStart(new Date()); setNewJobOpen(true); }}
+                className="bg-[#C9A96E] text-[#060a12] px-4 py-2 rounded font-semibold">
+                + Schedule a job
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

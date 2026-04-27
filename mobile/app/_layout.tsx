@@ -1,12 +1,12 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/lib/auth-context";
 import { NotificationProvider } from "@/lib/notification-context";
 import { OfflineProvider } from "@/lib/offline-context";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { getQueryClient } from "@/lib/react-query";
+import { makeQueryClient } from "@/lib/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 
@@ -15,13 +15,15 @@ export { ErrorBoundary } from "expo-router";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const [queryClient] = useState(() => makeQueryClient());
+
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={getQueryClient()}>
+      <QueryClientProvider client={queryClient}>
         <BottomSheetModalProvider>
           <AuthProvider>
             <OfflineProvider>
