@@ -1,0 +1,14 @@
+@import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+.rbc-calendar { color: #fff; font-family: Inter, system-ui, sans-serif; }
+.rbc-month-view, .rbc-time-view { background: #0d1320; border: 1px solid #1a2236; border-radius: 8px; overflow: hidden; }
+.rbc-header { background: #080c15; color: #8892A5; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; padding: 10px; border-bottom: 1px solid #1a2236; }
+.rbc-day-bg, .rbc-month-row, .rbc-time-content { background: #0d1320; border-color: #1a2236; }
+.rbc-today { background: rgba(201, 169, 110, 0.08) !important; }
+.rbc-off-range-bg { background: #080c15; }
+.rbc-off-range { color: #444; }
+.rbc-date-cell { padding: 6px; font-size: 12px; }
+.rbc-show-more { color: #8892A5; font-size: 10px; padding: 0 6px; }
+.rbc-event { background: transparent !important; border: 0 !important; padding: 0 !important; }
+.rbc-event-content { padding: 0; }
+.rbc-toolbar { display: none; }
