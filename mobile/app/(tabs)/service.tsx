@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
@@ -137,6 +138,17 @@ export default function ServiceScreen() {
   const [generalNotes, setGeneralNotes] = useState("");
   const [checklist, setChecklist] = useState<ChecklistState>({});
 
+  // Scheduling — when this job should happen (lands on the calendar)
+  const [scheduledStart, setScheduledStart] = useState<Date>(() => {
+    // Default to next top-of-the-hour
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() + 1);
+    return d;
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
   // Parts needed state
   type Part = {
     name: string;
@@ -215,10 +227,13 @@ export default function ServiceScreen() {
       try {
         const { data: jobData } = await supabase
           .from("jobs")
-          .select("id, customer_id, boat_id, service_types, notes")
+          .select("id, customer_id, boat_id, service_types, notes, scheduled_start")
           .eq("id", editJobId)
           .single();
         if (!jobData || cancelled) return;
+        if (jobData.scheduled_start) {
+          setScheduledStart(new Date(jobData.scheduled_start as string));
+        }
 
         const { data: reportData } = await supabase
           .from("service_reports")
@@ -550,6 +565,7 @@ export default function ServiceScreen() {
 
     setSubmitting(true);
 
+    const scheduledEnd = new Date(scheduledStart.getTime() + 60 * 60 * 1000);
     const jobPayload = {
       customer_id: customerId || null,
       boat_id: boatId || null,
@@ -557,6 +573,9 @@ export default function ServiceScreen() {
       service_types: jobName ? [jobName] : [],
       status: "completed",
       notes: jobDescription || null,
+      scheduled_start: scheduledStart.toISOString(),
+      scheduled_end: scheduledEnd.toISOString(),
+      scheduled_date: scheduledStart.toISOString().slice(0, 10),
     };
 
     let reportId: string;
@@ -1007,6 +1026,73 @@ export default function ServiceScreen() {
             </TouchableOpacity>
           )}
         </View>
+      )}
+
+      <Text style={styles.label}>Scheduled Date & Time</Text>
+      <View style={styles.inputRow}>
+        <TouchableOpacity
+          style={[styles.input, { flex: 1, justifyContent: "center" }]}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Text style={{ color: colors.textPrimary, fontSize: 14 }}>
+            {scheduledStart.toLocaleDateString(undefined, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.input, { flex: 1, marginLeft: 8, justifyContent: "center" }]}
+          onPress={() => setShowTimePicker(true)}
+        >
+          <Text style={{ color: colors.textPrimary, fontSize: 14 }}>
+            {scheduledStart.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {showDatePicker && (
+        <DateTimePicker
+          value={scheduledStart}
+          mode="date"
+          display={Platform.OS === "ios" ? "inline" : "default"}
+          themeVariant="dark"
+          onChange={(_event, date) => {
+            if (Platform.OS === "android") setShowDatePicker(false);
+            if (date) {
+              const next = new Date(scheduledStart);
+              next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+              setScheduledStart(next);
+            }
+          }}
+        />
+      )}
+      {showTimePicker && (
+        <DateTimePicker
+          value={scheduledStart}
+          mode="time"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          themeVariant="dark"
+          onChange={(_event, date) => {
+            if (Platform.OS === "android") setShowTimePicker(false);
+            if (date) {
+              const next = new Date(scheduledStart);
+              next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+              setScheduledStart(next);
+            }
+          }}
+        />
+      )}
+      {Platform.OS === "ios" && (showDatePicker || showTimePicker) && (
+        <TouchableOpacity
+          style={styles.saveFieldBtn}
+          onPress={() => {
+            setShowDatePicker(false);
+            setShowTimePicker(false);
+          }}
+        >
+          <Text style={styles.saveFieldText}>Done</Text>
+        </TouchableOpacity>
       )}
 
       {/* Category Tabs */}
