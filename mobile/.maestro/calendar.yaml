@@ -2,6 +2,8 @@ appId: com.grayyachts.marinetech
 ---
 - launchApp
 - tapOn: "Calendar"
+- assertVisible: "Calendar"
 - assertVisible:
-    text: ".*"
+    id: "calendar-screen"
+    optional: true
 - back
