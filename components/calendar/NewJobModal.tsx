@@ -84,6 +84,9 @@ export function NewJobModal({ open, defaultStart, customers, boats, marinas, tec
             </Dialog.Title>
             <Dialog.Close aria-label="Close" className="text-[#8892A5] hover:text-white"><X size={18} /></Dialog.Close>
           </div>
+          <Dialog.Description className="sr-only">
+            Schedule a new service job. Pick a customer and boat, set a time, and optionally assign a technician and location.
+          </Dialog.Description>
 
           <div className="space-y-3">
             <Field label="Customer">
