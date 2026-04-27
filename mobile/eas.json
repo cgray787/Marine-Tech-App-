@@ -24,7 +24,7 @@
     "production": {
       "ios": {
         "appleId": "connorgray41@gmail.com",
-        "ascAppId": "1638309695",
+        "ascAppId": "6762853683",
         "appleTeamId": "L34MUY39UV",
         "ascApiKeyPath": "./.secrets/AuthKey_2B5Z869244.p8",
         "ascApiKeyId": "2B5Z869244",
