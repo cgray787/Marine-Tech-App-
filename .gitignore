@@ -44,3 +44,6 @@ next-env.d.ts
 # cloudflare
 .open-next/
 .wrangler/
+
+# git worktrees
+.worktrees/
