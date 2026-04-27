@@ -39,6 +39,18 @@ export function NewJobModal({ open, defaultStart, customers, boats, marinas, tec
     }
   }, [defaultStart]);
 
+  useEffect(() => {
+    if (open) {
+      setCustomerId('');
+      setBoatId('');
+      setMarinaId('');
+      setLocationOverride('');
+      setAssignedTo('');
+      setNotes('');
+      setError(null);
+    }
+  }, [open]);
+
   const eligibleBoats = customerId ? boats.filter((b) => b.customerId === customerId) : boats;
 
   const mutation = useMutation({
@@ -70,7 +82,7 @@ export function NewJobModal({ open, defaultStart, customers, boats, marinas, tec
             <Dialog.Title className="text-xl" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
               New job
             </Dialog.Title>
-            <Dialog.Close className="text-[#8892A5] hover:text-white"><X size={18} /></Dialog.Close>
+            <Dialog.Close aria-label="Close" className="text-[#8892A5] hover:text-white"><X size={18} /></Dialog.Close>
           </div>
 
           <div className="space-y-3">

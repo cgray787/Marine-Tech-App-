@@ -42,4 +42,16 @@ describe('formatTimeRange', () => {
   it('shows full periods when crossing AM/PM', () => {
     expect(formatTimeRange('2026-04-27T11:00:00', '2026-04-27T13:00:00')).toBe('11 AM - 1 PM');
   });
+
+  it('handles noon-PM same-period range', () => {
+    expect(formatTimeRange('2026-04-27T12:00:00', '2026-04-27T13:00:00')).toBe('12-1 PM');
+  });
+
+  it('handles midnight-AM same-period range', () => {
+    expect(formatTimeRange('2026-04-27T00:00:00', '2026-04-27T01:00:00')).toBe('12-1 AM');
+  });
+
+  it('handles cross-midnight (PM to AM)', () => {
+    expect(formatTimeRange('2026-04-27T23:00:00', '2026-04-28T01:00:00')).toBe('11 PM - 1 AM');
+  });
 });
