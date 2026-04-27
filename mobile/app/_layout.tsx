@@ -3,7 +3,6 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/lib/auth-context";
-import { NotificationProvider } from "@/lib/notification-context";
 import { OfflineProvider } from "@/lib/offline-context";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { makeQueryClient } from "@/lib/react-query";
@@ -27,8 +26,7 @@ export default function RootLayout() {
         <BottomSheetModalProvider>
           <AuthProvider>
             <OfflineProvider>
-              <NotificationProvider>
-                <StatusBar style="light" />
+              <StatusBar style="light" />
                 <Stack
                   screenOptions={{
                     headerShown: false,
@@ -55,7 +53,6 @@ export default function RootLayout() {
                     }}
                   />
                 </Stack>
-              </NotificationProvider>
             </OfflineProvider>
           </AuthProvider>
         </BottomSheetModalProvider>
