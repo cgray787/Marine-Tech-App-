@@ -23,7 +23,12 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "connorgray41@gmail.com"
+        "appleId": "connorgray41@gmail.com",
+        "ascAppId": "1638309695",
+        "appleTeamId": "L34MUY39UV",
+        "ascApiKeyPath": "./.secrets/AuthKey_2B5Z869244.p8",
+        "ascApiKeyId": "2B5Z869244",
+        "ascApiKeyIssuerId": "f3b47a16-d70b-4ef4-bc3b-e30fed4d2766"
       }
     }
   }
