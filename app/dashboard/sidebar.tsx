@@ -17,6 +17,7 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: "grid" },
   { label: "Reports", href: "/dashboard/reports", icon: "file-text" },
   { label: "Jobs", href: "/dashboard/jobs", icon: "briefcase" },
+  { label: "Calendar", href: "/dashboard/calendar", icon: "calendar" },
   { label: "Technicians", href: "/dashboard/technicians", icon: "users" },
   { label: "Customers & Boats", href: "/dashboard/customers", icon: "anchor" },
   { label: "PDI Reports", href: "/dashboard/pdi-reports", icon: "clipboard" },
@@ -40,6 +41,12 @@ function NavIcon({ icon }: { icon: string }) {
       return (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.073c0 1.078-.882 1.952-1.969 1.952H5.719c-1.087 0-1.969-.874-1.969-1.952V14.15M12 12.75V21m0-8.25c-3.314 0-6-1.343-6-3V6.375c0-1.036.844-1.875 1.875-1.875h8.25c1.036 0 1.875.84 1.875 1.875V9.75c0 1.657-2.686 3-6 3z" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
         </svg>
       );
     case "users":
