@@ -1,0 +1,7 @@
+appId: com.grayyachts.marinetech
+---
+- launchApp
+- tapOn: "Calendar"
+- assertVisible:
+    text: ".*"
+- back
