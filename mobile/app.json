@@ -2,7 +2,7 @@
   "expo": {
     "name": "Marine Tech",
     "slug": "marine-tech",
-    "owner": "cgray787",
+    "owner": "cgrayy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -60,7 +60,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "5e70f74a-b7b2-49e0-a65f-4e40d2527fb0"
       }
     },
     "experiments": {
