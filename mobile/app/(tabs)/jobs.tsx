@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,12 +14,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
+import { ScheduleSheet, ScheduleSheetHandle } from "@/components/ScheduleSheet";
 
 type JobRow = {
   id: string;
   status: string;
   service_types: string[] | null;
   scheduled_date: string | null;
+  scheduled_start: string | null;
   created_at: string | null;
   customers: { name: string } | null;
   boats: { name: string; make_model: string | null } | null;
@@ -57,12 +59,14 @@ export default function JobsScreen() {
     "all"
   );
 
+  const scheduleSheetRef = useRef<ScheduleSheetHandle>(null);
+
   const fetchJobs = useCallback(async () => {
     if (!profile) return;
     const { data } = await supabase
       .from("jobs")
       .select(
-        "id, status, service_types, scheduled_date, created_at, customers(name), boats(name, make_model), marinas(name)"
+        "id, status, service_types, scheduled_date, scheduled_start, created_at, customers(name), boats(name, make_model), marinas(name)"
       )
       .order("created_at", { ascending: false });
     if (data) setJobs(data as unknown as JobRow[]);
@@ -203,6 +207,15 @@ export default function JobsScreen() {
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push(`/job/${item.id}` as never)}
+            onLongPress={() =>
+              scheduleSheetRef.current?.present({
+                id: item.id,
+                customerName: item.customers?.name || "Unknown client",
+                boatName: item.boats?.name || null,
+                currentScheduledStart: item.scheduled_start,
+              })
+            }
+            delayLongPress={350}
           >
             <View style={styles.cardHeader}>
               <Text style={styles.customerName}>
@@ -265,6 +278,8 @@ export default function JobsScreen() {
           </TouchableOpacity>
         )}
       />
+
+      <ScheduleSheet ref={scheduleSheetRef} onScheduled={fetchJobs} />
     </View>
   );
 }
