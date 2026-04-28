@@ -1,9 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   RefreshControl,
   Alert,
@@ -48,6 +48,11 @@ function formatDate(dateStr: string | null) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatDateTime(iso: string) {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
 
 export default function JobsScreen() {
@@ -134,6 +139,54 @@ export default function JobsScreen() {
     completed: jobs.filter((j) => j.status === "completed").length,
   };
 
+  // Group filtered jobs by customer for the SectionList accordion.
+  const sections = useMemo(() => {
+    const byCust = new Map<
+      string,
+      { title: string; customerId: string; allJobs: JobRow[] }
+    >();
+    for (const j of filtered) {
+      const cid = j.customers?.name ? j.customers.name : "__no_customer__";
+      const title = j.customers?.name || "No customer";
+      if (!byCust.has(cid)) {
+        byCust.set(cid, { title, customerId: cid, allJobs: [] });
+      }
+      byCust.get(cid)!.allJobs.push(j);
+    }
+    // Sort each customer's jobs: scheduled first by start time, then unscheduled by created
+    for (const sec of byCust.values()) {
+      sec.allJobs.sort((a, b) => {
+        if (a.scheduled_start && b.scheduled_start) {
+          return a.scheduled_start.localeCompare(b.scheduled_start);
+        }
+        if (a.scheduled_start) return -1;
+        if (b.scheduled_start) return 1;
+        return 0;
+      });
+    }
+    // SectionList needs `data` per section
+    return Array.from(byCust.values()).map((sec) => ({
+      ...sec,
+      data: sec.allJobs,
+    }));
+  }, [filtered]);
+
+  // Expand the first customer by default
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const expandedInitialized = useRef(false);
+  if (!expandedInitialized.current && sections.length > 0) {
+    expanded.add(sections[0].customerId);
+    expandedInitialized.current = true;
+  }
+  const toggleCustomer = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -182,10 +235,11 @@ export default function JobsScreen() {
         ))}
       </View>
 
-      <FlatList
-        data={filtered}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        stickySectionHeadersEnabled={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -196,87 +250,142 @@ export default function JobsScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>
-              {filter === "all" ? "No jobs yet." : `No ${STATUS_LABELS[filter]?.toLowerCase()} jobs.`}
+              {filter === "all"
+                ? "No jobs yet."
+                : `No ${STATUS_LABELS[filter]?.toLowerCase()} jobs.`}
             </Text>
             <Text style={styles.emptyHint}>
               Go to the Service tab to create one.
             </Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => router.push(`/job/${item.id}` as never)}
-            onLongPress={() =>
-              scheduleSheetRef.current?.present({
-                id: item.id,
-                customerName: item.customers?.name || "Unknown client",
-                boatName: item.boats?.name || null,
-                currentScheduledStart: item.scheduled_start,
-              })
-            }
-            delayLongPress={350}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.customerName}>
-                {item.customers?.name || "Unknown client"}
-              </Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: STATUS_COLORS[item.status] + "20" },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusText,
-                    { color: STATUS_COLORS[item.status] },
-                  ]}
-                >
-                  {STATUS_LABELS[item.status] || item.status}
+        renderSectionHeader={({ section }) => {
+          const isOpen = expanded.has(section.customerId);
+          const scheduledCount = section.allJobs.filter((j) => j.scheduled_start).length;
+          const unscheduledCount = section.allJobs.length - scheduledCount;
+          return (
+            <TouchableOpacity
+              style={styles.customerHeader}
+              onPress={() => toggleCustomer(section.customerId)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.customerHeaderLeft}>
+                <Text style={styles.chevron}>{isOpen ? "▾" : "▸"}</Text>
+                <Text style={styles.customerHeaderName} numberOfLines={1}>
+                  {section.title}
+                </Text>
+                <Text style={styles.customerHeaderCount}>
+                  ({section.allJobs.length})
                 </Text>
               </View>
-            </View>
-            {item.boats?.name && (
-              <Text style={styles.boatName}>
-                {item.boats.name}
-                {item.boats.make_model ? ` · ${item.boats.make_model}` : ""}
-              </Text>
-            )}
-            {item.marinas?.name && (
-              <Text style={styles.meta}>📍 {item.marinas.name}</Text>
-            )}
-            {item.service_types && item.service_types.length > 0 && (
-              <Text style={styles.meta}>
-                🔧 {item.service_types.join(", ")}
-              </Text>
-            )}
-            <View style={styles.cardFooter}>
-              <Text style={styles.dateText}>
-                {formatDate(item.scheduled_date || item.created_at)}
-              </Text>
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation();
-                  cycleStatus(item.id, item.status);
-                }}
+              <View style={styles.customerHeaderBadges}>
+                {scheduledCount > 0 && (
+                  <View style={[styles.headerBadge, styles.headerBadgeScheduled]}>
+                    <Text style={styles.headerBadgeTextScheduled}>
+                      {scheduledCount} on cal
+                    </Text>
+                  </View>
+                )}
+                {unscheduledCount > 0 && (
+                  <View style={[styles.headerBadge, styles.headerBadgeUnscheduled]}>
+                    <Text style={styles.headerBadgeTextUnscheduled}>
+                      {unscheduledCount} unsched
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+        renderItem={({ item, section }) => {
+          if (!expanded.has(section.customerId)) return null;
+          const scheduled = !!item.scheduled_start;
+          return (
+            <TouchableOpacity
+              style={styles.jobRow}
+              onPress={() => router.push(`/job/${item.id}` as never)}
+              onLongPress={() =>
+                scheduleSheetRef.current?.present({
+                  id: item.id,
+                  customerName: item.customers?.name || "Unknown client",
+                  boatName: item.boats?.name || null,
+                  currentScheduledStart: item.scheduled_start,
+                })
+              }
+              delayLongPress={350}
+            >
+              <View
                 style={[
-                  styles.statusButton,
-                  { backgroundColor: STATUS_COLORS[item.status] + "20", borderColor: STATUS_COLORS[item.status] },
+                  styles.jobRowSideTab,
+                  {
+                    backgroundColor: scheduled
+                      ? STATUS_COLORS[item.status] || colors.gold
+                      : colors.border,
+                  },
                 ]}
-              >
-                <Text
-                  style={[
-                    styles.statusButtonText,
-                    { color: STATUS_COLORS[item.status] },
-                  ]}
-                >
-                  {STATUS_LABELS[item.status] || item.status}
+              />
+              <View style={styles.jobRowBody}>
+                <View style={styles.jobRowTopLine}>
+                  <Text style={styles.jobRowDate}>
+                    {scheduled
+                      ? formatDateTime(item.scheduled_start!)
+                      : "Unscheduled"}
+                  </Text>
+                  <View
+                    style={[
+                      styles.miniBadge,
+                      scheduled ? styles.miniBadgeScheduled : styles.miniBadgeUnscheduled,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.miniBadgeText,
+                        scheduled
+                          ? styles.miniBadgeTextScheduled
+                          : styles.miniBadgeTextUnscheduled,
+                      ]}
+                    >
+                      {scheduled ? "On cal" : "Schedule"}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.jobRowBoat} numberOfLines={1}>
+                  {item.boats?.name || "No boat"}
+                  {item.boats?.make_model ? ` · ${item.boats.make_model}` : ""}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        )}
+                {item.service_types && item.service_types.length > 0 && (
+                  <Text style={styles.jobRowMeta} numberOfLines={1}>
+                    🔧 {item.service_types.join(", ")}
+                  </Text>
+                )}
+                <View style={styles.jobRowFooter}>
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      cycleStatus(item.id, item.status);
+                    }}
+                    style={[
+                      styles.statusButton,
+                      {
+                        backgroundColor: STATUS_COLORS[item.status] + "20",
+                        borderColor: STATUS_COLORS[item.status],
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusButtonText,
+                        { color: STATUS_COLORS[item.status] },
+                      ]}
+                    >
+                      {STATUS_LABELS[item.status] || item.status}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
       />
 
       <ScheduleSheet ref={scheduleSheetRef} onScheduled={fetchJobs} />
@@ -398,4 +507,121 @@ const styles = StyleSheet.create({
   empty: { alignItems: "center", marginTop: 60 },
   emptyText: { fontSize: 16, color: colors.textSecondary, fontWeight: "600" },
   emptyHint: { fontSize: 13, color: colors.textSecondary, marginTop: 6 },
+
+  // Customer accordion header
+  customerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.bgSecondary,
+    marginHorizontal: 16,
+    marginTop: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  customerHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  customerHeaderName: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "700",
+    flexShrink: 1,
+  },
+  customerHeaderCount: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  chevron: {
+    color: colors.gold,
+    fontSize: 14,
+    width: 14,
+    textAlign: "center",
+  },
+  customerHeaderBadges: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  headerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  headerBadgeScheduled: { backgroundColor: "#4ade8033" },
+  headerBadgeUnscheduled: { backgroundColor: colors.bgPrimary },
+  headerBadgeTextScheduled: {
+    color: "#4ade80",
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  headerBadgeTextUnscheduled: {
+    color: colors.textSecondary,
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  // Job row inside an expanded customer
+  jobRow: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginVertical: 3,
+    backgroundColor: colors.bgCard,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  jobRowSideTab: { width: 4 },
+  jobRowBody: {
+    flex: 1,
+    padding: 10,
+    gap: 4,
+  },
+  jobRowTopLine: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  jobRowDate: {
+    color: colors.gold,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  jobRowBoat: {
+    color: colors.textPrimary,
+    fontSize: 14,
+  },
+  jobRowMeta: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  jobRowFooter: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 4,
+  },
+  miniBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  miniBadgeScheduled: { backgroundColor: "#4ade8033" },
+  miniBadgeUnscheduled: { backgroundColor: colors.bgSecondary },
+  miniBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  miniBadgeTextScheduled: { color: "#4ade80" },
+  miniBadgeTextUnscheduled: { color: colors.textSecondary },
 });
