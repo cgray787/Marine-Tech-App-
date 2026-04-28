@@ -4,3 +4,4 @@ export { JobChip } from './JobChip';
 export { JobPopover } from './JobPopover';
 export { NewJobModal } from './NewJobModal';
 export { UnscheduledTray } from './UnscheduledTray';
+export { WeeklyJobsPanel } from './WeeklyJobsPanel';

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
 import {
-  CalendarView, CalendarToolbar, JobPopover, NewJobModal, UnscheduledTray,
+  CalendarView, CalendarToolbar, JobPopover, NewJobModal, UnscheduledTray, WeeklyJobsPanel,
 } from '@/components/calendar';
 import { getJobsInRange, getUnscheduledJobs } from '@/lib/calendar/queries';
 import { subscribeToJobs, unsubscribe } from '@/lib/calendar/realtime';
@@ -111,6 +111,18 @@ export default function CalendarPage() {
         onView={setView}
         onSelectJob={(job, anchor) => { setPopoverJob(job); setPopoverAnchor(anchor); }}
         onSelectSlot={(start) => { setNewJobStart(start); setNewJobOpen(true); }}
+      />
+
+      <WeeklyJobsPanel
+        scheduledJobs={jobs}
+        unscheduledJobs={unscheduledQuery.data ?? []}
+        weekOf={date}
+        onSelectJob={(job, anchor) => { setPopoverJob(job); setPopoverAnchor(anchor); }}
+        onScheduleJob={(job) => {
+          setNewJobStart(job.scheduledStart ? new Date(job.scheduledStart) : new Date());
+          setPopoverJob(job);
+          setPopoverAnchor(document.body);
+        }}
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[#8892A5]">
