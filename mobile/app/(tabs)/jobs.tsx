@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -174,10 +174,16 @@ export default function JobsScreen() {
   // Expand the first customer by default
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const expandedInitialized = useRef(false);
-  if (!expandedInitialized.current && sections.length > 0) {
-    expanded.add(sections[0].customerId);
-    expandedInitialized.current = true;
-  }
+  useEffect(() => {
+    if (!expandedInitialized.current && sections.length > 0) {
+      expandedInitialized.current = true;
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        next.add(sections[0].customerId);
+        return next;
+      });
+    }
+  }, [sections]);
   const toggleCustomer = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);

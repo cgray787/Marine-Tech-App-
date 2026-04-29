@@ -91,7 +91,8 @@ type Job = {
 };
 
 export default function JobDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string | string[] }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);

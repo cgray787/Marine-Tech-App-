@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { colors } from "@/constants/Colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
@@ -175,8 +176,9 @@ function UserMenu() {
 }
 
 function HeaderBar() {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.headerBar}>
+    <View style={[styles.headerBar, { paddingTop: insets.top + 12 }]}>
       <View style={styles.headerLeft}>
         <Text style={styles.headerAnchor}>&#9875;</Text>
         <Text style={styles.headerTitle}>MARINE TECH</Text>
@@ -280,7 +282,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 54,
     paddingBottom: 12,
     paddingHorizontal: 20,
     backgroundColor: colors.bgSecondary,

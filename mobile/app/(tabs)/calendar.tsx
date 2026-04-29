@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import { getJobsInRange, getUnscheduledJobs } from "@/lib/calendar/queries";
 import { subscribeToJobs, unsubscribe } from "@/lib/calendar/realtime";
@@ -63,7 +63,7 @@ export default function CalendarScreen() {
         <WeeklyJobsPanel
           scheduledJobs={jobsQuery.data ?? []}
           unscheduledJobs={unscheduledQuery.data ?? []}
-          weekOf={new Date(selectedDate)}
+          weekOf={parseISO(selectedDate)}
           onSelectJob={(j) => sheetRef.current?.present(j)}
           onScheduleJob={(j) =>
             scheduleSheetRef.current?.present({
