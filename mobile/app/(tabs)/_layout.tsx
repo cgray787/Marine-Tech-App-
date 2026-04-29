@@ -189,7 +189,7 @@ function HeaderBar() {
 }
 
 export default function TabLayout() {
-  const { session, loading } = useAuth();
+  const { session, profile, loading, signOut } = useAuth();
 
   useEffect(() => {
     if (!loading && !session) {
@@ -197,7 +197,29 @@ export default function TabLayout() {
     }
   }, [loading, session]);
 
+  // Suspended/pending tech accounts: sign them out and show a clear message.
+  // (Pending = invited but not yet activated by admin; suspended = admin disabled.)
+  useEffect(() => {
+    if (!loading && session && profile && profile.status && profile.status !== "active") {
+      const label = profile.status === "pending" ? "pending approval" : "suspended";
+      Alert.alert(
+        "Account not active",
+        `Your account is ${label}. Please contact your admin.`,
+        [
+          {
+            text: "OK",
+            onPress: async () => {
+              await signOut();
+              router.replace("/login");
+            },
+          },
+        ]
+      );
+    }
+  }, [loading, session, profile, signOut]);
+
   if (loading || !session) return null;
+  if (profile && profile.status && profile.status !== "active") return null;
 
   return (
     <View style={styles.wrapper}>

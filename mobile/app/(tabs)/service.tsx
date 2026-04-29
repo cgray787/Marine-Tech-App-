@@ -713,22 +713,28 @@ export default function ServiceScreen() {
       }
     }
 
-    // Upload all photos in parallel (checklist + gallery)
-    const photoUploads: Promise<void>[] = [];
+    // Upload all photos in parallel (checklist + gallery).
+    // Track failures so we can surface them to the tech instead of silently
+    // marking the report submitted with missing photos.
+    const photoUploads: Promise<{ ok: boolean }>[] = [];
 
     for (const [itemName, val] of Object.entries(checklist)) {
       if (val.photos && val.photos.length > 0) {
         for (const photo of val.photos) {
           photoUploads.push(
             (async () => {
-              const url = await uploadPhoto(photo.uri, "report-photos", report.id, "checklist");
-              if (url) {
-                await supabase.from("report_photos").insert({
+              try {
+                const url = await uploadPhoto(photo.uri, "report-photos", report.id, "checklist");
+                if (!url) return { ok: false };
+                const { error } = await supabase.from("report_photos").insert({
                   report_id: report.id,
                   photo_url: url,
                   category: "other",
                   caption: itemName,
                 });
+                return { ok: !error };
+              } catch {
+                return { ok: false };
               }
             })()
           );
@@ -740,21 +746,36 @@ export default function ServiceScreen() {
       const categorySlug = photo.category.toLowerCase().replace(/\s+/g, "_") as string;
       photoUploads.push(
         (async () => {
-          const url = await uploadPhoto(photo.uri, "report-photos", report.id, categorySlug);
-          if (url) {
-            await supabase.from("report_photos").insert({
+          try {
+            const url = await uploadPhoto(photo.uri, "report-photos", report.id, categorySlug);
+            if (!url) return { ok: false };
+            const { error } = await supabase.from("report_photos").insert({
               report_id: report.id,
               photo_url: url,
               category: categorySlug,
             });
+            return { ok: !error };
+          } catch {
+            return { ok: false };
           }
         })()
       );
     }
 
-    await Promise.allSettled(photoUploads);
+    const results = await Promise.allSettled(photoUploads);
+    const failedCount = results.reduce((n, r) => {
+      if (r.status === "rejected") return n + 1;
+      return r.value.ok ? n : n + 1;
+    }, 0);
 
     setSubmitting(false);
+
+    if (failedCount > 0) {
+      Alert.alert(
+        "Photo upload incomplete",
+        `${failedCount} photo${failedCount === 1 ? "" : "s"} did not upload. The report was saved without ${failedCount === 1 ? "it" : "them"}. Check your connection and re-add the photo${failedCount === 1 ? "" : "s"} from the report.`
+      );
+    }
     if (isEditing) {
       Alert.alert("Saved", "Changes saved.", [
         {
