@@ -7,7 +7,7 @@ type Profile = {
   email: string;
   full_name: string;
   role: "admin" | "tech";
-  status: "active" | "pending" | "suspended" | string;
+  status: "active" | "invited" | "disabled" | string;
   phone: string | null;
   avatar_url: string | null;
 };

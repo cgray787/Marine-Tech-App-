@@ -197,11 +197,12 @@ export default function TabLayout() {
     }
   }, [loading, session]);
 
-  // Suspended/pending tech accounts: sign them out and show a clear message.
-  // (Pending = invited but not yet activated by admin; suspended = admin disabled.)
+  // Non-active tech accounts: sign them out and show a clear message.
+  // Schema CHECK constraint: status IN ('active', 'invited', 'disabled')
   useEffect(() => {
     if (!loading && session && profile && profile.status && profile.status !== "active") {
-      const label = profile.status === "pending" ? "pending approval" : "suspended";
+      const label =
+        profile.status === "invited" ? "pending approval" : "disabled";
       Alert.alert(
         "Account not active",
         `Your account is ${label}. Please contact your admin.`,
