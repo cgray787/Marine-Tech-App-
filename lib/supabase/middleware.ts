@@ -46,7 +46,8 @@ export async function updateSession(request: NextRequest) {
       .eq("auth_id", user.id)
       .single();
 
-    if (!profile || profile.role !== "admin") {
+    // Web dashboard is gated to admin + viewer (viewer = read-only).
+    if (!profile || (profile.role !== "admin" && profile.role !== "viewer")) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("error", "unauthorized");
@@ -54,7 +55,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Redirect authenticated admins away from login
+  // Redirect authenticated admins/viewers away from login
   if (path === "/login" && user) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -62,7 +63,7 @@ export async function updateSession(request: NextRequest) {
       .eq("auth_id", user.id)
       .single();
 
-    if (profile?.role === "admin") {
+    if (profile?.role === "admin" || profile?.role === "viewer") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
