@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useCanWrite } from "@/lib/role-context";
 
 type Customer = {
   id: string;
@@ -36,6 +37,7 @@ export function CustomerList({
   initialBoats: Boat[];
 }) {
   const router = useRouter();
+  const canWrite = useCanWrite();
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showBoatForm, setShowBoatForm] = useState<string | null>(null);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
@@ -140,7 +142,8 @@ export function CustomerList({
 
   return (
     <div>
-      {/* Add Customer */}
+      {/* Add Customer — admins only; viewers see no add button or form. */}
+      {canWrite && (
       <div className="mb-6">
         {!showCustomerForm ? (
           <button
@@ -255,6 +258,7 @@ export function CustomerList({
           </div>
         )}
       </div>
+      )}
 
       {/* Customer List */}
       <div className="space-y-4">
@@ -336,6 +340,7 @@ export function CustomerList({
                       <h3 className="text-sm font-semibold text-gold">
                         Boats
                       </h3>
+                      {canWrite && (
                       <button
                         onClick={() => {
                           resetBoatForm();
@@ -349,6 +354,7 @@ export function CustomerList({
                       >
                         + Add Boat
                       </button>
+                      )}
                     </div>
 
                     {/* Add Boat Form */}

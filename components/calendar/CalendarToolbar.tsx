@@ -13,7 +13,8 @@ type Props = {
   techs: Tech[];
   selectedTechId: string | null;
   onTechChange: (id: string | null) => void;
-  onNewJob: () => void;
+  /** Optional — pass undefined to hide the "New job" button (read-only viewers). */
+  onNewJob?: () => void;
 };
 
 export function CalendarToolbar({
@@ -73,10 +74,12 @@ export function CalendarToolbar({
           ))}
         </div>
 
-        <button onClick={onNewJob}
-          className="bg-[#C9A96E] text-[#060a12] px-3.5 py-1.5 rounded-md font-semibold flex items-center gap-1 hover:bg-[#D4B87D]">
-          <Plus size={16} /> New job
-        </button>
+        {onNewJob && (
+          <button onClick={onNewJob}
+            className="bg-[#C9A96E] text-[#060a12] px-3.5 py-1.5 rounded-md font-semibold flex items-center gap-1 hover:bg-[#D4B87D]">
+            <Plus size={16} /> New job
+          </button>
+        )}
       </div>
     </div>
   );

@@ -62,7 +62,13 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
     }));
 
     function selectedDateString(): string {
-      return pickedDate.toISOString().slice(0, 10);
+      // react-native-calendars expects YYYY-MM-DD in the device's local time.
+      // toISOString() converts to UTC, which causes the highlight to jump a
+      // day for users west of UTC if pickedDate has an early-morning hour.
+      const y = pickedDate.getFullYear();
+      const m = String(pickedDate.getMonth() + 1).padStart(2, "0");
+      const d = String(pickedDate.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
     }
 
     async function save() {

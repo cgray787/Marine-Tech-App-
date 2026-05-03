@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useCanWrite } from "@/lib/role-context";
 
 export function ReportStatusActions({
   reportId,
@@ -12,6 +13,7 @@ export function ReportStatusActions({
   currentStatus: string;
 }) {
   const router = useRouter();
+  const canWrite = useCanWrite();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -41,6 +43,7 @@ export function ReportStatusActions({
   }
 
   if (currentStatus === "approved") return null;
+  if (!canWrite) return null;
 
   return (
     <div className="flex items-center gap-1">

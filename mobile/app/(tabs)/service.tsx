@@ -25,6 +25,7 @@ import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
 import { savePendingReport } from "@/lib/offline-db";
 import { colors } from "@/constants/Colors";
+import { SUPPLIERS } from "@/constants/Suppliers";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THUMB_SIZE = (SCREEN_WIDTH - 40 - 24) / 3; // 3 per row with gaps
@@ -163,6 +164,7 @@ export default function ServiceScreen() {
   const [newPartName, setNewPartName] = useState("");
   const [viewingPartPhoto, setViewingPartPhoto] = useState<string | null>(null);
   const [expandedPartIndex, setExpandedPartIndex] = useState<number | null>(null);
+  const [openSupplierIndex, setOpenSupplierIndex] = useState<number | null>(null);
 
   async function takePartPhoto(index: number) {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -711,22 +713,28 @@ export default function ServiceScreen() {
       }
     }
 
-    // Upload all photos in parallel (checklist + gallery)
-    const photoUploads: Promise<void>[] = [];
+    // Upload all photos in parallel (checklist + gallery).
+    // Track failures so we can surface them to the tech instead of silently
+    // marking the report submitted with missing photos.
+    const photoUploads: Promise<{ ok: boolean }>[] = [];
 
     for (const [itemName, val] of Object.entries(checklist)) {
       if (val.photos && val.photos.length > 0) {
         for (const photo of val.photos) {
           photoUploads.push(
             (async () => {
-              const url = await uploadPhoto(photo.uri, "report-photos", report.id, "checklist");
-              if (url) {
-                await supabase.from("report_photos").insert({
+              try {
+                const url = await uploadPhoto(photo.uri, "report-photos", report.id, "checklist");
+                if (!url) return { ok: false };
+                const { error } = await supabase.from("report_photos").insert({
                   report_id: report.id,
                   photo_url: url,
                   category: "other",
                   caption: itemName,
                 });
+                return { ok: !error };
+              } catch {
+                return { ok: false };
               }
             })()
           );
@@ -738,21 +746,36 @@ export default function ServiceScreen() {
       const categorySlug = photo.category.toLowerCase().replace(/\s+/g, "_") as string;
       photoUploads.push(
         (async () => {
-          const url = await uploadPhoto(photo.uri, "report-photos", report.id, categorySlug);
-          if (url) {
-            await supabase.from("report_photos").insert({
+          try {
+            const url = await uploadPhoto(photo.uri, "report-photos", report.id, categorySlug);
+            if (!url) return { ok: false };
+            const { error } = await supabase.from("report_photos").insert({
               report_id: report.id,
               photo_url: url,
               category: categorySlug,
             });
+            return { ok: !error };
+          } catch {
+            return { ok: false };
           }
         })()
       );
     }
 
-    await Promise.allSettled(photoUploads);
+    const results = await Promise.allSettled(photoUploads);
+    const failedCount = results.reduce((n, r) => {
+      if (r.status === "rejected") return n + 1;
+      return r.value.ok ? n : n + 1;
+    }, 0);
 
     setSubmitting(false);
+
+    if (failedCount > 0) {
+      Alert.alert(
+        "Photo upload incomplete",
+        `${failedCount} photo${failedCount === 1 ? "" : "s"} did not upload. The report was saved without ${failedCount === 1 ? "it" : "them"}. Check your connection and re-add the photo${failedCount === 1 ? "" : "s"} from the report.`
+      );
+    }
     if (isEditing) {
       Alert.alert("Saved", "Changes saved.", [
         {
@@ -1407,17 +1430,79 @@ export default function ServiceScreen() {
 
                   {/* Supplier / Where to Buy */}
                   <Text style={styles.partDetailLabel}>Where to Buy</Text>
-                  <TextInput
-                    style={styles.partDetailInput}
-                    value={part.supplier}
-                    onChangeText={(text) =>
-                      setParts((prev) =>
-                        prev.map((p, i) => (i === index ? { ...p, supplier: text } : p))
-                      )
-                    }
-                    placeholder="e.g. West Marine, Mercury dealer..."
-                    placeholderTextColor={colors.textSecondary + "80"}
-                  />
+                  <View style={styles.supplierRow}>
+                    <TextInput
+                      style={[styles.partDetailInput, { flex: 1 }]}
+                      value={part.supplier}
+                      onChangeText={(text) => {
+                        setParts((prev) =>
+                          prev.map((p, i) => (i === index ? { ...p, supplier: text } : p))
+                        );
+                        if (openSupplierIndex !== index) setOpenSupplierIndex(index);
+                      }}
+                      onFocus={() => setOpenSupplierIndex(index)}
+                      placeholder="Select or type supplier..."
+                      placeholderTextColor={colors.textSecondary + "80"}
+                    />
+                    <TouchableOpacity
+                      style={styles.supplierChevronBtn}
+                      onPress={() =>
+                        setOpenSupplierIndex(openSupplierIndex === index ? null : index)
+                      }
+                    >
+                      <Text style={styles.dropdownArrow}>
+                        {openSupplierIndex === index ? "▲" : "▼"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {openSupplierIndex === index && (() => {
+                    const q = part.supplier.trim().toLowerCase();
+                    const filtered = q
+                      ? SUPPLIERS.filter((s) => s.toLowerCase().includes(q))
+                      : SUPPLIERS;
+                    return (
+                      <ScrollView
+                        style={styles.supplierDropdownList}
+                        nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {filtered.length === 0 ? (
+                          <View style={styles.dropdownItem}>
+                            <Text style={styles.dropdownItemText}>
+                              No matches — your text will be saved as a custom supplier
+                            </Text>
+                          </View>
+                        ) : (
+                          filtered.map((s) => (
+                            <TouchableOpacity
+                              key={s}
+                              style={[
+                                styles.dropdownItem,
+                                part.supplier === s && styles.dropdownItemActive,
+                              ]}
+                              onPress={() => {
+                                setParts((prev) =>
+                                  prev.map((p, i) =>
+                                    i === index ? { ...p, supplier: s } : p
+                                  )
+                                );
+                                setOpenSupplierIndex(null);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.dropdownItemText,
+                                  part.supplier === s && styles.dropdownItemTextActive,
+                                ]}
+                              >
+                                {s}
+                              </Text>
+                            </TouchableOpacity>
+                          ))
+                        )}
+                      </ScrollView>
+                    );
+                  })()}
 
                   {/* URL Link */}
                   <Text style={styles.partDetailLabel}>Part URL</Text>
@@ -2090,6 +2175,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  supplierRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  supplierChevronBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  supplierDropdownList: {
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    marginTop: 6,
+    marginBottom: 8,
+    maxHeight: 220,
   },
   partUrlOpenBtn: {
     backgroundColor: colors.gold,

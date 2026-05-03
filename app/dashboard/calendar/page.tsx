@@ -9,11 +9,13 @@ import { getJobsInRange, getUnscheduledJobs } from '@/lib/calendar/queries';
 import { subscribeToJobs, unsubscribe } from '@/lib/calendar/realtime';
 import { createClient } from '@/lib/supabase/client';
 import { techColor, statusStripeColor } from '@/lib/calendar/colors';
+import { useCanWrite } from '@/lib/role-context';
 import type { CalendarJob, CalendarView as ViewMode } from '@/lib/calendar/types';
 
 export default function CalendarPage() {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
 
   const [view, setView] = useState<ViewMode>('month');
   const [date, setDate] = useState(new Date());
@@ -95,7 +97,11 @@ export default function CalendarPage() {
         techs={techsQuery.data ?? []}
         selectedTechId={techId}
         onTechChange={setTechId}
-        onNewJob={() => { setNewJobStart(new Date()); setNewJobOpen(true); }}
+        onNewJob={
+          canWrite
+            ? () => { setNewJobStart(new Date()); setNewJobOpen(true); }
+            : undefined
+        }
       />
 
       <UnscheduledTray
@@ -110,7 +116,11 @@ export default function CalendarPage() {
         onNavigate={setDate}
         onView={setView}
         onSelectJob={(job, anchor) => { setPopoverJob(job); setPopoverAnchor(anchor); }}
-        onSelectSlot={(start) => { setNewJobStart(start); setNewJobOpen(true); }}
+        onSelectSlot={
+          canWrite
+            ? (start) => { setNewJobStart(start); setNewJobOpen(true); }
+            : undefined
+        }
       />
 
       <WeeklyJobsPanel
@@ -118,11 +128,15 @@ export default function CalendarPage() {
         unscheduledJobs={unscheduledQuery.data ?? []}
         weekOf={date}
         onSelectJob={(job, anchor) => { setPopoverJob(job); setPopoverAnchor(anchor); }}
-        onScheduleJob={(job) => {
-          setNewJobStart(job.scheduledStart ? new Date(job.scheduledStart) : new Date());
-          setPopoverJob(job);
-          setPopoverAnchor(document.body);
-        }}
+        onScheduleJob={
+          canWrite
+            ? (job) => {
+                setNewJobStart(job.scheduledStart ? new Date(job.scheduledStart) : new Date());
+                setPopoverJob(job);
+                setPopoverAnchor(document.body);
+              }
+            : undefined
+        }
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[#8892A5]">
@@ -174,10 +188,12 @@ export default function CalendarPage() {
           ) : (
             <>
               <p className="text-lg mb-3">No jobs scheduled this {view}</p>
-              <button onClick={() => { setNewJobStart(new Date()); setNewJobOpen(true); }}
-                className="bg-[#C9A96E] text-[#060a12] px-4 py-2 rounded font-semibold">
-                + Schedule a job
-              </button>
+              {canWrite && (
+                <button onClick={() => { setNewJobStart(new Date()); setNewJobOpen(true); }}
+                  className="bg-[#C9A96E] text-[#060a12] px-4 py-2 rounded font-semibold">
+                  + Schedule a job
+                </button>
+              )}
             </>
           )}
         </div>

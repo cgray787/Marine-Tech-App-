@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { colors } from "@/constants/Colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
@@ -175,8 +176,9 @@ function UserMenu() {
 }
 
 function HeaderBar() {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.headerBar}>
+    <View style={[styles.headerBar, { paddingTop: insets.top + 12 }]}>
       <View style={styles.headerLeft}>
         <Text style={styles.headerAnchor}>&#9875;</Text>
         <Text style={styles.headerTitle}>MARINE TECH</Text>
@@ -187,7 +189,7 @@ function HeaderBar() {
 }
 
 export default function TabLayout() {
-  const { session, loading } = useAuth();
+  const { session, profile, loading, signOut } = useAuth();
 
   useEffect(() => {
     if (!loading && !session) {
@@ -195,7 +197,30 @@ export default function TabLayout() {
     }
   }, [loading, session]);
 
+  // Non-active tech accounts: sign them out and show a clear message.
+  // Schema CHECK constraint: status IN ('active', 'invited', 'disabled')
+  useEffect(() => {
+    if (!loading && session && profile && profile.status && profile.status !== "active") {
+      const label =
+        profile.status === "invited" ? "pending approval" : "disabled";
+      Alert.alert(
+        "Account not active",
+        `Your account is ${label}. Please contact your admin.`,
+        [
+          {
+            text: "OK",
+            onPress: async () => {
+              await signOut();
+              router.replace("/login");
+            },
+          },
+        ]
+      );
+    }
+  }, [loading, session, profile, signOut]);
+
   if (loading || !session) return null;
+  if (profile && profile.status && profile.status !== "active") return null;
 
   return (
     <View style={styles.wrapper}>
@@ -280,7 +305,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 54,
     paddingBottom: 12,
     paddingHorizontal: 20,
     backgroundColor: colors.bgSecondary,

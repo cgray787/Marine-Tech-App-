@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useCanWrite } from "@/lib/role-context";
 
 type Customer = { id: string; name: string };
 type Boat = { id: string; name: string; customer_id: string; make_model: string };
@@ -33,9 +34,13 @@ export function CreateJobForm({
   marinas: Marina[];
 }) {
   const router = useRouter();
+  const canWrite = useCanWrite();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Viewers can't create jobs — entire form is hidden.
+  if (!canWrite) return null;
 
   const [customerId, setCustomerId] = useState("");
   const [boatId, setBoatId] = useState("");

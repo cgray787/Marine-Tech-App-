@@ -33,6 +33,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [dbReady, setDbReady] = useState(false);
   const wasOffline = useRef(false);
+  const lastSyncAt = useRef(0);
 
   // Initialize SQLite DB
   useEffect(() => {
@@ -48,9 +49,14 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     setPendingCount(count);
   }, [dbReady]);
 
-  // Sync function
+  // Sync function — debounced via lastSyncAt cooldown so concurrent triggers
+  // (connectivity callback + AppState 'active') can't queue a duplicate run
+  // before isSyncing flips.
   const syncNow = useCallback(async () => {
     if (isSyncing || !dbReady) return;
+    const now = Date.now();
+    if (now - lastSyncAt.current < 2000) return;
+    lastSyncAt.current = now;
     setIsSyncing(true);
     try {
       const result = await syncAll();

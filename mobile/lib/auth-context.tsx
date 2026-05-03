@@ -7,6 +7,7 @@ type Profile = {
   email: string;
   full_name: string;
   role: "admin" | "tech";
+  status: "active" | "invited" | "disabled" | string;
   phone: string | null;
   avatar_url: string | null;
 };
@@ -37,22 +38,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let initialized = false;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      initialized = true;
       setSession(session);
       if (session?.user) fetchProfile(session.user.id);
       else setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        if (session?.user) fetchProfile(session.user.id);
-        else {
-          setProfile(null);
-          setLoading(false);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // INITIAL_SESSION fires alongside getSession() — let getSession handle it
+      // to avoid a duplicate profile fetch race.
+      if (event === "INITIAL_SESSION" && !initialized) return;
+      if (event === "INITIAL_SESSION" && initialized) return;
+
+      setSession(session);
+      if (session?.user) fetchProfile(session.user.id);
+      else {
+        setProfile(null);
+        setLoading(false);
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
