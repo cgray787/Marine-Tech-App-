@@ -10,15 +10,20 @@ import { dirname, join, basename, extname } from "node:path";
 const KEY_ID = "2B5Z869244";
 const ISSUER_ID = "f3b47a16-d70b-4ef4-bc3b-e30fed4d2766";
 const APP_ID = "6762853683";
-const SCREENSHOT_TYPE = "APP_IPHONE_67";
 const LOCALE = "en-US";
 
+// CLI: <dir> [<screenshotType>]
+// screenshotType defaults to APP_IPHONE_67. Common values:
+//   APP_IPHONE_67           — iPhone 6.7"/6.9" displays (1290×2796 / 1320×2868)
+//   APP_IPAD_PRO_3GEN_129   — iPad Pro 12.9"/13" (2064×2752)
+//   APP_IPAD_PRO_3GEN_11    — iPad Pro 11"      (1640×2360)
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const keyPath = join(__dirname, "..", ".secrets", `AuthKey_${KEY_ID}.p8`);
 const privateKey = readFileSync(keyPath, "utf8");
 const dirArg = process.argv[2];
+const SCREENSHOT_TYPE = process.argv[3] ?? "APP_IPHONE_67";
 if (!dirArg) {
-  console.error("usage: node scripts/asc-upload-screenshots.mjs <dir>");
+  console.error("usage: node scripts/asc-upload-screenshots.mjs <dir> [<screenshotType>]");
   process.exit(1);
 }
 
