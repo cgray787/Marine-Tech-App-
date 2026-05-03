@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useCanWrite } from "@/lib/role-context";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 export function InviteTechForm() {
   const router = useRouter();
+  const canWrite = useCanWrite();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -15,6 +17,9 @@ export function InviteTechForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+
+  // Viewers can't invite techs.
+  if (!canWrite) return null;
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();

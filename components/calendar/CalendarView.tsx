@@ -17,7 +17,8 @@ type Props = {
   onNavigate: (date: Date) => void;
   onView: (view: ViewMode) => void;
   onSelectJob: (job: CalendarJob, anchor: HTMLElement) => void;
-  onSelectSlot: (start: Date, end: Date) => void;
+  /** Optional — pass undefined to disable empty-cell click (read-only viewers). */
+  onSelectSlot?: (start: Date, end: Date) => void;
 };
 
 export function CalendarView({ jobs, view, date, onNavigate, onView, onSelectJob, onSelectSlot }: Props) {
@@ -47,8 +48,8 @@ export function CalendarView({ jobs, view, date, onNavigate, onView, onSelectJob
       onNavigate={onNavigate}
       onView={(v) => onView(v as ViewMode)}
       views={['month', 'week', 'day']}
-      selectable
-      onSelectSlot={(slotInfo) => onSelectSlot(slotInfo.start, slotInfo.end)}
+      selectable={!!onSelectSlot}
+      onSelectSlot={(slotInfo) => onSelectSlot?.(slotInfo.start, slotInfo.end)}
       onSelectEvent={(event, e) =>
         onSelectJob(event.resource as CalendarJob, e?.currentTarget as HTMLElement)
       }

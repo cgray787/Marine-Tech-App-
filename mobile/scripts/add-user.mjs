@@ -18,8 +18,8 @@ if (!email || !password) {
   process.exit(1);
 }
 const role = roleArg ?? "tech";
-if (!["admin", "tech"].includes(role)) {
-  console.error(`role must be 'admin' or 'tech' (got '${role}')`);
+if (!["admin", "tech", "viewer"].includes(role)) {
+  console.error(`role must be 'admin', 'tech', or 'viewer' (got '${role}')`);
   process.exit(1);
 }
 // Derive a reasonable default name from the local-part of the email.

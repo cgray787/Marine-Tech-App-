@@ -11,7 +11,8 @@ type Props = {
   unscheduledJobs: CalendarJob[];
   weekOf: Date;
   onSelectJob: (job: CalendarJob, anchor: HTMLElement) => void;
-  onScheduleJob: (job: CalendarJob) => void;
+  /** Optional — pass undefined to hide the per-row "Schedule" button (read-only viewers). */
+  onScheduleJob?: (job: CalendarJob) => void;
 };
 
 export function WeeklyJobsPanel({
@@ -80,7 +81,7 @@ export function WeeklyJobsPanel({
                 job={j}
                 scheduled
                 onSelect={(anchor) => onSelectJob(j, anchor)}
-                onSchedule={() => onScheduleJob(j)}
+                onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
               />
             ))}
         </Section>
@@ -97,7 +98,7 @@ export function WeeklyJobsPanel({
               job={j}
               scheduled={false}
               onSelect={(anchor) => onSelectJob(j, anchor)}
-              onSchedule={() => onScheduleJob(j)}
+              onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
             />
           ))}
         </Section>
@@ -148,7 +149,7 @@ function JobRow({
   job: CalendarJob;
   scheduled: boolean;
   onSelect: (anchor: HTMLElement) => void;
-  onSchedule: () => void;
+  onSchedule?: () => void;
 }) {
   const tech = job.tech ? techColor(job.tech.id) : '#3b6cd6';
   const stripe = statusStripeColor(job.status);
@@ -204,7 +205,7 @@ function JobRow({
         <ChevronRight size={14} className="text-[#8892A5] shrink-0" aria-hidden />
       </button>
 
-      {!scheduled && (
+      {!scheduled && onSchedule && (
         <button
           onClick={onSchedule}
           className="px-3 self-stretch border-l border-[#1a2236] bg-[#C9A96E] text-[#060a12] text-xs font-semibold hover:bg-[#D4B87D]"

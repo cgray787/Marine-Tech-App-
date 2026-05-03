@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useCanWrite } from "@/lib/role-context";
 
 export function JobStatusActions({
   jobId,
@@ -12,6 +13,7 @@ export function JobStatusActions({
   currentStatus: string;
 }) {
   const router = useRouter();
+  const canWrite = useCanWrite();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -41,6 +43,9 @@ export function JobStatusActions({
     return (
       <span className="text-xs text-emerald-400">Complete</span>
     );
+  }
+  if (!canWrite) {
+    return <span className="text-xs text-text-secondary">—</span>;
   }
 
   return (
