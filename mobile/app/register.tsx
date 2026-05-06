@@ -15,43 +15,38 @@ import { router, useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
 
+type AccountKind = "mechanic" | "owner";
+
 export default function RegisterScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
+  const isInviteFlow = Boolean(token);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [kind, setKind] = useState<AccountKind>("mechanic");
   const [loading, setLoading] = useState(false);
-  const [validating, setValidating] = useState(true);
+  const [validating, setValidating] = useState(isInviteFlow);
   const [error, setError] = useState<string | null>(null);
   const [tokenValid, setTokenValid] = useState(false);
 
-  // Validate the invite token on mount
   useEffect(() => {
-    validateToken();
+    if (isInviteFlow) validateToken();
   }, [token]);
 
   async function validateToken() {
-    if (!token) {
-      setError("No invite token provided. Please use the invite link sent by your admin.");
-      setValidating(false);
-      return;
-    }
-
-    // Validate invite via server-side function (prevents token enumeration)
     const { data: inviteRows, error: inviteError } = await supabase
       .rpc("validate_invite_token", { invite_token: token });
 
     const invite = inviteRows?.[0] ?? null;
 
     if (inviteError || !invite) {
-      setError("Invalid or expired invite token. Please contact your admin for a new invite.");
+      setError("Invalid or expired invite link. Please contact your shop admin for a new invite, or create a free personal account instead.");
       setValidating(false);
       return;
     }
 
-    // Pre-fill email from invite
     setEmail(invite.email || "");
     setTokenValid(true);
     setValidating(false);
@@ -60,39 +55,22 @@ export default function RegisterScreen() {
   async function handleRegister() {
     setError(null);
 
-    // Validation
-    if (!fullName.trim()) {
-      setError("Please enter your full name.");
-      return;
-    }
-    if (!email.trim()) {
-      setError("Please enter your email address.");
-      return;
-    }
-    if (!password) {
-      setError("Please enter a password.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
+    if (!fullName.trim()) return setError("Please enter your full name.");
+    if (!email.trim()) return setError("Please enter your email address.");
+    if (!password) return setError("Please enter a password.");
+    if (password.length < 6) return setError("Password must be at least 6 characters.");
+    if (password !== confirmPassword) return setError("Passwords do not match.");
 
     setLoading(true);
 
     try {
-      // 1. Create Supabase auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: {
             full_name: fullName.trim(),
-            role: "tech",
+            role: kind === "owner" ? "owner" : "tech",
           },
         },
       });
@@ -109,43 +87,38 @@ export default function RegisterScreen() {
         return;
       }
 
-      // 2. Update profile (may already exist from invite) or insert new one
+      // Insert / update profile. Tier depends on flow:
+      //   - Invite flow → 'shop' (admin invited them into the shop org)
+      //   - Public flow → 'individual' (free tier, isolated workspace)
+      const profilePayload = {
+        auth_id: authData.user.id,
+        email: email.trim(),
+        full_name: fullName.trim(),
+        role: isInviteFlow ? "tech" : kind === "owner" ? "owner" : "tech",
+        status: "active",
+        tier: isInviteFlow ? "shop" : "individual",
+      };
+
       const { error: profileError } = await supabase
         .from("profiles")
-        .upsert(
-          {
-            auth_id: authData.user.id,
-            email: email.trim(),
-            full_name: fullName.trim(),
-            role: "tech",
-            status: "active",
-          },
-          { onConflict: "email" }
-        );
+        .upsert(profilePayload, { onConflict: "email" });
 
       if (profileError) {
         console.warn("Profile upsert error:", profileError.message);
-        // Non-fatal: profile may have been created by the admin invite flow
       }
 
-      // 3. Mark invite as used
-      await supabase
-        .from("invites")
-        .update({ used: true })
-        .eq("token", token);
+      if (isInviteFlow) {
+        await supabase.from("invites").update({ used: true }).eq("token", token);
+      }
 
-      // 4. Sign out so the tech can sign in fresh on the login screen
       await supabase.auth.signOut();
 
       Alert.alert(
         "Account Created",
-        "Your account has been set up successfully. Please sign in with your email and password.",
-        [
-          {
-            text: "Go to Login",
-            onPress: () => router.replace("/login"),
-          },
-        ]
+        isInviteFlow
+          ? "Your account has been set up successfully. Please sign in with your email and password."
+          : "Welcome to Marine Tech! Sign in with your email and password to get started.",
+        [{ text: "Go to Sign In", onPress: () => router.replace("/login") }]
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred.";
@@ -155,7 +128,6 @@ export default function RegisterScreen() {
     }
   }
 
-  // Loading state while validating token
   if (validating) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -165,13 +137,12 @@ export default function RegisterScreen() {
     );
   }
 
-  // Invalid token state
-  if (!tokenValid) {
+  if (isInviteFlow && !tokenValid) {
     return (
       <View style={[styles.container, styles.centered]}>
         <View style={styles.logoContainer}>
           <View style={styles.logoIcon}>
-            <Text style={styles.anchorEmoji}>{"\u2693"}</Text>
+            <Text style={styles.anchorEmoji}>{"⚓"}</Text>
           </View>
           <Text style={styles.logoText}>MARINE TECH</Text>
         </View>
@@ -182,10 +153,18 @@ export default function RegisterScreen() {
 
         <TouchableOpacity
           style={styles.secondaryButton}
+          onPress={() => router.replace("/register")}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.secondaryButtonText}>Create Free Account</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, { marginTop: 12 }]}
           onPress={() => router.replace("/login")}
           activeOpacity={0.8}
         >
-          <Text style={styles.secondaryButtonText}>Go to Login</Text>
+          <Text style={styles.secondaryButtonText}>Go to Sign In</Text>
         </TouchableOpacity>
       </View>
     );
@@ -200,30 +179,62 @@ export default function RegisterScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logoIcon}>
-            <Text style={styles.anchorEmoji}>{"\u2693"}</Text>
+            <Text style={styles.anchorEmoji}>{"⚓"}</Text>
           </View>
           <Text style={styles.logoText}>MARINE TECH</Text>
           <Text style={styles.logoSubtitle}>Create Your Account</Text>
         </View>
 
-        {/* Error */}
         {error && (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
-        {/* Info Banner */}
-        <View style={styles.infoBanner}>
-          <Text style={styles.infoBannerText}>
-            You have been invited to join as a technician. Complete the form below to set up your account.
-          </Text>
-        </View>
+        {isInviteFlow ? (
+          <View style={styles.infoBanner}>
+            <Text style={styles.infoBannerText}>
+              You have been invited to join your shop on Marine Tech. Complete the form below to set up your account.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.infoBanner}>
+              <Text style={styles.infoBannerText}>
+                Free account · Up to 3 customers and 25 service reports
+              </Text>
+            </View>
 
-        {/* Full Name */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>I am a...</Text>
+              <View style={styles.kindRow}>
+                <TouchableOpacity
+                  style={[styles.kindButton, kind === "mechanic" && styles.kindButtonActive]}
+                  onPress={() => setKind("mechanic")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.kindText, kind === "mechanic" && styles.kindTextActive]}>
+                    Marine Mechanic
+                  </Text>
+                  <Text style={styles.kindSub}>Track customer boats, jobs, reports</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.kindButton, kind === "owner" && styles.kindButtonActive]}
+                  onPress={() => setKind("owner")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.kindText, kind === "owner" && styles.kindTextActive]}>
+                    Boat Owner
+                  </Text>
+                  <Text style={styles.kindSub}>Maintain a service log for my own boats</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Full Name</Text>
           <TextInput
@@ -237,26 +248,26 @@ export default function RegisterScreen() {
           />
         </View>
 
-        {/* Email */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Email</Text>
           <TextInput
-            style={[styles.input, styles.inputDisabled]}
-            placeholder="you@company.com"
+            style={[styles.input, isInviteFlow && styles.inputDisabled]}
+            placeholder="you@example.com"
             placeholderTextColor={colors.textSecondary + "80"}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            editable={false}
+            editable={!isInviteFlow}
           />
-          <Text style={styles.helperText}>
-            Email is set from your invite and cannot be changed.
-          </Text>
+          {isInviteFlow && (
+            <Text style={styles.helperText}>
+              Email is set from your invite and cannot be changed.
+            </Text>
+          )}
         </View>
 
-        {/* Password */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Password</Text>
           <TextInput
@@ -269,7 +280,6 @@ export default function RegisterScreen() {
           />
         </View>
 
-        {/* Confirm Password */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Confirm Password</Text>
           <TextInput
@@ -282,7 +292,6 @@ export default function RegisterScreen() {
           />
         </View>
 
-        {/* Register Button */}
         <TouchableOpacity
           style={[styles.registerButton, loading && styles.registerButtonDisabled]}
           onPress={handleRegister}
@@ -296,7 +305,6 @@ export default function RegisterScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Already have account */}
         <TouchableOpacity
           style={styles.loginLink}
           onPress={() => router.replace("/login")}
@@ -386,6 +394,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     lineHeight: 18,
+  },
+  kindRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  kindButton: {
+    flex: 1,
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "flex-start",
+  },
+  kindButtonActive: {
+    borderColor: colors.gold,
+    backgroundColor: colors.gold + "10",
+  },
+  kindText: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  kindTextActive: {
+    color: colors.gold,
+  },
+  kindSub: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 14,
   },
   fieldGroup: {
     marginBottom: 20,

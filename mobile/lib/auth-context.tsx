@@ -6,8 +6,9 @@ type Profile = {
   id: string;
   email: string;
   full_name: string;
-  role: "admin" | "tech";
+  role: "admin" | "tech" | "viewer" | "owner";
   status: "active" | "invited" | "disabled" | string;
+  tier: "shop" | "individual";
   phone: string | null;
   avatar_url: string | null;
 };

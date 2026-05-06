@@ -150,6 +150,18 @@ export default function LoginScreen() {
         >
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
+
+        {/* Create Account */}
+        <View style={styles.divider} />
+        <TouchableOpacity
+          style={styles.createAccountButton}
+          onPress={() => router.push("/register")}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.createAccountText}>
+            New to Marine Tech? <Text style={styles.createAccountBold}>Create a free account</Text>
+          </Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -259,5 +271,23 @@ const styles = StyleSheet.create({
   forgotText: {
     color: colors.gold,
     fontSize: 14,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginTop: 32,
+    marginBottom: 20,
+  },
+  createAccountButton: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  createAccountText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  createAccountBold: {
+    color: colors.gold,
+    fontWeight: "600",
   },
 });
