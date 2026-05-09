@@ -1,4 +1,4 @@
-# Resolution Center reply for v1.0 build 26 rejection
+# Resolution Center reply for v1.0 build 26 rejection (resubmit as build 28)
 
 Paste this into App Store Connect → Marine Tech → App Review → Messages,
 in reply to the 2026-05-07 rejection (Submission ID
@@ -12,7 +12,7 @@ on the version page before sending the reply.
 Hello App Review team,
 
 Thank you for the detailed feedback. We have addressed both guidelines in
-build 27.
+build 28.
 
 ## Guideline 5.1.1(v) — Account deletion
 
@@ -70,7 +70,7 @@ admin provisioning is required. Anyone can sign up.
 The previous build (26) included Postgres triggers that raised an error
 mentioning "contact support to upgrade" if a free-tier user exceeded
 soft caps of 3 customers / 25 reports. We see how this language could
-be read as paid content offered outside IAP. In build 27 those triggers
+be read as paid content offered outside IAP. In build 28 those triggers
 are dropped entirely (migration 011) — there is no usage cap, no
 contact-support escalation, no upgrade path, paid or otherwise.
 
