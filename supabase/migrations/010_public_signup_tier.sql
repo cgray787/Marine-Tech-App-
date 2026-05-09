@@ -224,7 +224,7 @@ CREATE POLICY "individual_read_pdi_checklist_items" ON public.pdi_checklist_item
   FOR SELECT TO authenticated
   USING (
     public.current_profile_tier() = 'individual'
-    AND report_id IN (
+    AND pdi_report_id IN (
       SELECT id FROM public.pdi_reports WHERE tech_id = public.current_profile_id()
     )
   );

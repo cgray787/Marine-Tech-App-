@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
 
 export default function AccountSettingsScreen() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, signOut } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || "");
   const [phone, setPhone] = useState(profile?.phone || "");
   const [saving, setSaving] = useState(false);
@@ -24,6 +24,39 @@ export default function AccountSettingsScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Account deletion
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDeleteAccount() {
+    if (deleteConfirm !== "DELETE") {
+      Alert.alert("Confirmation required", 'Type DELETE in all caps to confirm.');
+      return;
+    }
+    Alert.alert(
+      "Delete account?",
+      "This permanently removes your account and all associated data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete forever",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            const { error } = await supabase.rpc("delete_user_account");
+            if (error) {
+              setDeleting(false);
+              Alert.alert("Error", error.message);
+              return;
+            }
+            await signOut();
+            router.replace("/login");
+          },
+        },
+      ]
+    );
+  }
 
   async function handleSaveProfile() {
     if (!profile) return;
@@ -173,13 +206,48 @@ export default function AccountSettingsScreen() {
       </View>
 
       {/* App Info */}
-      <View style={[styles.section, { marginBottom: 40 }]}>
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
         <Text style={styles.infoText}>Marine Tech v1.0.0</Text>
         <Text style={styles.infoText}>Built for marine service technicians</Text>
         <Text style={[styles.infoText, { marginTop: 8 }]}>
           Role: {profile?.role?.toUpperCase() || "TECH"}
         </Text>
+      </View>
+
+      {/* Delete Account */}
+      <View style={[styles.section, styles.dangerSection, { marginBottom: 40 }]}>
+        <Text style={[styles.sectionTitle, styles.dangerTitle]}>Delete Account</Text>
+        <Text style={styles.infoText}>
+          Permanently delete your account and all associated data: customers,
+          boats, jobs, and reports you created. This cannot be undone.
+        </Text>
+        <View style={[styles.field, { marginTop: 16 }]}>
+          <Text style={styles.label}>Type DELETE to confirm</Text>
+          <TextInput
+            style={styles.input}
+            value={deleteConfirm}
+            onChangeText={setDeleteConfirm}
+            placeholder="DELETE"
+            placeholderTextColor={colors.textSecondary + "80"}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.deleteBtn,
+            (deleteConfirm !== "DELETE" || deleting) && styles.btnDisabled,
+          ]}
+          onPress={handleDeleteAccount}
+          disabled={deleteConfirm !== "DELETE" || deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.deleteBtnText}>Delete My Account</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -277,5 +345,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 22,
+  },
+  dangerSection: {
+    borderColor: "#7a1f1f",
+  },
+  dangerTitle: {
+    color: "#ef4444",
+  },
+  deleteBtn: {
+    backgroundColor: "#dc2626",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  deleteBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });
