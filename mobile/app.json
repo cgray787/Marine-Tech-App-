@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.grayyachts.marinetech",
+      "usesAppleSignIn": true,
       "buildNumber": "30",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -67,7 +68,9 @@
       ],
       "expo-secure-store",
       "expo-sqlite",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {
