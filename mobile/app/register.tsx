@@ -87,39 +87,37 @@ export default function RegisterScreen() {
         return;
       }
 
-      // Insert / update profile. Tier depends on flow:
-      //   - Invite flow → 'shop' (admin invited them into the shop org)
-      //   - Public flow → 'individual' (free tier, isolated workspace)
-      const profilePayload = {
-        auth_id: authData.user.id,
-        email: email.trim(),
-        full_name: fullName.trim(),
-        role: isInviteFlow ? "tech" : kind === "owner" ? "owner" : "tech",
-        status: "active",
-        tier: isInviteFlow ? "shop" : "individual",
-      };
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(profilePayload, { onConflict: "email" });
-
-      if (profileError) {
-        console.warn("Profile upsert error:", profileError.message);
-      }
+      // Profile creation is handled by an auth.users INSERT trigger
+      // (handle_new_user, migration 013) that runs SECURITY DEFINER so it
+      // bypasses RLS. The trigger reads role from raw_user_meta_data which
+      // we set in signUp() above.
 
       if (isInviteFlow) {
         await supabase.from("invites").update({ used: true }).eq("token", token);
       }
 
-      await supabase.auth.signOut();
+      // If signUp returned a session, the user is already signed in — go
+      // straight to the app. Otherwise (email confirmation enabled at the
+      // project level) fall back to explicit sign-in.
+      if (authData.session) {
+        router.replace("/(tabs)");
+        return;
+      }
 
-      Alert.alert(
-        "Account Created",
-        isInviteFlow
-          ? "Your account has been set up successfully. Please sign in with your email and password."
-          : "Welcome to Marine Tech! Sign in with your email and password to get started.",
-        [{ text: "Go to Sign In", onPress: () => router.replace("/login") }]
-      );
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInError) {
+        setError(
+          `Account created but auto sign-in failed: ${signInError.message}. Please use the sign-in screen.`
+        );
+        setLoading(false);
+        return;
+      }
+
+      router.replace("/(tabs)");
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred.";
       setError(message);
@@ -203,7 +201,7 @@ export default function RegisterScreen() {
           <>
             <View style={styles.infoBanner}>
               <Text style={styles.infoBannerText}>
-                Free account · Up to 3 customers and 25 service reports
+                Free account · Unlimited customers, jobs, and reports
               </Text>
             </View>
 
