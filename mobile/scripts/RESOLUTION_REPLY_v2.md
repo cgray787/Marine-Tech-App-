@@ -16,7 +16,7 @@ build 32.
 
 ## Guideline 5.1.1(v) — Account deletion
 
-Build 27 adds an in-app "Delete Account" flow under
+Build 32 adds an in-app "Delete Account" flow under
 Account Settings → Delete Account. The user types DELETE to enable the
 button, taps "Delete My Account", and confirms in a native dialog.
 On confirm the app calls a Supabase RPC (`delete_user_account`) that:
