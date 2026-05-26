@@ -70,6 +70,8 @@ export default function NewClientScreen() {
           address: address.trim() || null,
           notes: notes.trim() || null,
           created_by: profileId,
+          org_id: profile?.org_id ?? null,
+          location_id: profile?.location_id ?? null,
         })
         .select("id")
         .single();
@@ -95,6 +97,8 @@ export default function NewClientScreen() {
         engine_model: engineModel.trim() || null,
         color: boatColor.trim() || null,
         home_marina: homeMarina.trim() || null,
+        org_id: profile?.org_id ?? null,
+        location_id: profile?.location_id ?? null,
       });
 
       if (boatError) {

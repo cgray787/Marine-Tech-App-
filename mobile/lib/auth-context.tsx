@@ -11,6 +11,8 @@ type Profile = {
   tier: "shop" | "individual";
   phone: string | null;
   avatar_url: string | null;
+  org_id: string | null;
+  location_id: string | null;
 };
 
 type AuthContextType = {

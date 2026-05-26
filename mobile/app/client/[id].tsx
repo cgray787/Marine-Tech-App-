@@ -340,6 +340,34 @@ export default function ClientDetailScreen() {
     ]);
   }
 
+  async function handleDeleteClient() {
+    if (!customer) return;
+    Alert.alert(
+      "Delete Client",
+      `Permanently delete ${customer.name}, along with their boats, jobs, and reports? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            // jobs/reports reference customers with NO cascade — remove them first.
+            // boats cascade automatically on customer delete.
+            await supabase.from("service_reports").delete().eq("customer_id", customer.id);
+            await supabase.from("pdi_reports").delete().eq("customer_id", customer.id);
+            await supabase.from("jobs").delete().eq("customer_id", customer.id);
+            const { error } = await supabase.from("customers").delete().eq("id", customer.id);
+            if (error) {
+              Alert.alert("Delete failed", error.message);
+              return;
+            }
+            router.back();
+          },
+        },
+      ]
+    );
+  }
+
   function openEditBoat(boat: Boat) {
     setEditBoatId(boat.id);
     setEditBoatName(boat.name);
@@ -517,6 +545,11 @@ export default function ClientDetailScreen() {
           )}
           {customer.notes && (
             <Text style={styles.customerNotes}>{customer.notes}</Text>
+          )}
+          {(profile?.role === "admin" || profile?.role === "owner") && (
+            <TouchableOpacity style={styles.deleteClientBtn} onPress={handleDeleteClient}>
+              <Text style={styles.deleteClientBtnText}>Delete Client</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -1484,6 +1517,21 @@ const styles = StyleSheet.create({
     color: colors.bad,
     fontSize: 13,
     fontWeight: "600",
+  },
+  deleteClientBtn: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: colors.bad,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    alignSelf: "stretch",
+  },
+  deleteClientBtnText: {
+    color: colors.bad,
+    fontSize: 15,
+    fontWeight: "700",
   },
   pdiExpandedSection: {
     marginTop: 12,
