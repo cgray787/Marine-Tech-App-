@@ -13,6 +13,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
@@ -46,6 +47,7 @@ type Customer = {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  salesforce_url: string | null;
 };
 
 type PdiReport = {
@@ -526,16 +528,35 @@ export default function ClientDetailScreen() {
           </View>
           <Text style={styles.customerName}>{customer.name}</Text>
           {customer.phone && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoIcon}>{"\uD83D\uDCDE"}</Text>
-              <Text style={styles.infoText}>{customer.phone}</Text>
+            <View style={styles.contactActionRow}>
+              <TouchableOpacity
+                style={styles.contactChip}
+                onPress={() =>
+                  Linking.openURL(`tel:${customer.phone!.replace(/[^0-9+]/g, "")}`)
+                }
+              >
+                <Text style={styles.contactChipText}>
+                  {"\uD83D\uDCDE"}  {customer.phone}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.contactChip}
+                onPress={() =>
+                  Linking.openURL(`sms:${customer.phone!.replace(/[^0-9+]/g, "")}`)
+                }
+              >
+                <Text style={styles.contactChipText}>{"\uD83D\uDCAC"}  Text</Text>
+              </TouchableOpacity>
             </View>
           )}
           {customer.email && (
-            <View style={styles.infoRow}>
+            <TouchableOpacity
+              style={styles.infoRow}
+              onPress={() => Linking.openURL(`mailto:${customer.email}`)}
+            >
               <Text style={styles.infoIcon}>{"\u2709"}</Text>
-              <Text style={styles.infoText}>{customer.email}</Text>
-            </View>
+              <Text style={[styles.infoText, styles.infoLink]}>{customer.email}</Text>
+            </TouchableOpacity>
           )}
           {customer.address && (
             <View style={styles.infoRow}>
@@ -545,6 +566,16 @@ export default function ClientDetailScreen() {
           )}
           {customer.notes && (
             <Text style={styles.customerNotes}>{customer.notes}</Text>
+          )}
+          {customer.salesforce_url && (
+            <TouchableOpacity
+              style={styles.salesforceBtn}
+              onPress={() => Linking.openURL(customer.salesforce_url!)}
+            >
+              <Text style={styles.salesforceBtnText}>
+                {"\u2601"}  View in Salesforce
+              </Text>
+            </TouchableOpacity>
           )}
           {(profile?.role === "admin" || profile?.role === "owner") && (
             <TouchableOpacity style={styles.deleteClientBtn} onPress={handleDeleteClient}>
@@ -1668,6 +1699,47 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 15,
     color: colors.textSecondary,
+  },
+  infoLink: {
+    color: colors.gold,
+  },
+  contactActionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  contactChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.gold + "15",
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  contactChipText: {
+    color: colors.gold,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  salesforceBtn: {
+    marginTop: 16,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    alignSelf: "stretch",
+  },
+  salesforceBtnText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
   },
   customerNotes: {
     fontSize: 14,
