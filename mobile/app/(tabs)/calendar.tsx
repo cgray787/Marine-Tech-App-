@@ -71,6 +71,7 @@ export default function CalendarScreen() {
               customerName: j.customer?.name ?? "Unassigned",
               boatName: j.boat?.name ?? null,
               currentScheduledStart: j.scheduledStart,
+              currentLocation: j.locationOverride ?? j.marina?.name ?? null,
             })
           }
         />

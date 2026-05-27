@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "reac
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   Pressable,
   Platform,
@@ -20,6 +21,7 @@ export type ScheduleSheetHandle = {
     customerName: string;
     boatName: string | null;
     currentScheduledStart: string | null;
+    currentLocation?: string | null;
   }) => void;
   dismiss: () => void;
 };
@@ -40,6 +42,7 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
     } | null>(null);
     const [mode, setMode] = useState<Mode>("calendar");
     const [pickedDate, setPickedDate] = useState<Date>(() => new Date());
+    const [location, setLocation] = useState("");
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [saving, setSaving] = useState(false);
     const snapPoints = useMemo(() => ["75%"], []);
@@ -55,6 +58,7 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
               return d;
             })();
         setPickedDate(initial);
+        setLocation(j.currentLocation ?? "");
         setMode("calendar");
         sheetRef.current?.snapToIndex(0);
       },
@@ -83,6 +87,7 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
           scheduled_start: start,
           scheduled_end: end,
           scheduled_date: dateOnly,
+          location_override: location.trim() || null,
         })
         .eq("id", job.id);
       setSaving(false);
@@ -188,6 +193,17 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
                 </View>
               )}
 
+              <View>
+                <Text style={styles.pickerLabel}>Location</Text>
+                <TextInput
+                  style={styles.locationInput}
+                  placeholder="e.g. Elliott Bay Marina · Slip K4"
+                  placeholderTextColor={colors.textSecondary + "80"}
+                  value={location}
+                  onChangeText={setLocation}
+                />
+              </View>
+
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Will schedule for</Text>
                 <Text style={styles.summaryValue}>
@@ -256,6 +272,16 @@ const styles = StyleSheet.create({
   toggleText: { color: colors.textSecondary, fontWeight: "600", fontSize: 13 },
   toggleTextActive: { color: colors.bgPrimary },
   pickerWrap: { paddingVertical: 8 },
+  locationInput: {
+    backgroundColor: colors.bgPrimary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
   pickerLabel: {
     color: colors.textSecondary,
     fontSize: 12,

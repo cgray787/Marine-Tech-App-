@@ -29,6 +29,7 @@ type Boat = {
   engine_make: string | null;
   engine_model: string | null;
   color: string | null;
+  home_marina: string | null;
 };
 
 type Job = {
@@ -104,6 +105,7 @@ export default function ClientDetailScreen() {
   const [newBoatEngineMake, setNewBoatEngineMake] = useState("");
   const [newBoatEngineModel, setNewBoatEngineModel] = useState("");
   const [newBoatColor, setNewBoatColor] = useState("");
+  const [newBoatHomeMarina, setNewBoatHomeMarina] = useState("");
 
   // Edit client modal
   const [showEditClient, setShowEditClient] = useState(false);
@@ -125,6 +127,7 @@ export default function ClientDetailScreen() {
   const [editBoatEngineMake, setEditBoatEngineMake] = useState("");
   const [editBoatEngineModel, setEditBoatEngineModel] = useState("");
   const [editBoatColor, setEditBoatColor] = useState("");
+  const [editBoatHomeMarina, setEditBoatHomeMarina] = useState("");
 
   // Create PDI modal
   const [showCreatePdi, setShowCreatePdi] = useState(false);
@@ -148,7 +151,7 @@ export default function ClientDetailScreen() {
       supabase.from("customers").select("*").eq("id", id).single(),
       supabase
         .from("boats")
-        .select("id, name, make_model, year, hin, engine_make, engine_model, color")
+        .select("id, name, make_model, year, hin, engine_make, engine_model, color, home_marina")
         .eq("customer_id", id)
         .order("name"),
       supabase
@@ -308,6 +311,7 @@ export default function ClientDetailScreen() {
       engine_make: newBoatEngineMake.trim() || null,
       engine_model: newBoatEngineModel.trim() || null,
       color: newBoatColor.trim() || null,
+      home_marina: newBoatHomeMarina.trim() || null,
     });
 
     setAddingBoat(false);
@@ -324,6 +328,7 @@ export default function ClientDetailScreen() {
     setNewBoatEngineMake("");
     setNewBoatEngineModel("");
     setNewBoatColor("");
+    setNewBoatHomeMarina("");
     fetchData();
   }
 
@@ -379,6 +384,7 @@ export default function ClientDetailScreen() {
     setEditBoatEngineMake(boat.engine_make || "");
     setEditBoatEngineModel(boat.engine_model || "");
     setEditBoatColor(boat.color || "");
+    setEditBoatHomeMarina(boat.home_marina || "");
     setShowEditBoat(true);
   }
 
@@ -399,6 +405,7 @@ export default function ClientDetailScreen() {
         engine_make: editBoatEngineMake.trim() || null,
         engine_model: editBoatEngineModel.trim() || null,
         color: editBoatColor.trim() || null,
+        home_marina: editBoatHomeMarina.trim() || null,
       })
       .eq("id", editBoatId);
 
@@ -1102,6 +1109,15 @@ export default function ClientDetailScreen() {
                   </View>
                 </View>
 
+                <Text style={styles.modalLabel}>Home Marina</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. Elliott Bay Marina"
+                  placeholderTextColor={colors.textSecondary + "80"}
+                  value={newBoatHomeMarina}
+                  onChangeText={setNewBoatHomeMarina}
+                />
+
                 <TouchableOpacity
                   style={[
                     styles.modalSubmit,
@@ -1403,6 +1419,15 @@ export default function ClientDetailScreen() {
                     />
                   </View>
                 </View>
+
+                <Text style={styles.modalLabel}>Home Marina</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. Elliott Bay Marina"
+                  placeholderTextColor={colors.textSecondary + "80"}
+                  value={editBoatHomeMarina}
+                  onChangeText={setEditBoatHomeMarina}
+                />
 
                 <TouchableOpacity
                   style={[
