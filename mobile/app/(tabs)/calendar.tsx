@@ -12,14 +12,19 @@ import {
   JobBottomSheetHandle,
 } from "@/components/calendar/JobBottomSheet";
 import { ScheduleSheet, ScheduleSheetHandle } from "@/components/ScheduleSheet";
+import { ViewToggle, type CalendarPanelMode } from "@/components/calendar/ViewToggle";
+import { HourGrid } from "@/components/calendar/HourGrid";
+import { NewJobSheet, NewJobSheetHandle } from "@/components/calendar/NewJobSheet";
 import { colors } from "@/constants/Colors";
 
 export default function CalendarScreen() {
   const queryClient = useQueryClient();
   const [monthDate, setMonthDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [viewMode, setViewMode] = useState<CalendarPanelMode>("week");
   const sheetRef = useRef<JobBottomSheetHandle>(null);
   const scheduleSheetRef = useRef<ScheduleSheetHandle>(null);
+  const newJobSheetRef = useRef<NewJobSheetHandle>(null);
 
   const range = useMemo(
     () => ({
@@ -55,11 +60,12 @@ export default function CalendarScreen() {
         onSelectDate={setSelectedDate}
         onMonthChange={setMonthDate}
       />
+      <ViewToggle value={viewMode} onChange={setViewMode} />
       {jobsQuery.isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.gold} />
         </View>
-      ) : (
+      ) : viewMode === "week" ? (
         <WeeklyJobsPanel
           scheduledJobs={jobsQuery.data ?? []}
           unscheduledJobs={unscheduledQuery.data ?? []}
@@ -75,11 +81,34 @@ export default function CalendarScreen() {
             })
           }
         />
+      ) : (
+        <HourGrid
+          jobs={jobsQuery.data ?? []}
+          selectedDate={selectedDate}
+          onSelectJob={(j) => sheetRef.current?.present(j)}
+          onScheduleJob={(j) =>
+            scheduleSheetRef.current?.present({
+              id: j.id,
+              customerName: j.customer?.name ?? "Unassigned",
+              boatName: j.boat?.name ?? null,
+              currentScheduledStart: j.scheduledStart,
+              currentLocation: j.locationOverride ?? j.marina?.name ?? null,
+            })
+          }
+          onTapEmptySlot={(iso) => newJobSheetRef.current?.present(iso)}
+        />
       )}
       <JobBottomSheet ref={sheetRef} />
       <ScheduleSheet
         ref={scheduleSheetRef}
         onScheduled={() => {
+          queryClient.invalidateQueries({ queryKey: ["calendar-mobile"] });
+          queryClient.invalidateQueries({ queryKey: ["calendar-mobile-unscheduled"] });
+        }}
+      />
+      <NewJobSheet
+        ref={newJobSheetRef}
+        onCreated={() => {
           queryClient.invalidateQueries({ queryKey: ["calendar-mobile"] });
           queryClient.invalidateQueries({ queryKey: ["calendar-mobile-unscheduled"] });
         }}
