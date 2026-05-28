@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import type { CalendarJob } from "@/lib/calendar/types";
 import { techColor, statusStripeColor } from "@/lib/calendar/colors";
@@ -51,6 +51,29 @@ export function HourGrid({
   const buckets = useMemo(() => bucketJobsByHour(singleDayJobs), [singleDayJobs]);
   const hasAnyJobs = singleDayJobs.length > 0 || multiDayJobs.length > 0;
 
+  const scrollRef = useRef<ScrollView>(null);
+  const [nowMinutes, setNowMinutes] = useState(() => minutesSinceStart(new Date()));
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const isToday = selectedDate === today;
+
+  // Tick the now-line every minute while mounted
+  useEffect(() => {
+    if (!isToday) return;
+    const id = setInterval(() => setNowMinutes(minutesSinceStart(new Date())), 60_000);
+    return () => clearInterval(id);
+  }, [isToday]);
+
+  // Auto-scroll on first mount + on selectedDate change
+  useEffect(() => {
+    const targetY = isToday
+      ? Math.max(0, (nowMinutes / 60) * HOUR_HEIGHT - 100)
+      : (8 - HOUR_START) * HOUR_HEIGHT;      // 8 AM near top on other days
+    // RN ScrollView measures after layout; defer to next tick
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: targetY, animated: false }));
+    // Intentionally NOT depending on nowMinutes — auto-scroll only on date change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
+
   return (
     <View style={styles.container} testID="hour-grid">
       <AllDayStrip
@@ -59,7 +82,7 @@ export function HourGrid({
         onSelectJob={onSelectJob}
         onScheduleJob={onScheduleJob}
       />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         {buckets.map((rowJobs, idx) => {
           const hour = HOUR_START + idx;
           const rowHeight = Math.max(HOUR_HEIGHT, rowJobs.length * LANE_HEIGHT + 8);
@@ -91,6 +114,16 @@ export function HourGrid({
             </View>
           );
         })}
+        {isToday && nowMinutes >= 0 && nowMinutes <= (HOUR_END - HOUR_START + 1) * 60 && (
+          <View
+            style={[
+              styles.nowLine,
+              { top: (nowMinutes / 60) * HOUR_HEIGHT, pointerEvents: "none" },
+            ]}
+          >
+            <View style={styles.nowDot} />
+          </View>
+        )}
       </ScrollView>
       {!hasAnyJobs && (
         <View style={[styles.emptyOverlay, { pointerEvents: "none" }]}>
@@ -137,6 +170,11 @@ function formatHourLabel(hour: number): string {
   return `${h} ${period}`;
 }
 
+function minutesSinceStart(now: Date): number {
+  // Minutes since HOUR_START (5 AM) — negative if before 5 AM.
+  return (now.getHours() - HOUR_START) * 60 + now.getMinutes();
+}
+
 function buildIsoSlot(selectedDate: string, hour: number): string {
   // local-time slot at the hour boundary; downstream code interprets in device TZ
   const hh = hour.toString().padStart(2, "0");
@@ -178,4 +216,21 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: "#8892A5", fontSize: 16, fontWeight: "500" },
   emptyHint: { color: "#8892A5", fontSize: 12, opacity: 0.8, marginTop: 4 },
+  nowLine: {
+    position: "absolute",
+    left: 44,
+    right: 0,
+    height: 1,
+    backgroundColor: "#ef4444",
+    zIndex: 5,
+  },
+  nowDot: {
+    position: "absolute",
+    left: -4,
+    top: -3,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#ef4444",
+  },
 });
