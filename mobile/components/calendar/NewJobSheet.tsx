@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -11,11 +12,20 @@ import {
   StyleSheet,
   Pressable,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useQuery } from "@tanstack/react-query";
 import { addHours, parseISO, format as fmtDate } from "date-fns";
 import { formatTime } from "@/lib/calendar/format";
+import { supabase } from "@/lib/supabase";
+import {
+  getCustomersForLocation,
+  getBoatsForCustomer,
+  type PickerCustomer,
+  type PickerBoat,
+} from "@/lib/calendar/queries";
 
 const DURATIONS_HOURS: { label: string; hours: number }[] = [
   { label: "30m", hours: 0.5 },
@@ -43,10 +53,46 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
     const [durationHours, setDurationHours] = useState<number>(1);
     const [showTimePicker, setShowTimePicker] = useState(false);
 
+    const [customerId, setCustomerId] = useState<string | null>(null);
+    const [boatId, setBoatId] = useState<string | null>(null);
+    const [showCustomerPicker, setShowCustomerPicker] = useState(false);
+    const [showBoatPicker, setShowBoatPicker] = useState(false);
+
+    const customersQuery = useQuery({
+      queryKey: ["picker-customers"],
+      queryFn: () => getCustomersForLocation(supabase),
+      staleTime: 60_000,
+    });
+
+    const boatsQuery = useQuery({
+      queryKey: ["picker-boats", customerId],
+      queryFn: () => getBoatsForCustomer(supabase, customerId!),
+      enabled: customerId != null,
+      staleTime: 60_000,
+    });
+
+    const selectedCustomer = customersQuery.data?.find((c) => c.id === customerId) ?? null;
+    const selectedBoat     = boatsQuery.data?.find((b) => b.id === boatId) ?? null;
+
+    // Reset boat when customer changes; auto-select the only boat if just one
+    useEffect(() => {
+      setBoatId(null);
+    }, [customerId]);
+
+    useEffect(() => {
+      if (boatsQuery.data && boatsQuery.data.length === 1) {
+        setBoatId(boatsQuery.data[0].id);
+      }
+    }, [boatsQuery.data]);
+
     useImperativeHandle(ref, () => ({
       present: (initial) => {
         setStartIso(initial);
         setDurationHours(1);
+        setCustomerId(null);
+        setBoatId(null);
+        setShowCustomerPicker(false);
+        setShowBoatPicker(false);
         sheetRef.current?.snapToIndex(0);
       },
       dismiss: () => sheetRef.current?.close(),
@@ -125,7 +171,84 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
             </Text>
           )}
 
-          {/* Customer + boat pickers (added in Task 11) */}
+          {/* Customer picker */}
+          <Text style={styles.label}>CUSTOMER</Text>
+          <Pressable
+            onPress={() => setShowCustomerPicker((v) => !v)}
+            style={styles.pickerRow}
+            testID="new-job-customer"
+          >
+            <Text style={styles.pickerValue}>
+              {selectedCustomer ? selectedCustomer.name : "Tap to choose"}
+            </Text>
+            <Text style={styles.pickerChevron}>{showCustomerPicker ? "▴" : "▾"}</Text>
+          </Pressable>
+          {showCustomerPicker && (
+            <View style={styles.pickerList}>
+              {customersQuery.isLoading && (
+                <ActivityIndicator color="#C9A96E" style={{ padding: 12 }} />
+              )}
+              {customersQuery.data?.map((c) => (
+                <Pressable
+                  key={c.id}
+                  onPress={() => {
+                    setCustomerId(c.id);
+                    setShowCustomerPicker(false);
+                  }}
+                  style={styles.pickerItem}
+                  testID={`customer-${c.id}`}
+                >
+                  <Text style={styles.pickerItemText}>{c.name}</Text>
+                </Pressable>
+              ))}
+              {customersQuery.data?.length === 0 && (
+                <Text style={styles.pickerEmpty}>No customers in your location yet</Text>
+              )}
+            </View>
+          )}
+
+          {/* Boat picker */}
+          <Text style={styles.label}>BOAT</Text>
+          <Pressable
+            onPress={() => customerId && setShowBoatPicker((v) => !v)}
+            style={[styles.pickerRow, !customerId && styles.pickerRowDisabled]}
+            testID="new-job-boat"
+          >
+            <Text style={styles.pickerValue}>
+              {selectedBoat
+                ? `${selectedBoat.name}${selectedBoat.makeModel ? ` · ${selectedBoat.makeModel}` : ""}`
+                : customerId
+                  ? "Tap to choose"
+                  : "Pick a customer first"}
+            </Text>
+            <Text style={styles.pickerChevron}>{showBoatPicker ? "▴" : "▾"}</Text>
+          </Pressable>
+          {showBoatPicker && customerId && (
+            <View style={styles.pickerList}>
+              {boatsQuery.isLoading && (
+                <ActivityIndicator color="#C9A96E" style={{ padding: 12 }} />
+              )}
+              {boatsQuery.data?.map((b) => (
+                <Pressable
+                  key={b.id}
+                  onPress={() => {
+                    setBoatId(b.id);
+                    setShowBoatPicker(false);
+                  }}
+                  style={styles.pickerItem}
+                  testID={`boat-${b.id}`}
+                >
+                  <Text style={styles.pickerItemText}>
+                    {b.name}{b.makeModel ? ` · ${b.makeModel}` : ""}
+                  </Text>
+                </Pressable>
+              ))}
+              {boatsQuery.data?.length === 0 && (
+                <Text style={styles.pickerEmpty}>No boats on this customer</Text>
+              )}
+            </View>
+          )}
+
           {/* Sticky footer (added in Task 12) */}
         </BottomSheetScrollView>
 
@@ -184,4 +307,32 @@ const styles = StyleSheet.create({
   chipText: { color: "#f1f5f9", fontSize: 13, fontWeight: "500" },
   chipTextSelected: { color: "#060a12", fontWeight: "700" },
   subhint: { color: "#8892A5", fontSize: 11, marginTop: 6 },
+  pickerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1a2236",
+    paddingVertical: 10,
+  },
+  pickerRowDisabled: { opacity: 0.5 },
+  pickerValue: { color: "#f1f5f9", fontSize: 15, flex: 1, marginRight: 8 },
+  pickerChevron: { color: "#8892A5", fontSize: 12 },
+  pickerList: {
+    marginTop: 4,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#1a2236",
+    borderRadius: 6,
+    maxHeight: 200,
+    backgroundColor: "#060a12",
+  },
+  pickerItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1a2236",
+  },
+  pickerItemText: { color: "#f1f5f9", fontSize: 14 },
+  pickerEmpty: { color: "#8892A5", fontSize: 12, padding: 12, fontStyle: "italic" },
 });
