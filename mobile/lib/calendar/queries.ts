@@ -126,3 +126,38 @@ export async function updateJob(supabase: SupabaseClient, input: UpdateJobInput)
   if (error) throw error;
   return mapJobRowToCalendarJob(data);
 }
+
+// Customer + boat pickers for NewJobSheet. RLS filters customers to the
+// caller's location (shop_read_customers, migration 017); we don't need
+// to add .eq("location_id", ...) ourselves.
+
+export type PickerCustomer = { id: string; name: string };
+export type PickerBoat     = { id: string; name: string; makeModel: string | null };
+
+export async function getCustomersForLocation(
+  supabase: SupabaseClient,
+): Promise<PickerCustomer[]> {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, name')
+    .order('name');
+  if (error) throw error;
+  return (data ?? []).map((c) => ({ id: c.id, name: c.name }));
+}
+
+export async function getBoatsForCustomer(
+  supabase: SupabaseClient,
+  customerId: string,
+): Promise<PickerBoat[]> {
+  const { data, error } = await supabase
+    .from('boats')
+    .select('id, name, make_model')
+    .eq('customer_id', customerId)
+    .order('name');
+  if (error) throw error;
+  return (data ?? []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    makeModel: b.make_model ?? null,
+  }));
+}
