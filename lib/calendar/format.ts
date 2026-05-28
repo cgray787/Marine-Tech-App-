@@ -1,4 +1,5 @@
 import type { CalendarJob } from './types';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 
 function toDate(input: Date | string | null): Date | null {
   if (input == null) return null;
@@ -38,4 +39,15 @@ export function isMultiDay(job: CalendarJob): boolean {
   if (!job.scheduledStart || !job.scheduledEndDate) return false;
   const startDate = job.scheduledStart.slice(0, 10);
   return job.scheduledEndDate > startDate;
+}
+
+export function dayOfN(
+  selectedDate: string,         // 'yyyy-MM-dd' in local TZ
+  startIso: string,             // full ISO from scheduled_start
+  endDate: string,              // 'yyyy-MM-dd' from scheduled_end_date
+): { day: number; total: number } {
+  const startDate = startIso.slice(0, 10);
+  const total = differenceInCalendarDays(parseISO(endDate), parseISO(startDate)) + 1;
+  const day   = differenceInCalendarDays(parseISO(selectedDate), parseISO(startDate)) + 1;
+  return { day, total };
 }

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatTime, formatTimeRange } from '@/lib/calendar/format';
-import { isMultiDay } from '@/lib/calendar/format';
+import { formatTime, formatTimeRange, isMultiDay, dayOfN } from '@/lib/calendar/format';
 import type { CalendarJob } from '@/lib/calendar/types';
 
 describe('formatTime', () => {
@@ -92,5 +91,23 @@ describe('isMultiDay', () => {
     expect(
       isMultiDay(makeJob({ scheduledStart: '2026-03-04T10:00:00Z', scheduledEndDate: '2026-03-06' })),
     ).toBe(true);
+  });
+});
+
+describe('dayOfN', () => {
+  it('returns 1/1 for a single-day job (defensive)', () => {
+    expect(dayOfN('2026-03-04', '2026-03-04T10:00:00Z', '2026-03-04')).toEqual({ day: 1, total: 1 });
+  });
+
+  it('returns 1/3 on the start day of a three-day span', () => {
+    expect(dayOfN('2026-03-04', '2026-03-04T10:00:00Z', '2026-03-06')).toEqual({ day: 1, total: 3 });
+  });
+
+  it('returns 2/3 on the middle day', () => {
+    expect(dayOfN('2026-03-05', '2026-03-04T10:00:00Z', '2026-03-06')).toEqual({ day: 2, total: 3 });
+  });
+
+  it('returns 3/3 on the last day', () => {
+    expect(dayOfN('2026-03-06', '2026-03-04T10:00:00Z', '2026-03-06')).toEqual({ day: 3, total: 3 });
   });
 });
