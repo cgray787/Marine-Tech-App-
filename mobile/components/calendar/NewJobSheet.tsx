@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { addHours, parseISO, format as fmtDate } from "date-fns";
 import { formatTime } from "@/lib/calendar/format";
 import { supabase } from "@/lib/supabase";
@@ -26,8 +26,6 @@ import {
   getCustomersForLocation,
   getBoatsForCustomer,
   createJob,
-  type PickerCustomer,
-  type PickerBoat,
 } from "@/lib/calendar/queries";
 
 const DURATIONS_HOURS: { label: string; hours: number }[] = [
@@ -74,7 +72,6 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
       staleTime: 60_000,
     });
 
-    const queryClient = useQueryClient();
     const { profile } = useAuth();
 
     const createMutation = useMutation({
@@ -93,8 +90,8 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
         });
       },
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["calendar-mobile"] });
-        queryClient.invalidateQueries({ queryKey: ["calendar-mobile-unscheduled"] });
+        // Parent is responsible for cache invalidation (matches ScheduleSheet's
+        // pattern: see calendar.tsx's onCreated handler).
         sheetRef.current?.close();
         onCreated?.();
       },
@@ -324,6 +321,8 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
     );
   },
 );
+
+NewJobSheet.displayName = "NewJobSheet";
 
 const styles = StyleSheet.create({
   body: { padding: 20, paddingBottom: 80 },

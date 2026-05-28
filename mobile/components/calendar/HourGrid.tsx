@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
+import { format } from "date-fns";
 import type { CalendarJob } from "@/lib/calendar/types";
 import { techColor, statusStripeColor } from "@/lib/calendar/colors";
 import {
@@ -53,7 +54,7 @@ export function HourGrid({
 
   const scrollRef = useRef<ScrollView>(null);
   const [nowMinutes, setNowMinutes] = useState(() => minutesSinceStart(new Date()));
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
   const isToday = selectedDate === today;
 
   // Tick the now-line every minute while mounted
