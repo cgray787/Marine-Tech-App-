@@ -13,16 +13,19 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addHours, parseISO, format as fmtDate } from "date-fns";
 import { formatTime } from "@/lib/calendar/format";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import {
   getCustomersForLocation,
   getBoatsForCustomer,
+  createJob,
   type PickerCustomer,
   type PickerBoat,
 } from "@/lib/calendar/queries";
@@ -45,7 +48,7 @@ type Props = {
 };
 
 export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
-  function NewJobSheet({ onCreated: _ }, ref) {
+  function NewJobSheet({ onCreated }, ref) {
     const sheetRef = useRef<BottomSheet>(null);
     const snapPoints = useMemo(() => ["50%", "90%"], []);
 
@@ -70,6 +73,37 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
       enabled: customerId != null,
       staleTime: 60_000,
     });
+
+    const queryClient = useQueryClient();
+    const { profile } = useAuth();
+
+    const createMutation = useMutation({
+      mutationFn: async () => {
+        if (!startIso || !customerId || !boatId) {
+          throw new Error("Missing required fields");
+        }
+        const start = parseISO(startIso);
+        const end   = addHours(start, durationHours);
+        return createJob(supabase, {
+          customerId,
+          boatId,
+          assignedTo: profile?.id ?? null,
+          scheduledStart: start.toISOString(),
+          scheduledEnd: end.toISOString(),
+        });
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["calendar-mobile"] });
+        queryClient.invalidateQueries({ queryKey: ["calendar-mobile-unscheduled"] });
+        sheetRef.current?.close();
+        onCreated?.();
+      },
+      onError: (err: Error) => {
+        Alert.alert("Couldn't schedule", err.message);
+      },
+    });
+
+    const canSubmit = !!(startIso && customerId && boatId) && !createMutation.isPending;
 
     const selectedCustomer = customersQuery.data?.find((c) => c.id === customerId) ?? null;
     const selectedBoat     = boatsQuery.data?.find((b) => b.id === boatId) ?? null;
@@ -249,8 +283,29 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
             </View>
           )}
 
-          {/* Sticky footer (added in Task 12) */}
         </BottomSheetScrollView>
+
+        <View style={styles.footer}>
+          <Pressable
+            onPress={() => sheetRef.current?.close()}
+            style={styles.cancelBtn}
+            testID="new-job-cancel"
+          >
+            <Text style={styles.cancelText}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            disabled={!canSubmit}
+            onPress={() => createMutation.mutate()}
+            style={[styles.scheduleBtn, !canSubmit && styles.scheduleBtnDisabled]}
+            testID="new-job-schedule"
+          >
+            {createMutation.isPending ? (
+              <ActivityIndicator color="#060a12" />
+            ) : (
+              <Text style={styles.scheduleText}>Schedule</Text>
+            )}
+          </Pressable>
+        </View>
 
         {showTimePicker && startDate && (
           <DateTimePicker
@@ -335,4 +390,25 @@ const styles = StyleSheet.create({
   },
   pickerItemText: { color: "#f1f5f9", fontSize: 14 },
   pickerEmpty: { color: "#8892A5", fontSize: 12, padding: 12, fontStyle: "italic" },
+  footer: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#1a2236",
+    backgroundColor: "#0d1320",
+  },
+  cancelBtn: { paddingHorizontal: 18, justifyContent: "center" },
+  cancelText: { color: "#8892A5", fontSize: 14, fontWeight: "500" },
+  scheduleBtn: {
+    flex: 1,
+    height: 48,
+    backgroundColor: "#C9A96E",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scheduleBtnDisabled: { opacity: 0.4 },
+  scheduleText: { color: "#060a12", fontSize: 15, fontWeight: "700" },
 });
