@@ -4,6 +4,7 @@ export type CalendarJob = {
   id: string;
   scheduledStart: string | null;
   scheduledEnd: string | null;
+  scheduledEndDate: string | null;
   status: JobStatus;
   notes: string | null;
   locationOverride: string | null;
