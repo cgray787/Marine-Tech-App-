@@ -1,6 +1,5 @@
 import {
   forwardRef,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -76,14 +75,14 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
 
     const createMutation = useMutation({
       mutationFn: async () => {
-        if (!startIso || !customerId || !boatId) {
+        if (!startIso || !customerId || !effectiveBoatId) {
           throw new Error("Missing required fields");
         }
         const start = parseISO(startIso);
         const end   = addHours(start, durationHours);
         return createJob(supabase, {
           customerId,
-          boatId,
+          boatId: effectiveBoatId,
           assignedTo: profile?.id ?? null,
           scheduledStart: start.toISOString(),
           scheduledEnd: end.toISOString(),
@@ -100,21 +99,16 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
       },
     });
 
-    const canSubmit = !!(startIso && customerId && boatId) && !createMutation.isPending;
+    // Derive the effective boat id during render so we don't sync state in an
+    // effect. User selection wins; otherwise auto-pick when there's exactly one.
+    const effectiveBoatId =
+      boatId ?? (boatsQuery.data?.length === 1 ? boatsQuery.data[0].id : null);
+
+    const canSubmit =
+      !!(startIso && customerId && effectiveBoatId) && !createMutation.isPending;
 
     const selectedCustomer = customersQuery.data?.find((c) => c.id === customerId) ?? null;
-    const selectedBoat     = boatsQuery.data?.find((b) => b.id === boatId) ?? null;
-
-    // Reset boat when customer changes; auto-select the only boat if just one
-    useEffect(() => {
-      setBoatId(null);
-    }, [customerId]);
-
-    useEffect(() => {
-      if (boatsQuery.data && boatsQuery.data.length === 1) {
-        setBoatId(boatsQuery.data[0].id);
-      }
-    }, [boatsQuery.data]);
+    const selectedBoat     = boatsQuery.data?.find((b) => b.id === effectiveBoatId) ?? null;
 
     useImperativeHandle(ref, () => ({
       present: (initial) => {
@@ -224,6 +218,7 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
                   key={c.id}
                   onPress={() => {
                     setCustomerId(c.id);
+                    setBoatId(null);   // clear any prior boat (was a useEffect)
                     setShowCustomerPicker(false);
                   }}
                   style={styles.pickerItem}
