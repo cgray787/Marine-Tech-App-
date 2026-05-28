@@ -1,3 +1,5 @@
+import type { CalendarJob } from './types';
+
 function toDate(input: Date | string | null): Date | null {
   if (input == null) return null;
   return input instanceof Date ? input : new Date(input);
@@ -30,4 +32,10 @@ export function formatTimeRange(
     return `${sFmt}-${formatTime(e)}`;
   }
   return `${formatTime(s)} - ${formatTime(e)}`;
+}
+
+export function isMultiDay(job: CalendarJob): boolean {
+  if (!job.scheduledStart || !job.scheduledEndDate) return false;
+  const startDate = job.scheduledStart.slice(0, 10);
+  return job.scheduledEndDate > startDate;
 }
