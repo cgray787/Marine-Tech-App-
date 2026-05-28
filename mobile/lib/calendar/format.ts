@@ -51,3 +51,26 @@ export function dayOfN(
   const day   = differenceInCalendarDays(parseISO(selectedDate), parseISO(startDate)) + 1;
   return { day, total };
 }
+
+export type HourOverflow = "before" | "after" | null;
+
+const HOUR_START = 5;   // 5 AM = bucket 0
+const HOUR_END   = 20;  // 8 PM = bucket 15
+const BUCKETS    = 16;  // (HOUR_END - HOUR_START + 1)
+
+export function clampHourBucket(hour: number): { bucket: number; overflow: HourOverflow } {
+  if (hour < HOUR_START) return { bucket: 0, overflow: "before" };
+  if (hour > HOUR_END)   return { bucket: BUCKETS - 1, overflow: "after" };
+  return { bucket: hour - HOUR_START, overflow: null };
+}
+
+export function bucketJobsByHour(jobs: CalendarJob[]): CalendarJob[][] {
+  const buckets: CalendarJob[][] = Array.from({ length: BUCKETS }, () => []);
+  for (const j of jobs) {
+    if (!j.scheduledStart) continue;
+    const hour = parseISO(j.scheduledStart).getHours();
+    const { bucket } = clampHourBucket(hour);
+    buckets[bucket].push(j);
+  }
+  return buckets;
+}
