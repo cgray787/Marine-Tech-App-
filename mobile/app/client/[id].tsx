@@ -201,7 +201,10 @@ export default function ClientDetailScreen() {
     }
     setSavingClient(true);
 
-    const { error } = await supabase
+    // .select() makes the UPDATE return the affected rows. A 0-row return
+    // with no error means RLS silently filtered the row out — surface that
+    // instead of closing the modal and pretending we saved.
+    const { data, error } = await supabase
       .from("customers")
       .update({
         name: editName.trim(),
@@ -210,11 +213,19 @@ export default function ClientDetailScreen() {
         address: editAddress.trim() || null,
         notes: editNotes.trim() || null,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
     setSavingClient(false);
     if (error) {
       Alert.alert("Error", error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      Alert.alert(
+        "Couldn't save",
+        "You don't have permission to edit this client (or they belong to a different office). Contact an admin if this is unexpected.",
+      );
       return;
     }
 
@@ -395,7 +406,10 @@ export default function ClientDetailScreen() {
     }
     setSavingBoat(true);
 
-    const { error } = await supabase
+    // See handleUpdateClient — .select() + length check catches the silent
+    // RLS-filtered-zero-rows case that would otherwise close the modal as
+    // if the edit had saved.
+    const { data, error } = await supabase
       .from("boats")
       .update({
         name: editBoatName.trim(),
@@ -407,11 +421,19 @@ export default function ClientDetailScreen() {
         color: editBoatColor.trim() || null,
         home_marina: editBoatHomeMarina.trim() || null,
       })
-      .eq("id", editBoatId);
+      .eq("id", editBoatId)
+      .select("id");
 
     setSavingBoat(false);
     if (error) {
       Alert.alert("Error", error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      Alert.alert(
+        "Couldn't save",
+        "You don't have permission to edit this boat (or it belongs to a different office). Contact an admin if this is unexpected.",
+      );
       return;
     }
 
