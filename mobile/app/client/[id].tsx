@@ -16,6 +16,7 @@ import {
   Linking,
 } from "react-native";
 import { router } from "expo-router";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
@@ -142,7 +143,8 @@ export default function ClientDetailScreen() {
   const [jobBoatId, setJobBoatId] = useState("");
   const [jobServiceTypes, setJobServiceTypes] = useState("");
   const [jobNotes, setJobNotes] = useState("");
-  const [jobDate, setJobDate] = useState("");
+  const [jobDate, setJobDate] = useState<Date | null>(null);
+  const [showJobDatePicker, setShowJobDatePicker] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -474,7 +476,13 @@ export default function ClientDetailScreen() {
         customer_id: id,
         boat_id: jobBoatId,
         service_types: serviceTypes.length > 0 ? serviceTypes : null,
-        scheduled_date: jobDate.trim() || null,
+        // Postgres `date` wants a YYYY-MM-DD string or null. Picker gives a
+        // Date object; format it ourselves to avoid timezone drift from
+        // toISOString() (which converts to UTC and can roll the date back
+        // one day for PT users).
+        scheduled_date: jobDate
+          ? `${jobDate.getFullYear()}-${String(jobDate.getMonth() + 1).padStart(2, "0")}-${String(jobDate.getDate()).padStart(2, "0")}`
+          : null,
         notes: jobNotes.trim() || null,
         status: "new",
         created_by: profileId,
@@ -492,7 +500,7 @@ export default function ClientDetailScreen() {
     setJobBoatId("");
     setJobServiceTypes("");
     setJobNotes("");
-    setJobDate("");
+    setJobDate(null);
     Alert.alert("Job Created", "The job has been created.", [
       { text: "View Job", onPress: () => router.push(`/job/${job.id}`) },
       { text: "OK", onPress: () => fetchData() },
@@ -1309,13 +1317,57 @@ export default function ClientDetailScreen() {
                 </Text>
 
                 <Text style={styles.modalLabel}>Scheduled Date</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 2026-04-15"
-                  placeholderTextColor={colors.textSecondary + "80"}
-                  value={jobDate}
-                  onChangeText={setJobDate}
-                />
+                <View style={styles.dateRow}>
+                  <TouchableOpacity
+                    style={[styles.modalInput, styles.dateField]}
+                    onPress={() => setShowJobDatePicker(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.dateText,
+                        !jobDate && { color: colors.textSecondary + "80" },
+                      ]}
+                    >
+                      {jobDate
+                        ? jobDate.toLocaleDateString(undefined, {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "TBD — tap to schedule"}
+                    </Text>
+                  </TouchableOpacity>
+                  {jobDate && (
+                    <TouchableOpacity
+                      style={styles.dateClear}
+                      onPress={() => setJobDate(null)}
+                    >
+                      <Text style={styles.dateClearText}>Clear</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {showJobDatePicker && (
+                  <DateTimePicker
+                    value={jobDate ?? new Date()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "inline" : "default"}
+                    themeVariant="dark"
+                    onChange={(_e, d) => {
+                      // Android dismisses on its own; iOS inline stays open.
+                      if (Platform.OS === "android") setShowJobDatePicker(false);
+                      if (d) setJobDate(d);
+                    }}
+                  />
+                )}
+                {Platform.OS === "ios" && showJobDatePicker && (
+                  <TouchableOpacity
+                    style={styles.dateDone}
+                    onPress={() => setShowJobDatePicker(false)}
+                  >
+                    <Text style={styles.dateDoneText}>Done</Text>
+                  </TouchableOpacity>
+                )}
 
                 <Text style={styles.modalLabel}>Job Notes</Text>
                 <TextInput
@@ -1990,6 +2042,42 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: colors.textPrimary,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateField: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  dateText: {
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  dateClear: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dateClearText: {
+    color: colors.gold,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  dateDone: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  dateDoneText: {
+    color: colors.gold,
+    fontSize: 14,
+    fontWeight: "600",
   },
   modalHint: {
     fontSize: 11,
