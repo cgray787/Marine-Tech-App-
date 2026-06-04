@@ -130,6 +130,12 @@ clients fall outside the JBY-org gate and would never sync. Fix: set
 - **Two-way sync** (SF edits flowing back into the app).
 - Automatic retry queue / dead-letter handling.
 
+**Known limitation (dedup race):** dedup is read-then-write with no distributed
+lock. Two customers with the same phone/email inserted within the same instant
+(e.g. a future bulk import) could each see "no match" and both create a Person
+Account, producing an SF duplicate. Not a concern for one-at-a-time manual adds;
+revisit if/when a bulk-import path is added.
+
 ## As-built note (2026-06-04)
 
 Shipped and verified end-to-end. One deviation from the design above:
