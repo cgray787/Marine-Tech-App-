@@ -17,7 +17,7 @@ import * as Sharing from "expo-sharing";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/constants/Colors";
-import { generateServiceReportHTML, generatePDIReportHTML } from "@/lib/pdf-template";
+import { generateServiceReportHTML, generatePDIReportHTML, formatEngineHours } from "@/lib/pdf-template";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PHOTO_SIZE = SCREEN_WIDTH * 0.6;
@@ -71,6 +71,8 @@ type Boat = {
   hin: string | null;
   engine_make: string | null;
   engine_model: string | null;
+  engine_hours_port: number | null;
+  engine_hours_starboard: number | null;
   color: string | null;
 };
 
@@ -109,7 +111,7 @@ export default function JobDetailScreen() {
     // Fetch job with customer, boat, and marina details
     const { data: jobData } = await supabase
       .from("jobs")
-      .select("id, status, service_types, scheduled_date, notes, customers(name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, color), marinas(name, address)")
+      .select("id, status, service_types, scheduled_date, notes, customers(name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color), marinas(name, address)")
       .eq("id", id)
       .single();
 
@@ -210,7 +212,15 @@ export default function JobDetailScreen() {
     if (!report) return;
 
     try {
-      const html = generateServiceReportHTML(report, checklistItems, photos);
+      const html = generateServiceReportHTML(
+        {
+          ...report,
+          engine_hours_port: job?.boats?.engine_hours_port ?? null,
+          engine_hours_starboard: job?.boats?.engine_hours_starboard ?? null,
+        },
+        checklistItems,
+        photos
+      );
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, {
         mimeType: "application/pdf",
@@ -241,7 +251,15 @@ export default function JobDetailScreen() {
 
     // Offer to share as PDF
     try {
-      const html = generateServiceReportHTML(report, checklistItems, photos);
+      const html = generateServiceReportHTML(
+        {
+          ...report,
+          engine_hours_port: job?.boats?.engine_hours_port ?? null,
+          engine_hours_starboard: job?.boats?.engine_hours_starboard ?? null,
+        },
+        checklistItems,
+        photos
+      );
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, {
         mimeType: "application/pdf",
@@ -260,7 +278,7 @@ export default function JobDetailScreen() {
           : typeof report.parts_used === "string"
           ? (() => { try { return JSON.parse(report.parts_used as unknown as string); } catch { return []; } })()
           : [];
-        const message = `Service Report for ${report.boat_name}\nOwner: ${report.owner_name}\nMarina: ${report.marina}\n${report.make_model} (${report.year})\nHIN: ${report.hin}\n\nEngine: ${report.engine_make_model || "N/A"}\nEngine Hours: ${report.engine_hours ?? "N/A"}\nBattery Voltage: ${report.battery_voltage || "N/A"}\n\nWork Description:\n${report.work_description || "N/A"}\n\nParts Used:\n${partsArray.map((p) => `- ${p}`).join("\n")}\n\nNotes: ${report.general_notes || "N/A"}`;
+        const message = `Service Report for ${report.boat_name}\nOwner: ${report.owner_name}\nMarina: ${report.marina}\n${report.make_model} (${report.year})\nHIN: ${report.hin}\n\nEngine: ${report.engine_make_model || "N/A"}\nEngine Hours: ${formatEngineHours(job?.boats?.engine_hours_port, job?.boats?.engine_hours_starboard, report.engine_hours)}\nBattery Voltage: ${report.battery_voltage || "N/A"}\n\nWork Description:\n${report.work_description || "N/A"}\n\nParts Used:\n${partsArray.map((p) => `- ${p}`).join("\n")}\n\nNotes: ${report.general_notes || "N/A"}`;
         await Share.share({
           title: `Service Report - ${report.boat_name}`,
           message,
@@ -440,6 +458,16 @@ export default function JobDetailScreen() {
                   value={`${job.boats.engine_make}${job.boats.engine_model ? " " + job.boats.engine_model : ""}`}
                 />
               )}
+              {(job.boats.engine_hours_port != null ||
+                job.boats.engine_hours_starboard != null) && (
+                <InfoRow
+                  label="Engine Hours"
+                  value={formatEngineHours(
+                    job.boats.engine_hours_port,
+                    job.boats.engine_hours_starboard
+                  )}
+                />
+              )}
             </View>
           </View>
         </View>
@@ -477,11 +505,11 @@ export default function JobDetailScreen() {
             />
             <InfoRow
               label="Engine Hours"
-              value={
-                report.engine_hours != null
-                  ? String(report.engine_hours)
-                  : "—"
-              }
+              value={formatEngineHours(
+                job.boats?.engine_hours_port,
+                job.boats?.engine_hours_starboard,
+                report.engine_hours
+              )}
             />
             <InfoRow
               label="Battery Voltage"

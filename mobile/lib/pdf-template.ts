@@ -14,6 +14,8 @@ type ServiceReport = {
   marina: string;
   engine_make_model: string | null;
   engine_hours: number | null;
+  engine_hours_port?: number | null;
+  engine_hours_starboard?: number | null;
   battery_voltage: string | null;
   service_types: string[] | null;
   work_description: string | null;
@@ -46,6 +48,22 @@ const CATEGORY_LABELS: Record<string, string> = {
   safety: "Safety",
   nav: "Navigation",
 };
+
+/**
+ * Formats per-engine hour readings for display. Twin engines render as
+ * "Port X · Stbd Y"; a single value (single-engine boats) renders bare. Falls
+ * back to a legacy single reading, then to an em-dash when nothing is set.
+ */
+export function formatEngineHours(
+  port: number | null | undefined,
+  starboard: number | null | undefined,
+  fallback?: number | null
+): string {
+  if (port != null && starboard != null) return `Port ${port} · Stbd ${starboard}`;
+  if (port != null) return String(port);
+  if (starboard != null) return String(starboard);
+  return fallback != null ? String(fallback) : "—";
+}
 
 function escapeHtml(str: string | null | undefined): string {
   if (!str) return "";
@@ -545,7 +563,7 @@ export function generateServiceReportHTML(
             <td class="label">Engine</td>
             <td class="value">${escapeHtml(report.engine_make_model) || "—"}</td>
             <td class="label">Engine Hours</td>
-            <td class="value">${report.engine_hours != null ? report.engine_hours : "—"}</td>
+            <td class="value">${formatEngineHours(report.engine_hours_port, report.engine_hours_starboard, report.engine_hours)}</td>
           </tr>
           <tr>
             <td class="label">Battery Voltage</td>
