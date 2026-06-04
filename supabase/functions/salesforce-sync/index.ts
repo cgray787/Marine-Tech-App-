@@ -1,6 +1,13 @@
 // Database-webhook handler — triggered AFTER INSERT on public.customers (JBY org,
 // not-yet-linked). Creates or links a Salesforce Person Account and writes the
-// id/url/synced_at back to the customer row. Auth: shared secret header.
+// id/url/synced_at back to the customer row.
+//
+// Secrets: this account's Supabase plan blocks setting Edge Function env-secrets,
+// so the two sensitive values (Salesforce OAuth refresh token + the shared sync
+// secret) are read from Vault via the service-role-only RPC `salesforce_sync_secrets`.
+// Non-sensitive Salesforce config stays as env-defaulted constants below.
+//
+// Auth: shared secret header `x-sync-secret` (compared to the Vault sync secret).
 //
 // Payload (Supabase webhook shape):
 //   { "type":"INSERT", "table":"customers", "schema":"public", "record": { ...row... } }
@@ -13,23 +20,27 @@ import {
   type CustomerRecord,
 } from "./salesforce.ts";
 
-const SF_CLIENT_ID = Deno.env.get("SF_CLIENT_ID")!;
+// Non-sensitive Salesforce config (overridable via env; PlatformCLI has no secret).
+const SF_CLIENT_ID = Deno.env.get("SF_CLIENT_ID") ?? "PlatformCLI";
 const SF_CLIENT_SECRET = Deno.env.get("SF_CLIENT_SECRET") ?? "";
-const SF_REFRESH_TOKEN = Deno.env.get("SF_REFRESH_TOKEN")!;
-const SF_INSTANCE_URL = Deno.env.get("SF_INSTANCE_URL")!;
-const SF_RECORD_TYPE_ID = Deno.env.get("SF_RECORD_TYPE_ID")!;
-const SF_OWNER_ID = Deno.env.get("SF_OWNER_ID")!;
-const SF_SYNC_SECRET = Deno.env.get("SF_SYNC_SECRET")!;
+const SF_INSTANCE_URL = Deno.env.get("SF_INSTANCE_URL") ?? "https://jeffbrownyachts.my.salesforce.com";
+const SF_RECORD_TYPE_ID = Deno.env.get("SF_RECORD_TYPE_ID") ?? "0123h000000ANsqAAG";
+const SF_OWNER_ID = Deno.env.get("SF_OWNER_ID") ?? "005TS000008FD5BYAW";
 const JBY_ORG_ID = Deno.env.get("JBY_ORG_ID") ?? "e22d5492-3ec1-4d5c-9118-b2eba8880586";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const API_VERSION = "v60.0";
 
-async function getAccessToken(): Promise<{ accessToken: string; instanceUrl: string }> {
+interface SyncSecrets {
+  refresh_token: string;
+  sync_secret: string;
+}
+
+async function getAccessToken(refreshToken: string): Promise<{ accessToken: string; instanceUrl: string }> {
   const params = new URLSearchParams({
     grant_type: "refresh_token",
     client_id: SF_CLIENT_ID,
-    refresh_token: SF_REFRESH_TOKEN,
+    refresh_token: refreshToken,
   });
   if (SF_CLIENT_SECRET) params.set("client_secret", SF_CLIENT_SECRET);
 
@@ -78,8 +89,18 @@ async function createPersonAccount(
 }
 
 Deno.serve(async (req) => {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // Fetch the two runtime secrets from Vault (service-role-only RPC).
+  const { data: secrets, error: secretsError } = await supabase.rpc("salesforce_sync_secrets");
+  if (secretsError || !secrets) {
+    console.error("salesforce-sync: failed to load secrets:", secretsError?.message);
+    return new Response("misconfigured", { status: 500 });
+  }
+  const { refresh_token: refreshToken, sync_secret: syncSecret } = secrets as SyncSecrets;
+
   // Auth: shared secret
-  if (req.headers.get("x-sync-secret") !== SF_SYNC_SECRET) {
+  if (req.headers.get("x-sync-secret") !== syncSecret) {
     return new Response("unauthorized", { status: 401 });
   }
 
@@ -98,14 +119,21 @@ Deno.serve(async (req) => {
     });
   }
 
+  if (!refreshToken || refreshToken === "PENDING") {
+    console.error("salesforce-sync: refresh token not seeded yet");
+    return new Response(JSON.stringify({ ok: false, error: "refresh token not seeded" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
-    const { accessToken, instanceUrl } = await getAccessToken();
+    const { accessToken, instanceUrl } = await getAccessToken(refreshToken);
     let accountId = await findExisting(instanceUrl, accessToken, record.phone, record.email);
     if (!accountId) {
       accountId = await createPersonAccount(instanceUrl, accessToken, record);
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { error } = await supabase
       .from("customers")
       .update({
