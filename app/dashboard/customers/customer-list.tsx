@@ -24,6 +24,8 @@ type Boat = {
   hin: string | null;
   engine_make: string | null;
   engine_model: string | null;
+  engine_hours_port: number | null;
+  engine_hours_starboard: number | null;
   color: string | null;
   home_marina: string | null;
   created_at: string;
@@ -56,6 +58,8 @@ export function CustomerList({
   const [boatHin, setBoatHin] = useState("");
   const [boatEngineMake, setBoatEngineMake] = useState("");
   const [boatEngineModel, setBoatEngineModel] = useState("");
+  const [boatEngineHoursPort, setBoatEngineHoursPort] = useState("");
+  const [boatEngineHoursStarboard, setBoatEngineHoursStarboard] = useState("");
   const [boatColor, setBoatColor] = useState("");
   const [boatMarina, setBoatMarina] = useState("");
 
@@ -106,6 +110,12 @@ export function CustomerList({
       hin: boatHin || null,
       engine_make: boatEngineMake || null,
       engine_model: boatEngineModel || null,
+      engine_hours_port: boatEngineHoursPort
+        ? parseFloat(boatEngineHoursPort)
+        : null,
+      engine_hours_starboard: boatEngineHoursStarboard
+        ? parseFloat(boatEngineHoursStarboard)
+        : null,
       color: boatColor || null,
       home_marina: boatMarina || null,
     });
@@ -122,6 +132,8 @@ export function CustomerList({
     setBoatHin("");
     setBoatEngineMake("");
     setBoatEngineModel("");
+    setBoatEngineHoursPort("");
+    setBoatEngineHoursStarboard("");
     setBoatColor("");
     setBoatMarina("");
     setShowBoatForm(null);
@@ -136,6 +148,8 @@ export function CustomerList({
     setBoatHin("");
     setBoatEngineMake("");
     setBoatEngineModel("");
+    setBoatEngineHoursPort("");
+    setBoatEngineHoursStarboard("");
     setBoatColor("");
     setBoatMarina("");
   }
@@ -413,6 +427,28 @@ export function CustomerList({
                               className="rounded-lg border border-border-line bg-primary-bg px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none"
                             />
                             <input
+                              type="number"
+                              inputMode="decimal"
+                              step="0.1"
+                              value={boatEngineHoursPort}
+                              onChange={(e) =>
+                                setBoatEngineHoursPort(e.target.value)
+                              }
+                              placeholder="Engine Hours (Port)"
+                              className="rounded-lg border border-border-line bg-primary-bg px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none"
+                            />
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              step="0.1"
+                              value={boatEngineHoursStarboard}
+                              onChange={(e) =>
+                                setBoatEngineHoursStarboard(e.target.value)
+                              }
+                              placeholder="Engine Hours (Stbd, twin only)"
+                              className="rounded-lg border border-border-line bg-primary-bg px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none"
+                            />
+                            <input
                               type="text"
                               value={boatColor}
                               onChange={(e) => setBoatColor(e.target.value)}
@@ -482,6 +518,16 @@ export function CustomerList({
                                 {[boat.engine_make, boat.engine_model]
                                   .filter(Boolean)
                                   .join(" ")}
+                              </p>
+                            )}
+                            {(boat.engine_hours_port != null ||
+                              boat.engine_hours_starboard != null) && (
+                              <p className="mt-0.5 text-xs text-text-secondary">
+                                Engine Hours:{" "}
+                                {boat.engine_hours_port != null &&
+                                boat.engine_hours_starboard != null
+                                  ? `Port ${boat.engine_hours_port} · Stbd ${boat.engine_hours_starboard}`
+                                  : `${boat.engine_hours_port ?? boat.engine_hours_starboard}`}
                               </p>
                             )}
                             {boat.home_marina && (

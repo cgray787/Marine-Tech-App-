@@ -29,6 +29,8 @@ type Boat = {
   hin: string | null;
   engine_make: string | null;
   engine_model: string | null;
+  engine_hours_port: number | null;
+  engine_hours_starboard: number | null;
   color: string | null;
   home_marina: string | null;
 };
@@ -105,6 +107,8 @@ export default function ClientDetailScreen() {
   const [newBoatHin, setNewBoatHin] = useState("");
   const [newBoatEngineMake, setNewBoatEngineMake] = useState("");
   const [newBoatEngineModel, setNewBoatEngineModel] = useState("");
+  const [newBoatEngineHoursPort, setNewBoatEngineHoursPort] = useState("");
+  const [newBoatEngineHoursStarboard, setNewBoatEngineHoursStarboard] = useState("");
   const [newBoatColor, setNewBoatColor] = useState("");
   const [newBoatHomeMarina, setNewBoatHomeMarina] = useState("");
 
@@ -127,6 +131,8 @@ export default function ClientDetailScreen() {
   const [editBoatHin, setEditBoatHin] = useState("");
   const [editBoatEngineMake, setEditBoatEngineMake] = useState("");
   const [editBoatEngineModel, setEditBoatEngineModel] = useState("");
+  const [editBoatEngineHoursPort, setEditBoatEngineHoursPort] = useState("");
+  const [editBoatEngineHoursStarboard, setEditBoatEngineHoursStarboard] = useState("");
   const [editBoatColor, setEditBoatColor] = useState("");
   const [editBoatHomeMarina, setEditBoatHomeMarina] = useState("");
 
@@ -153,7 +159,7 @@ export default function ClientDetailScreen() {
       supabase.from("customers").select("*").eq("id", id).single(),
       supabase
         .from("boats")
-        .select("id, name, make_model, year, hin, engine_make, engine_model, color, home_marina")
+        .select("id, name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color, home_marina")
         .eq("customer_id", id)
         .order("name"),
       supabase
@@ -308,6 +314,12 @@ export default function ClientDetailScreen() {
     setExpandedPdiId(expandedPdiId === pdiId ? null : pdiId);
   }
 
+  // Engine hours are stored numeric (tenths allowed); blank/garbage → null.
+  function parseHours(v: string): number | null {
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+
   async function handleAddBoat() {
     if (!newBoatName.trim()) {
       Alert.alert("Required", "Please enter a boat name.");
@@ -323,6 +335,8 @@ export default function ClientDetailScreen() {
       hin: newBoatHin.trim() || null,
       engine_make: newBoatEngineMake.trim() || null,
       engine_model: newBoatEngineModel.trim() || null,
+      engine_hours_port: parseHours(newBoatEngineHoursPort),
+      engine_hours_starboard: parseHours(newBoatEngineHoursStarboard),
       color: newBoatColor.trim() || null,
       home_marina: newBoatHomeMarina.trim() || null,
     });
@@ -340,6 +354,8 @@ export default function ClientDetailScreen() {
     setNewBoatHin("");
     setNewBoatEngineMake("");
     setNewBoatEngineModel("");
+    setNewBoatEngineHoursPort("");
+    setNewBoatEngineHoursStarboard("");
     setNewBoatColor("");
     setNewBoatHomeMarina("");
     fetchData();
@@ -396,6 +412,8 @@ export default function ClientDetailScreen() {
     setEditBoatHin(boat.hin || "");
     setEditBoatEngineMake(boat.engine_make || "");
     setEditBoatEngineModel(boat.engine_model || "");
+    setEditBoatEngineHoursPort(boat.engine_hours_port != null ? String(boat.engine_hours_port) : "");
+    setEditBoatEngineHoursStarboard(boat.engine_hours_starboard != null ? String(boat.engine_hours_starboard) : "");
     setEditBoatColor(boat.color || "");
     setEditBoatHomeMarina(boat.home_marina || "");
     setShowEditBoat(true);
@@ -420,6 +438,8 @@ export default function ClientDetailScreen() {
         hin: editBoatHin.trim() || null,
         engine_make: editBoatEngineMake.trim() || null,
         engine_model: editBoatEngineModel.trim() || null,
+        engine_hours_port: parseHours(editBoatEngineHoursPort),
+        engine_hours_starboard: parseHours(editBoatEngineHoursStarboard),
         color: editBoatColor.trim() || null,
         home_marina: editBoatHomeMarina.trim() || null,
       })
@@ -686,6 +706,18 @@ export default function ClientDetailScreen() {
                       <Text style={styles.boatDetailValue}>
                         {boat.engine_make}
                         {boat.engine_model ? ` ${boat.engine_model}` : ""}
+                      </Text>
+                    </View>
+                  )}
+                  {(boat.engine_hours_port != null ||
+                    boat.engine_hours_starboard != null) && (
+                    <View style={styles.boatDetailChip}>
+                      <Text style={styles.boatDetailLabel}>Engine Hours</Text>
+                      <Text style={styles.boatDetailValue}>
+                        {boat.engine_hours_port != null &&
+                        boat.engine_hours_starboard != null
+                          ? `Port ${boat.engine_hours_port} · Stbd ${boat.engine_hours_starboard}`
+                          : `${boat.engine_hours_port ?? boat.engine_hours_starboard}`}
                       </Text>
                     </View>
                   )}
@@ -1139,6 +1171,31 @@ export default function ClientDetailScreen() {
                   </View>
                 </View>
 
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalLabel}>Engine Hours (Port)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="e.g. 1234.5"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={newBoatEngineHoursPort}
+                      onChangeText={setNewBoatEngineHoursPort}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalLabel}>Engine Hours (Stbd)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="twin only"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={newBoatEngineHoursStarboard}
+                      onChangeText={setNewBoatEngineHoursStarboard}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+
                 <Text style={styles.modalLabel}>Home Marina</Text>
                 <TextInput
                   style={styles.modalInput}
@@ -1490,6 +1547,31 @@ export default function ClientDetailScreen() {
                       placeholderTextColor={colors.textSecondary + "80"}
                       value={editBoatEngineModel}
                       onChangeText={setEditBoatEngineModel}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalLabel}>Engine Hours (Port)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="e.g. 1234.5"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={editBoatEngineHoursPort}
+                      onChangeText={setEditBoatEngineHoursPort}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalLabel}>Engine Hours (Stbd)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="twin only"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={editBoatEngineHoursStarboard}
+                      onChangeText={setEditBoatEngineHoursStarboard}
+                      keyboardType="decimal-pad"
                     />
                   </View>
                 </View>
