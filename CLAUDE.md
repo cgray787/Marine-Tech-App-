@@ -149,6 +149,23 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `015_orgs_locations.sql` — adds `orgs` + `locations` tables, tags existing profiles/customers/boats/jobs to Seattle (additive only, no RLS isolation yet)
 - `016_customer_salesforce_link.sql` — adds `customers.salesforce_account_id` (stable join key) + `customers.salesforce_url` (deep link) + index
 - `017_location_scoped_office_isolation.sql` — shop-tier users now scoped to **their own office** via `profiles.location_id`. Adds `current_profile_location()` and `customer_in_my_location(uuid)` SECURITY DEFINER helpers; rewrites `shop_read_customers` / `shop_read_boats` / `shop_read_jobs` RLS policies
+- `018_shop_update_delete_policies.sql` — shop-tier update/delete RLS policies
+- `019_boats_engine_hours.sql` — adds `boats.engine_hours_port` + `boats.engine_hours_starboard` (numeric, per-engine hour readings; surfaced in Add/Edit Boat + boat detail + the service-report PDF)
+- `020_customers_salesforce_synced_at.sql` — adds `customers.salesforce_synced_at` (observability for the SF auto-link)
+- `021_customers_salesforce_sync_trigger.sql` — `pg_net` AFTER INSERT trigger `customer_salesforce_sync` → calls the `salesforce-sync` edge function (gated to JBY org + not-yet-linked); reads shared secret from Vault
+- `022_salesforce_sync_secrets_rpc.sql` — `salesforce_sync_secrets()` service-role-only RPC returning the SF refresh token + sync secret from Vault
+
+## Salesforce client auto-link (live since 2026-06-04)
+
+Every new JBY `customers` row (mobile, web, or offline-synced) auto-creates or links a Salesforce **Person Account** and writes back `salesforce_account_id` / `salesforce_url` / `salesforce_synced_at`.
+
+- **Flow:** `customers` INSERT → trigger `customer_salesforce_sync` (migration 021) → async `pg_net` POST → edge function `salesforce-sync` → Salesforce REST API → writeback. Async, so the client insert is never blocked.
+- **Edge function:** `supabase/functions/salesforce-sync/` (`index.ts` orchestration + `salesforce.ts` pure helpers + Deno tests). Deployed with `verify_jwt=false`; authed by the `x-sync-secret` header.
+- **Dedup:** matches existing Person Accounts by phone then email (links instead of duplicating). **Categorization:** `Type='Customer'`, `PersonLeadSource='Marine Tech App'`, `OwnerId=005TS000008FD5BYAW` (Connor), `RecordTypeId=0123h000000ANsqAAG`.
+- **Secrets in Vault** (account can't set edge-function env-secrets): `sf_refresh_token` + `sf_sync_secret`, read via `salesforce_sync_secrets()` RPC. Re-seed the refresh token after any `sf org login` rotation. Non-secret SF config is env-defaulted in `index.ts`.
+- **Gating:** only `org_id = 'e22d5492-3ec1-4d5c-9118-b2eba8880586'` (Jeff Brown Yachts). **NOTE:** the live org table is named `public.organizations` (not `orgs` as elsewhere in this doc).
+- **Out of scope:** backfilling existing unlinked clients, boats→SF vessels, two-way sync.
+- **Spec/plan:** `docs/superpowers/specs/2026-06-04-salesforce-client-autolink-design.md`, `docs/superpowers/plans/2026-06-04-salesforce-client-autolink.md`
 
 **Removed:** `notifications` table reference and the push notification subsystem (`mobile/lib/notification-context.tsx`, `mobile/lib/notifications.ts`) were removed during the `feat/mobile-job-edit` work.
 

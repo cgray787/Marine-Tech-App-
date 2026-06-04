@@ -45,6 +45,10 @@ begin
 end;
 $$;
 
+-- Trigger functions should not be callable as PostgREST RPCs. (Triggers still
+-- fire regardless — they run as the table owner, not the caller.)
+revoke all on function public.sync_customer_to_salesforce() from public, anon, authenticated;
+
 drop trigger if exists customer_salesforce_sync on public.customers;
 create trigger customer_salesforce_sync
   after insert on public.customers

@@ -130,6 +130,25 @@ clients fall outside the JBY-org gate and would never sync. Fix: set
 - **Two-way sync** (SF edits flowing back into the app).
 - Automatic retry queue / dead-letter handling.
 
+## As-built note (2026-06-04)
+
+Shipped and verified end-to-end. One deviation from the design above:
+
+- **Auth/secret storage changed from Edge Function env-secrets to Supabase Vault.**
+  The available Supabase token could not set Edge Function secrets ("account does
+  not have the necessary privileges"). Instead, the two sensitive values
+  (Salesforce OAuth refresh token + the shared sync secret) live in **Vault**, and
+  the function reads them via the service-role-only RPC `salesforce_sync_secrets()`
+  (migration `022`). Non-sensitive config (client id `PlatformCLI`, instance URL,
+  RecordType/Owner ids, JBY org id) are env-defaulted constants in the function.
+- The refresh token was seeded into Vault over HTTPS (via a temporary,
+  sync-secret-guarded RPC that was dropped afterward) so it never transited a
+  plaintext log.
+- Auth approach A still holds (the CLI's `PlatformCLI` OAuth refresh token); only
+  where the secret is *stored* changed.
+- Migrations as-built: `020` (`salesforce_synced_at`), `021` (pg_net trigger +
+  `revoke` on the trigger fn), `022` (`salesforce_sync_secrets` RPC).
+
 ## Testing
 
 End-to-end (no good unit-test seam for the live SF call):
