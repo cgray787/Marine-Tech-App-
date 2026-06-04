@@ -72,29 +72,15 @@ export function CustomerList({
     setError("");
 
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    let orgId: string | null = null;
-    let locationId: string | null = null;
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id, org_id, location_id")
-        .eq("auth_id", user.id)
-        .single();
-      orgId = profile?.org_id ?? null;
-      locationId = profile?.location_id ?? null;
-    }
-
+    // org_id / location_id are assigned server-side from the caller's profile by
+    // the set_customer_tenant BEFORE INSERT trigger (migration 023) — never sent
+    // by the client, so tenancy can't be spoofed.
     const { error: insertError } = await supabase.from("customers").insert({
       name: customerName,
       email: customerEmail || null,
       phone: customerPhone || null,
       address: customerAddress || null,
       notes: customerNotes || null,
-      org_id: orgId,
-      location_id: locationId,
     });
 
     if (insertError) {
