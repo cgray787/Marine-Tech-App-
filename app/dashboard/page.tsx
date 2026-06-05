@@ -2,6 +2,8 @@ import { requireAdmin } from "@/lib/admin";
 import { formatDateTime, statusColor } from "@/lib/utils";
 import Link from "next/link";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { PartsToOrder } from "@/components/dashboard/parts-to-order";
+import type { PartRow } from "@/lib/dashboard/parts";
 
 export default async function DashboardPage() {
   const { supabase } = await requireAdmin();
@@ -14,6 +16,7 @@ export default async function DashboardPage() {
     { count: openPdis },
     { data: recentReports },
     { data: recentJobs },
+    { data: partsRaw },
   ] = await Promise.all([
     supabase.from("jobs").select("*", { count: "exact", head: true }),
     supabase
@@ -39,7 +42,20 @@ export default async function DashboardPage() {
       .select("id, status, scheduled_date, service_types, boats:boat_id(name), profiles:assigned_to(full_name), customers:customer_id(name)")
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("parts")
+      .select("id, name, customer_id, boat_id, part_number, quantity, description, supplier, url, photo_url, status, ordered_at, customers:customer_id(name), boats:boat_id(name)")
+      .order("created_at", { ascending: false }),
   ]);
+
+  const partsList: PartRow[] = (partsRaw ?? []).map((p) => ({
+    id: p.id, name: p.name, customer_id: p.customer_id, boat_id: p.boat_id,
+    customer_name: ((p.customers as unknown) as { name: string } | null)?.name ?? null,
+    boat_name: ((p.boats as unknown) as { name: string } | null)?.name ?? null,
+    part_number: p.part_number, quantity: p.quantity, description: p.description,
+    supplier: p.supplier, url: p.url, photo_url: p.photo_url, status: p.status, ordered_at: p.ordered_at,
+  }));
+  const partsToOrderCount = partsList.filter((p) => p.status === "need_to_order").length;
 
   const stats = [
     {
@@ -66,11 +82,17 @@ export default async function DashboardPage() {
       color: "text-gold",
       bg: "bg-gold-muted",
     },
+    {
+      label: "Parts to Order",
+      value: partsToOrderCount,
+      color: "text-gold",
+      bg: "bg-gold-muted",
+    },
   ];
 
   return (
     <div>
-      <RealtimeRefresh tables={["jobs", "service_reports", "pdi_reports"]} />
+      <RealtimeRefresh tables={["jobs", "service_reports", "pdi_reports", "parts"]} />
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
         <p className="mt-1 text-sm text-text-secondary">
@@ -79,7 +101,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {stats.map((stat) => (
           <div
             key={stat.label}
@@ -191,6 +213,8 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <PartsToOrder parts={partsList} />
     </div>
   );
 }
