@@ -154,6 +154,17 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `020_customers_salesforce_synced_at.sql` — adds `customers.salesforce_synced_at` (observability for the SF auto-link)
 - `021_customers_salesforce_sync_trigger.sql` — `pg_net` AFTER INSERT trigger `customer_salesforce_sync` → calls the `salesforce-sync` edge function (gated to JBY org + not-yet-linked); reads shared secret from Vault
 - `022_salesforce_sync_secrets_rpc.sql` — `salesforce_sync_secrets()` service-role-only RPC returning the SF refresh token + sync secret from Vault
+- `023_customers_tenant_from_profile.sql` — `set_customer_tenant` BEFORE INSERT trigger derives `customers.org_id`/`location_id` from the inserting user's profile (blocks client tenant-spoofing; service-role inserts keep explicit values)
+- `024_admin_user_management.sql` — `admin_set_user_role(target,role)` + `admin_delete_user(target)` admin-only RPCs (gated by `is_admin()`, block acting on self) powering the dashboard Users & Access page
+- `025_parts.sql` — `parts` table (parts-to-order) + RLS + `current_profile_org()` helper + `set_part_org` BEFORE INSERT org-assign trigger
+
+## Parts-to-Order (live since 2026-06-05)
+
+Techs enter parts in the mobile service form's "Parts Needed" section (name, part #, qty, **description**, supplier, URL, photo, ordered flag); on submit they persist to `public.parts`. The dashboard shows a **Parts to Order** section (grouped Customer→Boat, gold-highlighted cards, per-part Need-to-order⇄Ordered toggle, collapsed Ordered sub-list, count badge + 5th KPI card, realtime). Spec/plan: `docs/superpowers/{specs/2026-06-05-parts-to-order-design.md, plans/2026-06-05-parts-to-order.md}`.
+- **Online** persistence in `service.tsx` `handleSubmitOnline` (`persistParts`); **offline** via `pending_parts` queue (`offline-db.ts` `savePendingParts`) replayed by `sync-service.ts` `case "parts"`.
+- Part photos upload to the `report-photos` storage bucket.
+- `parts.org_id` set server-side by trigger; RLS scopes reads/writes to the caller's org (admin override).
+- **Phase 2/3 (not built):** email + push alerts when a new part needs ordering.
 
 ## Salesforce client auto-link (live since 2026-06-04)
 
