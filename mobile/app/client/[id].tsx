@@ -624,13 +624,28 @@ export default function ClientDetailScreen() {
           {customer.notes && (
             <Text style={styles.customerNotes}>{customer.notes}</Text>
           )}
-          {customer.salesforce_url && (
+          {customer.salesforce_url ? (
             <TouchableOpacity
               style={styles.salesforceBtn}
               onPress={() => Linking.openURL(customer.salesforce_url!)}
             >
               <Text style={styles.salesforceBtnText}>
                 {"\u2601"}  View in Salesforce
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            // Not linked yet (didn't auto-sync) \u2014 open Salesforce's blank
+            // New Person Account form so the client can be added manually.
+            <TouchableOpacity
+              style={[styles.salesforceBtn, styles.salesforceBtnAdd]}
+              onPress={() =>
+                Linking.openURL(
+                  "https://jeffbrownyachts.my.salesforce.com/lightning/o/Account/new?recordTypeId=0123h000000ANsqAAG"
+                )
+              }
+            >
+              <Text style={[styles.salesforceBtnText, styles.salesforceBtnAddText]}>
+                {"\u2795"}  Add to Salesforce
               </Text>
             </TouchableOpacity>
           )}
@@ -1921,6 +1936,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "600",
+  },
+  salesforceBtnAdd: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldMuted,
+  },
+  salesforceBtnAddText: {
+    color: colors.gold,
   },
   customerNotes: {
     fontSize: 14,
