@@ -1,10 +1,12 @@
-import { requireAdmin } from "@/lib/admin";
+import { requireOwner } from "@/lib/owner";
 import { formatDate } from "@/lib/utils";
 import { InviteTechForm } from "./invite-tech-form";
 import { ManageUserControls } from "./manage-user-controls";
 
 export default async function TechniciansPage() {
-  const { supabase } = await requireAdmin();
+  // Owner gate — admins (like Darik) get redirected to /dashboard.
+  // Only Connor can view this page and modify role assignments.
+  const { supabase } = await requireOwner();
 
   // Techs + viewers are the manageable staff. Admins (including you) are hidden
   // so you can't change or delete your own / another admin's access from here.
