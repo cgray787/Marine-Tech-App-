@@ -164,7 +164,8 @@ Techs enter parts in the mobile service form's "Parts Needed" section (name, par
 - **Online** persistence in `service.tsx` `handleSubmitOnline` (`persistParts`); **offline** via `pending_parts` queue (`offline-db.ts` `savePendingParts`) replayed by `sync-service.ts` `case "parts"`.
 - Part photos upload to the `report-photos` storage bucket.
 - `parts.org_id` set server-side by trigger; RLS scopes reads/writes to the caller's org (admin override).
-- **Phase 2/3 (not built):** email + push alerts when a new part needs ordering.
+- **Phase 2 (LIVE):** email alert via **Resend** — `pg_cron` (every 2 min) pings the `parts-order-email` edge function (migration 026), which emails `connorgray@jeffbrownyachts.com` one message per service report listing its un-notified `need_to_order` parts, then stamps `parts.notified_at`. Resend key + cron secret in Vault (`parts_email_secrets()` RPC). Sends from `onboarding@resend.dev` until grayyachts.com is verified in Resend.
+- **Phase 3 (not built):** push notifications (needs the removed mobile push subsystem rebuilt).
 
 ## Salesforce client auto-link (live since 2026-06-04)
 
