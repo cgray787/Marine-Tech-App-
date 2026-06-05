@@ -2,6 +2,15 @@ name = "marine-tech-dashboard"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 main = ".open-next/worker.js"
+# Keep the old marine-tech-dashboard.connorgray41.workers.dev URL alive as a
+# fallback for any printed bookmarks / docs that still reference it.
+workers_dev = true
+
+# Pretty custom domain on the existing Cloudflare-managed grayyachts.com zone.
+# Wrangler auto-creates the DNS record and provisions the TLS cert on deploy.
+routes = [
+  { pattern = "marinetech.grayyachts.com", custom_domain = true }
+]
 
 [assets]
 directory = ".open-next/assets"
