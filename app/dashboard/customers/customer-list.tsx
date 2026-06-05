@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useCanWrite } from "@/lib/role-context";
 
+// Only treat a stored Salesforce URL as a real link if it's https on a
+// salesforce.com host. Guards the href against javascript:/data: URIs even
+// though the column is server-written today (defense in depth).
+function isSafeSalesforceUrl(u: string | null): u is string {
+  if (!u) return false;
+  try {
+    const p = new URL(u);
+    return p.protocol === "https:" && p.hostname.endsWith(".salesforce.com");
+  } catch {
+    return false;
+  }
+}
+
 type Customer = {
   id: string;
   name: string;
@@ -357,7 +370,7 @@ export function CustomerList({
                     {/* Salesforce: view the linked record, or jump to SF's
                         blank New Person Account form if not linked yet. */}
                     <div className="mb-4">
-                      {customer.salesforce_url ? (
+                      {isSafeSalesforceUrl(customer.salesforce_url) ? (
                         <a
                           href={customer.salesforce_url}
                           target="_blank"
