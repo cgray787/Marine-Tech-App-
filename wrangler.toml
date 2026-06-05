@@ -19,9 +19,11 @@ binding = "ASSETS"
 [vars]
 NEXT_PUBLIC_SUPABASE_URL = "https://ikfcnqdrlvhvlyhiuphs.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ"
-# Cloudflare Turnstile sitekey (public). Default is the documented always-passes
-# test key — swap in a real one created at dash.cloudflare.com → Turnstile.
-NEXT_PUBLIC_TURNSTILE_SITEKEY = "1x00000000000000000000AA"
+# Cloudflare Turnstile sitekey (public). Real key created 2026-06-05 in
+# dash.cloudflare.com → Turnstile → 'Marine Tech Login'. Hostnames:
+# marinetech.grayyachts.com, marine-tech-dashboard.connorgray41.workers.dev,
+# localhost. Paired secret lives in the TURNSTILE_SECRET wrangler secret.
+NEXT_PUBLIC_TURNSTILE_SITEKEY = "0x4AAAAAADffjFfjP1zZtlR6"
 # Secrets to set with `npx wrangler secret put`:
 #   SUPABASE_SERVICE_ROLE_KEY  — service role JWT
 #   TURNSTILE_SECRET           — paired secret for the sitekey above
