@@ -1,0 +1,4 @@
+[    2160ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://web-production-51dbf.up.railway.app/favicon.ico:0
+[  659009ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://web-production-51dbf.up.railway.app/avatars/Priya.jpg:0
+[  659009ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://web-production-51dbf.up.railway.app/avatars/Devon.jpg:0
+[  659009ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://web-production-51dbf.up.railway.app/avatars/Maya.jpg:0

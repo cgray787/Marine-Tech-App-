@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/owner";
+import { requireOwner } from "@/lib/owner-guard";
 import { formatDate } from "@/lib/utils";
 import { InviteTechForm } from "./invite-tech-form";
 import { ManageUserControls } from "./manage-user-controls";

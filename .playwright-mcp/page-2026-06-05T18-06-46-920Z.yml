@@ -1,0 +1,195 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: G
+        - generic [ref=e6]:
+          - generic [ref=e7]: GrayYachts OS
+          - generic [ref=e8]: COMMAND CENTER
+      - generic [ref=e9]: Sections
+      - navigation [ref=e10]:
+        - link "◎ Overview" [ref=e11] [cursor=pointer]:
+          - /url: /command
+          - generic [ref=e12]: ◎
+          - generic [ref=e13]: Overview
+        - link "≣ Analytics" [ref=e14] [cursor=pointer]:
+          - /url: /command/analytics
+          - generic [ref=e15]: ≣
+          - generic [ref=e16]: Analytics
+        - link "▣ Workload" [ref=e17] [cursor=pointer]:
+          - /url: /command/workload
+          - generic [ref=e18]: ▣
+          - generic [ref=e19]: Workload
+        - link "❤ Pulse" [ref=e20] [cursor=pointer]:
+          - /url: /command/pulse
+          - generic [ref=e21]: ❤
+          - generic [ref=e22]: Pulse
+        - link "✦ Intelligence" [ref=e23] [cursor=pointer]:
+          - /url: /command/intelligence
+          - generic [ref=e24]: ✦
+          - generic [ref=e25]: Intelligence
+        - link "◍ Team" [ref=e26] [cursor=pointer]:
+          - /url: /command/team
+          - generic [ref=e27]: ◍
+          - generic [ref=e28]: Team
+        - link "✓ Tasks" [ref=e29] [cursor=pointer]:
+          - /url: /command/tasks
+          - generic [ref=e30]: ✓
+          - generic [ref=e31]: Tasks
+        - link "☉ Daily feed" [ref=e32] [cursor=pointer]:
+          - /url: /command/feed
+          - generic [ref=e33]: ☉
+          - generic [ref=e34]: Daily feed
+        - link "► Skills" [ref=e35] [cursor=pointer]:
+          - /url: /command/skills
+          - generic [ref=e36]: ►
+          - generic [ref=e37]: Skills
+        - link "◈ Vault overview" [ref=e38] [cursor=pointer]:
+          - /url: /command/overview
+          - generic [ref=e39]: ◈
+          - generic [ref=e40]: Vault overview
+      - generic [ref=e41]:
+        - generic [ref=e42]: Claude Code
+        - generic [ref=e43]: $0 API
+    - main [ref=e44]:
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: GrayYachts Command Center
+          - heading "Overview" [level=1] [ref=e48]
+        - generic [ref=e49]:
+          - generic [ref=e50]: ↻ Refresh all
+          - link "◈ Vault overview" [ref=e51] [cursor=pointer]:
+            - /url: /command/overview
+      - generic [ref=e53]: Sample data — wired to live Quo / Salesforce / YouTube / Gmail when the backbone ships
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]: YouTube subs
+            - generic [ref=e58]: ▲ 2.1%
+          - generic [ref=e59]: 12.8K
+          - generic [ref=e60]: +260 past 7d
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - generic [ref=e63]: Pipeline value
+            - generic [ref=e64]: ▲ 6.4%
+          - generic [ref=e65]: 4.3M
+          - generic [ref=e66]: 11 open deals
+        - generic [ref=e67]:
+          - generic [ref=e69]: Prospects
+          - generic [ref=e70]: "84"
+          - generic [ref=e71]: 9 hot leads
+        - generic [ref=e72]:
+          - generic [ref=e74]: Inbound (7d)
+          - generic [ref=e75]: "37"
+          - generic [ref=e76]: Quo + Email + YT
+        - generic [ref=e77]:
+          - generic [ref=e79]: Calls logged
+          - generic [ref=e80]: "14"
+          - generic [ref=e81]: 8.2h this week
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - generic [ref=e84]:
+            - heading "Rising themes (4w)" [level=3] [ref=e85]
+            - generic [ref=e86]: across calls + YouTube + email
+          - application [ref=e90]:
+            - generic [ref=e117]:
+              - generic [ref=e118]:
+                - generic [ref=e120]: "0"
+                - generic [ref=e122]: "15"
+                - generic [ref=e124]: "30"
+                - generic [ref=e126]: "45"
+                - generic [ref=e128]: "60"
+              - generic [ref=e129]:
+                - generic [ref=e131]: Repower / enginerefit asks
+                - generic [ref=e133]: Slip availability —Seattle
+                - generic [ref=e135]: Pre-purchasesurvey help
+                - generic [ref=e137]: Sail vs power switch
+                - generic [ref=e139]: Winterization timing
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - heading "Top objections" [level=3] [ref=e142]
+            - generic [ref=e143]: red = high severity
+          - application [ref=e147]:
+            - generic [ref=e171]:
+              - generic [ref=e172]:
+                - generic [ref=e174]: "0"
+                - generic [ref=e176]: "15"
+                - generic [ref=e178]: "30"
+                - generic [ref=e180]: "45"
+                - generic [ref=e182]: "60"
+              - generic [ref=e183]:
+                - generic [ref=e185]: Price vs surveyfindings
+                - generic [ref=e187]: Closing timeline tooslow
+                - generic [ref=e189]: Financing / docsfriction
+                - generic [ref=e191]: Trade-in valuationgap
+      - generic [ref=e192]:
+        - generic [ref=e193]:
+          - generic [ref=e194]:
+            - heading "Cross-source signals" [level=3] [ref=e195]
+            - generic [ref=e196]: p0 red · p1 amber · p2 blue
+          - application [ref=e200]:
+            - generic [ref=e224]:
+              - generic [ref=e225]:
+                - generic [ref=e227]: "0"
+                - generic [ref=e229]: "20"
+                - generic [ref=e231]: "40"
+                - generic [ref=e233]: "60"
+                - generic [ref=e235]: "80"
+              - generic [ref=e236]:
+                - generic [ref=e238]: Repower demand
+                - generic [ref=e240]: Seattle moorage
+                - generic [ref=e242]: Survey concessions
+                - generic [ref=e244]: Trade-in valuation
+        - generic [ref=e245]:
+          - generic [ref=e246]:
+            - heading "At-risk deals" [level=3] [ref=e247]
+            - generic [ref=e248]: "3"
+          - generic [ref=e250]:
+            - generic [ref=e251]:
+              - generic [ref=e252]:
+                - strong [ref=e253]: Hinckley 48 buyer (Sausalito)
+                - generic [ref=e254]: 6d stuck
+              - generic [ref=e255]: No reply since survey — Connor to call + send concession options.
+            - generic [ref=e256]:
+              - generic [ref=e257]:
+                - strong [ref=e258]: Grand Banks trade-in
+                - generic [ref=e259]: 3d stuck
+              - generic [ref=e260]: Trade-in valuation gap — send comps PDF.
+            - generic [ref=e261]:
+              - generic [ref=e262]:
+                - strong [ref=e263]: Newport sailing-cat lead
+                - generic [ref=e264]: 2d stuck
+              - generic [ref=e265]: Went quiet after sea trial — personal follow-up.
+      - generic [ref=e266]:
+        - generic [ref=e267]:
+          - heading "Opportunity briefs" [level=3] [ref=e268]
+          - generic [ref=e269]: "3"
+        - generic [ref=e271]:
+          - generic [ref=e272]:
+            - strong [ref=e273]: Repower content arc → capture refit-intent buyers
+            - generic [ref=e274]: "Engine-refit questions are the #1 theme across YouTube comments and 3 recent sales calls. A 'should you repower?' video + landing page maps directly to high-intent buyers."
+            - generic [ref=e275]:
+              - generic [ref=e276]:
+                - strong [ref=e277]: "Next:"
+                - text: Brief Content Writer on a 3-video repower arc this week.
+              - generic [ref=e278]: ► Run skill
+          - generic [ref=e279]:
+            - strong [ref=e280]: Seattle slip-availability page → intercept relocating owners
+            - generic [ref=e281]: Slip questions spiked from PNW prospects. A slip-availability explainer converts an underserved, high-intent search.
+            - generic [ref=e282]:
+              - generic [ref=e283]:
+                - strong [ref=e284]: "Next:"
+                - text: Run SEO Strategist on 'seattle yacht moorage' cluster.
+              - generic [ref=e285]: ► Run skill
+          - generic [ref=e286]:
+            - strong [ref=e287]: Survey-objection playbook → unstick 2 stalled deals
+            - generic [ref=e288]: Two deals stalled on post-survey price renegotiation. A pre-built concession framework de-risks the next 5.
+            - generic [ref=e289]:
+              - generic [ref=e290]:
+                - strong [ref=e291]: "Next:"
+                - text: Draft the framework in the Sales Coach skill.
+              - generic [ref=e292]: ► Run skill
+  - button "Open Next.js Dev Tools" [ref=e298] [cursor=pointer]:
+    - img [ref=e299]
+  - alert [ref=e302]
+  - generic [ref=e303]: Repower demand

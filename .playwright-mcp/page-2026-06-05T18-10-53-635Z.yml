@@ -1,0 +1,77 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: G
+        - generic [ref=e6]:
+          - generic [ref=e7]: GrayYachts OS
+          - generic [ref=e8]: COMMAND CENTER
+      - generic [ref=e9]: Sections
+      - navigation [ref=e10]:
+        - link "◎ Overview" [ref=e11] [cursor=pointer]:
+          - /url: /command
+          - generic [ref=e12]: ◎
+          - generic [ref=e13]: Overview
+        - link "≣ Analytics" [ref=e14] [cursor=pointer]:
+          - /url: /command/analytics
+          - generic [ref=e15]: ≣
+          - generic [ref=e16]: Analytics
+        - link "▣ Workload" [ref=e17] [cursor=pointer]:
+          - /url: /command/workload
+          - generic [ref=e18]: ▣
+          - generic [ref=e19]: Workload
+        - link "❤ Pulse" [ref=e20] [cursor=pointer]:
+          - /url: /command/pulse
+          - generic [ref=e21]: ❤
+          - generic [ref=e22]: Pulse
+        - link "✦ Intelligence" [ref=e23] [cursor=pointer]:
+          - /url: /command/intelligence
+          - generic [ref=e24]: ✦
+          - generic [ref=e25]: Intelligence
+        - link "◍ Team" [ref=e26] [cursor=pointer]:
+          - /url: /command/team
+          - generic [ref=e27]: ◍
+          - generic [ref=e28]: Team
+        - link "✓ Tasks" [ref=e29] [cursor=pointer]:
+          - /url: /command/tasks
+          - generic [ref=e30]: ✓
+          - generic [ref=e31]: Tasks
+        - link "☉ Daily feed" [ref=e32] [cursor=pointer]:
+          - /url: /command/feed
+          - generic [ref=e33]: ☉
+          - generic [ref=e34]: Daily feed
+        - link "► Skills" [ref=e35] [cursor=pointer]:
+          - /url: /command/skills
+          - generic [ref=e36]: ►
+          - generic [ref=e37]: Skills
+        - link "◈ Vault overview" [ref=e38] [cursor=pointer]:
+          - /url: /command/overview
+          - generic [ref=e39]: ◈
+          - generic [ref=e40]: Vault overview
+      - generic [ref=e41]:
+        - generic [ref=e42]: Claude Code
+        - generic [ref=e43]: $0 API
+    - main [ref=e44]:
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: Command Center
+          - heading "Pulse" [level=1] [ref=e48]
+        - link "← Overview" [ref=e49] [cursor=pointer]:
+          - /url: /command
+      - generic [ref=e53]:
+        - generic [ref=e54]: Coming in the Data Backbone
+        - paragraph [ref=e55]: This section renders once the connector → snapshot → intelligence backbone is wired.
+        - paragraph [ref=e56]:
+          - strong [ref=e57]: "Will show:"
+          - text: 7-day activity across YouTube / Quo / Gmail / Salesforce + activity stream.
+        - paragraph [ref=e58]:
+          - text: The layout, theme, and Skills Console are live now — explore
+          - link "Skills" [ref=e59] [cursor=pointer]:
+            - /url: /command/skills
+          - text: and the
+          - link "Overview" [ref=e60] [cursor=pointer]:
+            - /url: /command
+          - text: .
+  - button "Open Next.js Dev Tools" [ref=e66] [cursor=pointer]:
+    - img [ref=e67]
+  - alert [ref=e70]

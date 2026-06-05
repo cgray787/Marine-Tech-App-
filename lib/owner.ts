@@ -1,13 +1,11 @@
-// Owner gate — STRICTER than admin. Only the operator (Connor) sees and can
-// use the Users & Access (Technicians) page; admins like Darik can still edit
-// data everywhere else, but they can't change teammates' role assignments.
+// Pure isOwner check — NO server imports here so this module is safe to import
+// from "use client" components (like the sidebar). The server-side
+// requireOwner() guard lives in lib/owner-guard.ts and is the only file that
+// touches next/headers via requireAdmin.
 //
-// Email allowlist (instead of a profiles.is_owner column) so this ships
-// without a schema migration. Add a column + SQL is_owner() helper when the
-// next migration round happens — defense-in-depth at the RPC layer.
-
-import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin";
+// Email + auth_id allowlist (no schema migration). When we add a real
+// profiles.is_owner column in a future migration round, swap the lookups here
+// and the SQL helper at the same time.
 
 const OWNER_EMAILS = new Set<string>([
   "connorgray@jeffbrownyachts.com",      // canonical admin per CLAUDE.md
@@ -32,14 +30,4 @@ export function isOwner(profile: OwnerCandidate | null | undefined): boolean {
   const authId = profile.auth_id ?? profile.id ?? "";
   if (authId && OWNER_AUTH_IDS.has(authId)) return true;
   return false;
-}
-
-// Gate a server component to owners only. Non-owners (even admins) bounce
-// back to the dashboard with a query param the UI can ignore or surface.
-export async function requireOwner() {
-  const ctx = await requireAdmin();
-  if (!isOwner(ctx.profile)) {
-    redirect("/dashboard?error=owner_only");
-  }
-  return ctx;
 }
