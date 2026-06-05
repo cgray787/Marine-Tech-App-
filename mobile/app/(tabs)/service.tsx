@@ -486,6 +486,38 @@ export default function ServiceScreen() {
     }
   }
 
+  // Insert the current `parts` into the parts table for a saved report.
+  // Edit mode: caller deletes existing rows first, then this re-inserts.
+  async function persistParts(reportId: string, jobId: string) {
+    if (!profile || parts.length === 0) return;
+    for (const part of parts) {
+      let photoUrl: string | null = null;
+      if (part.photo) {
+        photoUrl = await uploadPhoto(part.photo, "report-photos", reportId, "part");
+      }
+      const { error } = await supabase.from("parts").insert({
+        service_report_id: reportId,
+        job_id: jobId,
+        customer_id: customerId || null,
+        boat_id: boatId || null,
+        created_by: profile.id,
+        name: part.name,
+        part_number: part.partNum || null,
+        quantity: part.qty || 1,
+        description: part.description || null,
+        supplier: part.supplier || null,
+        url: part.url || null,
+        photo_url: photoUrl,
+        status: part.ordered ? "ordered" : "need_to_order",
+        ordered_at: part.ordered ? new Date().toISOString() : null,
+      });
+      if (error) {
+        console.error("Part insert error:", error.message);
+        Alert.alert("Parts warning", `A part ("${part.name}") couldn't be saved: ${error.message}`);
+      }
+    }
+  }
+
   async function handleSubmitOffline() {
     if (!profile) return;
 
@@ -622,9 +654,10 @@ export default function ServiceScreen() {
         }
         reportId = editReportId;
 
-        // Clear existing checklist items and photos — we re-insert from state.
+        // Clear existing checklist items, photos, and parts — we re-insert from state.
         await supabase.from("checklist_items").delete().eq("report_id", reportId);
         await supabase.from("report_photos").delete().eq("report_id", reportId);
+        await supabase.from("parts").delete().eq("service_report_id", reportId);
       } else {
         const { data: newReport, error: reportErr } = await supabase
           .from("service_reports")
@@ -768,6 +801,9 @@ export default function ServiceScreen() {
       if (r.status === "rejected") return n + 1;
       return r.value.ok ? n : n + 1;
     }, 0);
+
+    // Persist parts (runs once for both new and edit paths).
+    await persistParts(reportId, jobId);
 
     setSubmitting(false);
 
