@@ -265,6 +265,45 @@ async function processSyncItem(
         return true;
       }
 
+      case "parts": {
+        const realReportId = payload._offline_report_id
+          ? idMap.get(payload._offline_report_id) ?? payload._offline_report_id
+          : payload.service_report_id;
+
+        if (typeof realReportId === "string" && realReportId.startsWith("offline_")) {
+          const errMsg = `Parent report ${payload._offline_report_id} not yet synced`;
+          console.warn("[Sync]", errMsg);
+          await markFailed(item.id, errMsg);
+          return false;
+        }
+
+        let photoUrl: string | null = null;
+        if (payload.photoUri) {
+          photoUrl = await uploadPhotoToStorage(payload.photoUri, "report-photos", realReportId);
+        }
+
+        const { error } = await supabase.from("parts").insert({
+          service_report_id: realReportId,
+          name: payload.name,
+          part_number: payload.partNum || null,
+          quantity: payload.quantity || 1,
+          description: payload.description || null,
+          supplier: payload.supplier || null,
+          url: payload.url || null,
+          photo_url: photoUrl,
+          status: payload.ordered ? "ordered" : "need_to_order",
+          ordered_at: payload.ordered ? new Date().toISOString() : null,
+          created_by: payload.tech_id || null,
+        });
+
+        if (error) {
+          console.error("[Sync] Parts insert error:", error);
+          await markFailed(item.id, error.message);
+          return false;
+        }
+        return true;
+      }
+
       default:
         console.warn("[Sync] Unknown table:", item.table_name);
         await markFailed(item.id, `Unknown table: ${item.table_name}`);

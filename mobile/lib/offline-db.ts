@@ -53,6 +53,20 @@ export async function initDB(): Promise<void> {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS pending_parts (
+      id TEXT PRIMARY KEY,
+      report_id TEXT,
+      name TEXT,
+      part_number TEXT,
+      quantity INTEGER,
+      description TEXT,
+      supplier TEXT,
+      url TEXT,
+      photo_uri TEXT,
+      ordered INTEGER,
+      tech_id TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS pending_photos (
       id TEXT PRIMARY KEY,
       report_id TEXT NOT NULL,
@@ -402,6 +416,65 @@ export async function savePendingChecklistItem(
   );
 
   return itemId;
+}
+
+export type PartItem = {
+  name: string;
+  qty?: number;
+  partNum?: string;
+  ordered?: boolean;
+  photo?: string;
+  supplier?: string;
+  url?: string;
+  description?: string;
+};
+
+export async function savePendingParts(
+  offlineReportId: string,
+  parts: PartItem[],
+  techId: string
+): Promise<void> {
+  const database = await getDB();
+  for (const part of parts) {
+    const partId = generateId();
+    await database.runAsync(
+      `INSERT INTO pending_parts (id, report_id, name, part_number, quantity, description, supplier, url, photo_uri, ordered, tech_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        partId,
+        offlineReportId,
+        part.name,
+        part.partNum ?? null,
+        part.qty ?? 1,
+        part.description ?? null,
+        part.supplier ?? null,
+        part.url ?? null,
+        part.photo ?? null,
+        part.ordered ? 1 : 0,
+        techId,
+      ]
+    );
+
+    await database.runAsync(
+      `INSERT INTO sync_queue (table_name, record_id, action, payload)
+       VALUES ('parts', ?, 'insert', ?)`,
+      [
+        partId,
+        JSON.stringify({
+          _offline_report_id: offlineReportId,
+          name: part.name,
+          partNum: part.partNum ?? null,
+          quantity: part.qty ?? 1,
+          description: part.description ?? null,
+          supplier: part.supplier ?? null,
+          url: part.url ?? null,
+          photoUri: part.photo ?? null,
+          ordered: part.ordered ?? false,
+          tech_id: techId,
+        }),
+      ]
+    );
+  }
 }
 
 export async function savePendingPhoto(

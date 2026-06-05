@@ -23,7 +23,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
-import { savePendingReport } from "@/lib/offline-db";
+import { savePendingReport, savePendingParts } from "@/lib/offline-db";
 import { colors } from "@/constants/Colors";
 import { SUPPLIERS } from "@/constants/Suppliers";
 
@@ -559,7 +559,7 @@ export default function ServiceScreen() {
         photos.push({ localUri: photo.uri, category: categorySlug });
       }
 
-      await savePendingReport({
+      const offlineReportId = await savePendingReport({
         jobId: "",
         techId: profile.id,
         boatId: boatId || null,
@@ -578,6 +578,10 @@ export default function ServiceScreen() {
         checklistItems,
         photos,
       });
+
+      if (parts.length > 0) {
+        await savePendingParts(offlineReportId, parts, profile.id);
+      }
 
       setSubmitting(false);
       Alert.alert(
