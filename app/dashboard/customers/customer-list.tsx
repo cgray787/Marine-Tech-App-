@@ -57,6 +57,7 @@ export function CustomerList({
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showBoatForm, setShowBoatForm] = useState<string | null>(null);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   // Customer form state
   const [customerName, setCustomerName] = useState("");
@@ -170,6 +171,24 @@ export function CustomerList({
     setBoatColor("");
     setBoatMarina("");
   }
+
+  // Filter by customer name/email/phone and their boats' name/make-model.
+  const q = search.trim().toLowerCase();
+  const visibleCustomers = q
+    ? initialCustomers.filter((c) => {
+        const boats = initialBoats.filter((b) => b.customer_id === c.id);
+        const haystack = [
+          c.name,
+          c.email,
+          c.phone,
+          ...boats.flatMap((b) => [b.name, b.make_model]),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(q);
+      })
+    : initialCustomers;
 
   return (
     <div>
@@ -291,10 +310,34 @@ export function CustomerList({
       </div>
       )}
 
+      {/* Search */}
+      <div className="relative mb-4">
+        <svg
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+          />
+        </svg>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search customers by name, email, phone, or boat…"
+          className="w-full rounded-lg border border-border-line bg-secondary-bg py-2.5 pl-10 pr-4 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+        />
+      </div>
+
       {/* Customer List */}
       <div className="space-y-4">
-        {initialCustomers.length > 0 ? (
-          initialCustomers.map((customer) => {
+        {visibleCustomers.length > 0 ? (
+          visibleCustomers.map((customer) => {
             const customerBoats = initialBoats.filter(
               (b) => b.customer_id === customer.id
             );
@@ -592,7 +635,9 @@ export function CustomerList({
         ) : (
           <div className="rounded-xl border border-border-line bg-card-bg p-12 text-center">
             <p className="text-sm text-text-secondary">
-              No customers yet. Add one to get started.
+              {q
+                ? `No customers match “${search.trim()}”.`
+                : "No customers yet. Add one to get started."}
             </p>
           </div>
         )}
