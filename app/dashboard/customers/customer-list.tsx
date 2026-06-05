@@ -12,6 +12,7 @@ type Customer = {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  salesforce_url: string | null;
   created_at: string;
 };
 
@@ -352,6 +353,30 @@ export function CustomerList({
                         Notes: {customer.notes}
                       </p>
                     )}
+
+                    {/* Salesforce: view the linked record, or jump to SF's
+                        blank New Person Account form if not linked yet. */}
+                    <div className="mb-4">
+                      {customer.salesforce_url ? (
+                        <a
+                          href={customer.salesforce_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border-line px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-white/5"
+                        >
+                          ☁ View in Salesforce
+                        </a>
+                      ) : (
+                        <a
+                          href="https://jeffbrownyachts.my.salesforce.com/lightning/o/Account/new?recordTypeId=0123h000000ANsqAAG"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 bg-gold-muted px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/20"
+                        >
+                          ➕ Add to Salesforce
+                        </a>
+                      )}
+                    </div>
 
                     <div className="mb-3 flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-gold">
