@@ -56,6 +56,9 @@ create trigger set_part_org_before_insert
   before insert on public.parts
   for each row execute function public.set_part_org();
 
+-- Trigger fn should not be PostgREST-callable (it still fires as a trigger).
+revoke all on function public.set_part_org() from public, anon, authenticated;
+
 alter table public.parts enable row level security;
 
 drop policy if exists parts_select on public.parts;
