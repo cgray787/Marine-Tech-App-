@@ -5,20 +5,33 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
+import { isOwner } from "@/lib/owner";
+
 type Profile = {
   id: string;
   full_name: string;
   email: string;
   role: string;
   avatar_url: string | null;
+  auth_id?: string | null;
 };
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: string;
+  ownerOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "grid" },
   { label: "Reports", href: "/dashboard/reports", icon: "file-text" },
   { label: "Jobs", href: "/dashboard/jobs", icon: "briefcase" },
   { label: "Calendar", href: "/dashboard/calendar", icon: "calendar" },
-  { label: "Technicians", href: "/dashboard/technicians", icon: "users" },
+  // Users & Access page — hidden from everyone except the operator (Connor).
+  // Admins like Darik still manage data everywhere else; they just can't see
+  // or change role assignments here.
+  { label: "Technicians", href: "/dashboard/technicians", icon: "users", ownerOnly: true },
   { label: "Customers & Boats", href: "/dashboard/customers", icon: "anchor" },
   { label: "PDI Reports", href: "/dashboard/pdi-reports", icon: "clipboard" },
 ];
@@ -98,9 +111,9 @@ export function Sidebar({ profile }: { profile: Profile }) {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation — ownerOnly entries get filtered out for non-owner users. */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => {
+        {navItems.filter((item) => !item.ownerOnly || isOwner(profile)).map((item) => {
           const isActive =
             item.href === "/dashboard"
               ? pathname === "/dashboard"
