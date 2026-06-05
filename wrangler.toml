@@ -19,5 +19,10 @@ binding = "ASSETS"
 [vars]
 NEXT_PUBLIC_SUPABASE_URL = "https://ikfcnqdrlvhvlyhiuphs.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ"
-# SUPABASE_SERVICE_ROLE_KEY should be set as a Cloudflare secret:
-# npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# Cloudflare Turnstile sitekey (public). Default is the documented always-passes
+# test key — swap in a real one created at dash.cloudflare.com → Turnstile.
+NEXT_PUBLIC_TURNSTILE_SITEKEY = "1x00000000000000000000AA"
+# Secrets to set with `npx wrangler secret put`:
+#   SUPABASE_SERVICE_ROLE_KEY  — service role JWT
+#   TURNSTILE_SECRET           — paired secret for the sitekey above
+#                                (defaults to Cloudflare's always-passes test secret if unset)

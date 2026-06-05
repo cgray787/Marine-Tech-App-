@@ -1,8 +1,32 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import Script from "next/script";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+// Cloudflare's documented always-passes test sitekey. Swap with a real
+// sitekey by setting NEXT_PUBLIC_TURNSTILE_SITEKEY in wrangler.toml [vars].
+const TEST_SITEKEY = "1x00000000000000000000AA";
+
+// Tell TS about the global injected by the Turnstile script.
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        el: HTMLElement,
+        opts: {
+          sitekey: string;
+          theme?: "light" | "dark" | "auto";
+          callback?: (token: string) => void;
+          "expired-callback"?: () => void;
+          "error-callback"?: () => void;
+        },
+      ) => string;
+      reset: (widgetId?: string) => void;
+    };
+  }
+}
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -15,11 +39,62 @@ function LoginForm() {
       : ""
   );
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const widgetRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+  const sitekey = process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY || TEST_SITEKEY;
+
+  // Render the widget once the Turnstile script has loaded.
+  function renderTurnstile() {
+    if (!window.turnstile || !widgetRef.current || widgetIdRef.current) return;
+    widgetIdRef.current = window.turnstile.render(widgetRef.current, {
+      sitekey,
+      theme: "dark",
+      callback: (token) => setTurnstileToken(token),
+      "expired-callback": () => setTurnstileToken(null),
+      "error-callback": () => setTurnstileToken(null),
+    });
+  }
+
+  // In case the script loaded before this component mounted.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.turnstile) renderTurnstile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    if (!turnstileToken) {
+      setError("Please complete the I'm not a robot check.");
+      setLoading(false);
+      return;
+    }
+
+    // Server-side verify the Turnstile token BEFORE attempting Supabase auth.
+    // Any failure here means no password attempt is even made.
+    try {
+      const verifyRes = await fetch("/api/verify-turnstile", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken }),
+      });
+      const verifyJson = await verifyRes.json().catch(() => ({}));
+      if (!verifyRes.ok || !verifyJson?.ok) {
+        setError("Verification failed. Please try again.");
+        setLoading(false);
+        // Force the widget to issue a fresh token.
+        window.turnstile?.reset(widgetIdRef.current ?? undefined);
+        setTurnstileToken(null);
+        return;
+      }
+    } catch {
+      setError("Verification unreachable. Check your connection and retry.");
+      setLoading(false);
+      return;
+    }
 
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithPassword({
@@ -30,6 +105,9 @@ function LoginForm() {
     if (authError) {
       setError(authError.message);
       setLoading(false);
+      // Roll the Turnstile token so retries pass through a fresh challenge.
+      window.turnstile?.reset(widgetIdRef.current ?? undefined);
+      setTurnstileToken(null);
       return;
     }
 
@@ -150,9 +228,19 @@ function LoginForm() {
             </div>
           </div>
 
+          {/* Cloudflare Turnstile — renders an "I'm not a robot" checkbox.
+              Script tag below loads the widget runtime; the div is the
+              mount point. Theme="dark" matches the form. */}
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+            strategy="afterInteractive"
+            onLoad={renderTurnstile}
+          />
+          <div ref={widgetRef} className="flex justify-center" />
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !turnstileToken}
             className="w-full rounded-lg bg-gold py-3 text-sm font-semibold tracking-wide text-primary-bg transition-colors hover:bg-gold-hover disabled:opacity-50"
           >
             {loading ? "Signing in..." : "SIGN IN"}
