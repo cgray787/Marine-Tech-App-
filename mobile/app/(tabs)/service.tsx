@@ -159,6 +159,7 @@ export default function ServiceScreen() {
     photo?: string;
     supplier: string;
     url: string;
+    description: string;
   };
   const [parts, setParts] = useState<Part[]>([]);
   const [newPartName, setNewPartName] = useState("");
@@ -1535,6 +1536,21 @@ export default function ServiceScreen() {
                     )}
                   </View>
 
+                  {/* Description */}
+                  <Text style={styles.partDetailLabel}>Description / details</Text>
+                  <TextInput
+                    style={styles.partDetailInput}
+                    value={part.description}
+                    onChangeText={(t) =>
+                      setParts((prev) =>
+                        prev.map((p, i) => (i === index ? { ...p, description: t } : p))
+                      )
+                    }
+                    placeholder="What's needed, location on the boat, etc."
+                    placeholderTextColor={colors.textSecondary + "80"}
+                    multiline
+                  />
+
                   {/* Photo + actions row */}
                   <View style={styles.partDetailActions}>
                     <TouchableOpacity
@@ -1582,7 +1598,7 @@ export default function ServiceScreen() {
             const newIndex = parts.length;
             setParts((prev) => [
               ...prev,
-              { name: newPartName.trim(), qty: 1, partNum: "", ordered: false, supplier: "", url: "" },
+              { name: newPartName.trim(), qty: 1, partNum: "", ordered: false, supplier: "", url: "", description: "" },
             ]);
             setNewPartName("");
             setExpandedPartIndex(newIndex);
