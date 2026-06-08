@@ -4,8 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
 import {
   CalendarView, CalendarToolbar, JobPopover, NewJobModal, UnscheduledTray, WeeklyJobsPanel,
+  ScheduleQuickPicker,
 } from '@/components/calendar';
-import { getJobsInRange, getUnscheduledJobs } from '@/lib/calendar/queries';
+import { getJobsInRange, getUnscheduledJobs, updateJob } from '@/lib/calendar/queries';
 import { subscribeToJobs, unsubscribe } from '@/lib/calendar/realtime';
 import { createClient } from '@/lib/supabase/client';
 import { techColor, statusStripeColor } from '@/lib/calendar/colors';
@@ -24,6 +25,8 @@ export default function CalendarPage() {
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
   const [newJobOpen, setNewJobOpen] = useState(false);
   const [newJobStart, setNewJobStart] = useState<Date | null>(null);
+  // The job currently being scheduled via the inline quick-picker (null = closed).
+  const [scheduleJob, setScheduleJob] = useState<CalendarJob | null>(null);
 
   const range = useMemo(() => {
     const fns = view === 'month'
@@ -128,15 +131,9 @@ export default function CalendarPage() {
         unscheduledJobs={unscheduledQuery.data ?? []}
         weekOf={date}
         onSelectJob={(job, anchor) => { setPopoverJob(job); setPopoverAnchor(anchor); }}
-        onScheduleJob={
-          canWrite
-            ? (job) => {
-                setNewJobStart(job.scheduledStart ? new Date(job.scheduledStart) : new Date());
-                setPopoverJob(job);
-                setPopoverAnchor(document.body);
-              }
-            : undefined
-        }
+        // Schedule button on each UNSCHEDULED row → open inline date/time picker.
+        // (Previously this opened the read-only JobPopover with no save path.)
+        onScheduleJob={canWrite ? (job) => setScheduleJob(job) : undefined}
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[#8892A5]">
@@ -163,6 +160,27 @@ export default function CalendarPage() {
       </div>
 
       <JobPopover job={popoverJob} anchor={popoverAnchor} onClose={() => setPopoverJob(null)} />
+
+      {scheduleJob && (
+        <ScheduleQuickPicker
+          job={scheduleJob}
+          initial={scheduleJob.scheduledStart ? new Date(scheduleJob.scheduledStart) : null}
+          onCancel={() => setScheduleJob(null)}
+          onSave={async ({ scheduledStart, scheduledEnd }) => {
+            await updateJob(supabase, {
+              id: scheduleJob.id,
+              scheduledStart,
+              scheduledEnd,
+            });
+            // Refetch the lanes so the row moves from UNSCHEDULED → SCHEDULED.
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+              queryClient.invalidateQueries({ queryKey: ['unscheduled-jobs'] }),
+            ]);
+            setScheduleJob(null);
+          }}
+        />
+      )}
 
       <NewJobModal
         open={newJobOpen}

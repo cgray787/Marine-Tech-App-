@@ -5,3 +5,4 @@ export { JobPopover } from './JobPopover';
 export { NewJobModal } from './NewJobModal';
 export { UnscheduledTray } from './UnscheduledTray';
 export { WeeklyJobsPanel } from './WeeklyJobsPanel';
+export { ScheduleQuickPicker } from './ScheduleQuickPicker';
