@@ -172,11 +172,9 @@ export default function CalendarPage() {
               scheduledStart,
               scheduledEnd,
             });
-            // Refetch the lanes so the row moves from UNSCHEDULED → SCHEDULED.
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['jobs'] }),
-              queryClient.invalidateQueries({ queryKey: ['unscheduled-jobs'] }),
-            ]);
+            // Invalidate every 'calendar' query (month grid + UNSCHEDULED panel
+            // + lookups). Prefix match covers them all in one call.
+            await queryClient.invalidateQueries({ queryKey: ['calendar'] });
             setScheduleJob(null);
           }}
         />
