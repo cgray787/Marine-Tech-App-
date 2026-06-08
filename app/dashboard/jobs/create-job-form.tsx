@@ -46,6 +46,16 @@ export function CreateJobForm({
   const [boatId, setBoatId] = useState("");
   const [techId, setTechId] = useState("");
   const [marinaId, setMarinaId] = useState("");
+  // Optimistically-appended marinas added via the "+ Add new marina" inline
+  // form. Server-fetched `marinas` (a Server Component prop) doesn't refresh
+  // mid-form, so we keep the new ones in local state and merge for the select.
+  const [addedMarinas, setAddedMarinas] = useState<Marina[]>([]);
+  // Inline "add marina" UX state. When `addingMarina` is true the dropdown
+  // hides itself and shows a name input + Save/Cancel.
+  const [addingMarina, setAddingMarina] = useState(false);
+  const [newMarinaName, setNewMarinaName] = useState("");
+  const [marinaSaving, setMarinaSaving] = useState(false);
+  const [marinaError, setMarinaError] = useState("");
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
   const [scheduledDate, setScheduledDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -58,6 +68,47 @@ export function CreateJobForm({
     setServiceTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
+  }
+
+  // Combined marina list for the select — server-fetched marinas + any added
+  // inline this session.
+  const allMarinas: Marina[] = [
+    ...marinas,
+    ...addedMarinas.filter((a) => !marinas.some((m) => m.id === a.id)),
+  ];
+
+  async function saveNewMarina() {
+    const name = newMarinaName.trim();
+    if (!name) {
+      setMarinaError("Name required");
+      return;
+    }
+    setMarinaSaving(true);
+    setMarinaError("");
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("marinas")
+      .insert({ name })
+      .select("id, name")
+      .single();
+    setMarinaSaving(false);
+    if (error || !data) {
+      setMarinaError(error?.message ?? "Failed to add marina");
+      return;
+    }
+    setAddedMarinas((prev) => [...prev, data as Marina]);
+    setMarinaId(data.id);
+    setNewMarinaName("");
+    setAddingMarina(false);
+    // Trigger a server refresh so the preference list is up-to-date the next
+    // time the form mounts; the local state already covers this render.
+    router.refresh();
+  }
+
+  function cancelAddMarina() {
+    setAddingMarina(false);
+    setNewMarinaName("");
+    setMarinaError("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -189,23 +240,74 @@ export function CreateJobForm({
                 </select>
               </div>
 
-              {/* Marina */}
+              {/* Marina — supports inline "+ Add new marina" without leaving the form */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-secondary">
                   Marina
                 </label>
-                <select
-                  value={marinaId}
-                  onChange={(e) => setMarinaId(e.target.value)}
-                  className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-                >
-                  <option value="">Select marina...</option>
-                  {marinas.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+                {addingMarina ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={newMarinaName}
+                        onChange={(e) => setNewMarinaName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void saveNewMarina();
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelAddMarina();
+                          }
+                        }}
+                        placeholder="New marina name…"
+                        className="flex-1 rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                      />
+                      <button
+                        type="button"
+                        onClick={saveNewMarina}
+                        disabled={marinaSaving || !newMarinaName.trim()}
+                        className="rounded-lg bg-gold px-3 py-2.5 text-xs font-semibold tracking-wide text-primary-bg transition-colors hover:bg-gold-hover disabled:opacity-50"
+                      >
+                        {marinaSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelAddMarina}
+                        disabled={marinaSaving}
+                        className="rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-xs text-text-secondary hover:bg-border-line disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {marinaError && (
+                      <p className="text-xs text-red-400">{marinaError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <select
+                    value={marinaId}
+                    onChange={(e) => {
+                      if (e.target.value === "__add__") {
+                        setAddingMarina(true);
+                        return;
+                      }
+                      setMarinaId(e.target.value);
+                    }}
+                    className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  >
+                    <option value="">Select marina...</option>
+                    {allMarinas.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                    <option disabled>──────────</option>
+                    <option value="__add__">+ Add new marina…</option>
+                  </select>
+                )}
               </div>
 
               {/* Scheduled Date */}
