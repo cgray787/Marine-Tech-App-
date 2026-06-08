@@ -157,6 +157,8 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `023_customers_tenant_from_profile.sql` — `set_customer_tenant` BEFORE INSERT trigger derives `customers.org_id`/`location_id` from the inserting user's profile (blocks client tenant-spoofing; service-role inserts keep explicit values)
 - `024_admin_user_management.sql` — `admin_set_user_role(target,role)` + `admin_delete_user(target)` admin-only RPCs (gated by `is_admin()`, block acting on self) powering the dashboard Users & Access page
 - `025_parts.sql` — `parts` table (parts-to-order) + RLS + `current_profile_org()` helper + `set_part_org` BEFORE INSERT org-assign trigger
+- `026_owner_only_user_management.sql` — `is_owner()` SQL helper (mirrors `lib/owner.ts` email + auth_id allowlist) + re-gates `admin_set_user_role` / `admin_delete_user` on `is_owner()` instead of `is_admin()`. Role-management is now Owner-only at the database layer.
+- `027_manager_role.sql` — adds `manager` role + `is_manager()` helper + fixes a latent bug from migration 018 (missing `shop_update_jobs` / `shop_delete_jobs`). Promotes Darik to `manager` + Seattle. Multi-location data model is now ready for Sausalito / San Diego — see `docs/superpowers/specs/2026-06-07-multi-location-expansion.md` for the onboarding runbook.
 
 ## Parts-to-Order (live since 2026-06-05)
 
@@ -189,6 +191,18 @@ The Clients list (and all of `customers` / `boats` / `jobs` visibility) is gated
 - **`tier='shop'`** — team mode. Now **location-scoped** (migration 017): sees only customers/boats/jobs in their own `profiles.location_id`. Boats and jobs follow their parent customer's office.
 - **`tier='free'`** — legacy bucket (no longer enforced; soft caps dropped in migration 011).
 - **`is_admin`** — unrestricted across the org.
+
+### Role hierarchy (live since migration 027)
+
+| Role | Visibility | Mutations | Who can change roles |
+|---|---|---|---|
+| **Owner** (allowlist in `lib/owner.ts` + `public.is_owner()` SQL) | Everything across every location | Everything | Self — currently Connor only |
+| `admin` | Org-wide (legacy admin profiles) | Org-wide | Owner only |
+| `manager` (new in 027) | One location via `profiles.location_id` | Full create/edit/delete within that location, including other techs' work | Owner only |
+| `tech` (UI label "Edit") | One location | Full create/edit/delete within that location | Owner only |
+| `viewer` (UI label "Read-only") | One location | None | Owner only |
+
+The Technicians (Users & Access) page is **owner-gated at three layers**: sidebar filter (`lib/owner.ts`), page redirect (`lib/owner-guard.ts` → `requireOwner()`), SQL RPC enforcement (`admin_set_user_role` / `admin_delete_user` check `is_owner()`). A hostile admin calling the Supabase REST API directly still gets `forbidden`. Multi-office expansion runbook: `docs/superpowers/specs/2026-06-07-multi-location-expansion.md`.
 
 **Footgun:** invitees default to `individual` + NULL `location_id` (trigger 013 in `013_handle_new_user_trigger.sql`). Until promoted to `shop` + a real `location_id`, they will see nothing under the location-scoped model. There is no UI for this yet — set it via Supabase Studio / SQL after invite acceptance.
 
