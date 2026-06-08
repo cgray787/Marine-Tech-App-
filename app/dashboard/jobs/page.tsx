@@ -21,10 +21,12 @@ export default async function JobsPage() {
       .order("created_at", { ascending: false }),
     supabase.from("customers").select("id, name").order("name"),
     supabase.from("boats").select("id, name, customer_id, make_model").order("name"),
+    // Managers are also assignable as techs — they do floor work too, and
+    // promoting Derik to manager would otherwise hide him from the dropdown.
     supabase
       .from("profiles")
       .select("id, full_name, email")
-      .eq("role", "tech")
+      .in("role", ["tech", "manager"])
       .eq("status", "active")
       .order("full_name"),
     supabase.from("marinas").select("id, name").order("name"),

@@ -23,10 +23,11 @@ export default async function DashboardPage() {
       .from("service_reports")
       .select("*", { count: "exact", head: true })
       .eq("status", "submitted"),
+    // Count managers as techs too — they're part of the active field staff.
     supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
-      .eq("role", "tech")
+      .in("role", ["tech", "manager"])
       .eq("status", "active"),
     supabase
       .from("pdi_reports")
