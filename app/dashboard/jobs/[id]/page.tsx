@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { formatDate } from "@/lib/utils";
+import { JobEditor } from "./job-editor";
 
 // Server-side job detail. Mirrors the mobile job summary: vessel + customer
 // snapshot, schedule, services, assigned tech, notes, latest service report
@@ -39,7 +40,7 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
   const { data: job } = await supabase
     .from("jobs")
     .select(`
-      id, status, service_types, notes, created_at,
+      id, status, service_types, notes, created_at, marina_id, assigned_to,
       scheduled_date, scheduled_start, scheduled_end, location_override,
       customer:customer_id (id, name, email, phone, address),
       boat:boat_id (id, name, make_model, year, hin, engine_make, engine_model, color, home_marina, engine_hours_port, engine_hours_starboard),
@@ -50,6 +51,18 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
     .maybeSingle();
 
   if (!job) notFound();
+
+  // Lookups for the editor's dropdowns. Managers + techs are both
+  // assignable per F1; marinas are the shared preference list per F2.
+  const [{ data: techsList }, { data: marinasList }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("role", ["tech", "manager"])
+      .eq("status", "active")
+      .order("full_name"),
+    supabase.from("marinas").select("id, name").order("name"),
+  ]);
 
   // Latest service report (techs may submit zero or one per job — newest wins).
   const { data: report } = await supabase
@@ -119,42 +132,22 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
         </div>
       </div>
 
-      {/* Job snapshot card */}
-      <div className="grid grid-cols-1 gap-4 rounded-2xl border border-border-line bg-card-bg p-5 lg:grid-cols-3">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Schedule</p>
-          <p className="mt-1 text-sm text-text-primary">
-            {job.scheduled_start ? fmtTime(job.scheduled_start) : (job.scheduled_date ?? "Unscheduled")}
-          </p>
-          {job.scheduled_end && (
-            <p className="text-xs text-text-secondary">until {fmtTime(job.scheduled_end)}</p>
-          )}
-        </div>
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Assigned tech</p>
-          <p className="mt-1 text-sm text-text-primary">{tech?.full_name ?? "Unassigned"}</p>
-          {tech?.email && <p className="text-xs text-text-secondary">{tech.email}</p>}
-        </div>
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Location</p>
-          <p className="mt-1 text-sm text-text-primary">{job.location_override || marina?.name || "—"}</p>
-          {boat?.home_marina && marina?.name !== boat.home_marina && (
-            <p className="text-xs text-text-secondary">home: {boat.home_marina}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Services */}
-      {job.service_types && job.service_types.length > 0 && (
-        <div className="rounded-2xl border border-border-line bg-card-bg p-5">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Services</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {job.service_types.map((s: string) => (
-              <span key={s} className="rounded-full border border-border-line bg-secondary-bg px-2.5 py-0.5 text-xs text-text-primary">{s}</span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Editable fields — schedule, assigned tech, marina, services, status, notes.
+          Read-only customer/boat/report/photos/parts stay below. */}
+      <JobEditor
+        initial={{
+          id: job.id,
+          status: job.status,
+          service_types: job.service_types,
+          notes: job.notes,
+          scheduled_start: job.scheduled_start,
+          scheduled_end: job.scheduled_end,
+          marina_id: job.marina_id ?? null,
+          assigned_to: job.assigned_to ?? null,
+        }}
+        techs={techsList ?? []}
+        marinas={marinasList ?? []}
+      />
 
       {/* Customer + Boat */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -186,13 +179,7 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
         </div>
       </div>
 
-      {/* Notes */}
-      {job.notes && (
-        <div className="rounded-2xl border border-border-line bg-card-bg p-5">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Notes</p>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-text-primary">{job.notes}</p>
-        </div>
-      )}
+      {/* Notes are part of <JobEditor /> above; the read-only render here is removed. */}
 
       {/* Service Report + Checklist */}
       {report ? (
