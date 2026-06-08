@@ -4,9 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-// "Edit" = tech (can create/edit reports & jobs); "Read-only" = viewer.
+// "Manager" = role=manager (location-scoped, full data ops in their office —
+// the right pick for Seattle / Sausalito tech leads). "Edit" = tech (also
+// location-scoped, but the everyday field-tech role). "Read-only" = viewer.
+// "Admin" stays for legacy admin profiles (Connor's pre-Owner accounts) — the
+// Owner allowlist is what actually controls user management per migration 026.
 const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
+  { value: "manager", label: "Manager" },
   { value: "tech", label: "Edit" },
   { value: "viewer", label: "Read-only" },
 ];

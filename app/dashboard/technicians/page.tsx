@@ -8,12 +8,14 @@ export default async function TechniciansPage() {
   // Only Connor can view this page and modify role assignments.
   const { supabase } = await requireOwner();
 
-  // Techs + viewers are the manageable staff. Admins (including you) are hidden
-  // so you can't change or delete your own / another admin's access from here.
+  // Managers + techs + viewers are the manageable staff. Admins (legacy
+  // accounts — including Connor's pre-Owner ones) are hidden so the page
+  // can't be used to demote another admin. The Owner allowlist is the real
+  // ceiling above admin anyway (migration 026).
   const { data: techs } = await supabase
     .from("profiles")
     .select("*")
-    .in("role", ["tech", "viewer"])
+    .in("role", ["manager", "tech", "viewer"])
     .order("created_at", { ascending: false });
 
   // Get job counts per tech
