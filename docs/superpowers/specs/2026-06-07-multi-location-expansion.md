@@ -137,11 +137,11 @@ These aren't blockers for beta-in-Seattle but become real friction with two offi
 | 1 | Web UI has no location switcher / no "current location" badge for owner | Owner sees aggregated data but can't easily filter "show me only Seattle" | small (~20 lines, dropdown in header) |
 | 2 | Mobile signup join-code flow not wired | Every new teammate needs SQL step 2 by hand | medium — needs an `invite_with_location` RPC + mobile UI |
 | 3 | The Calendar tab currently shows all jobs the operator can see — for a multi-location owner, that means everything bunched together | Owner has to mentally separate locations | small (filter dropdown wired through the existing `getJobsInRange` query) |
-| 4 | `service_reports`, `pdi_reports`, `parts`, `report_photos` RLS not audited for the manager path | Possible silent-fail on report edits across-tech in a location | small (mirror the `shop_update_jobs` fix to each table — check `pg_policies` for missing UPDATE/DELETE) |
+| ~~4~~ | ~~`service_reports`, `pdi_reports`, `parts`, `report_photos` RLS not audited for the manager path~~ | **CLOSED 2026-06-07** | migrations 028 + 029. Every shop-scoped table (boats, customers, jobs, service_reports, pdi_reports, report_photos, checklist_items, pdi_checklist_items, parts) now has full SELECT/INSERT/UPDATE/DELETE policies with location filtering. The previously-permissive `tech_insert_jobs` (`WITH CHECK true`) was replaced with tier-aware policies. |
 | 5 | `assigned_to` reassignment isn't gated to "must be a tech in my location" | A manager could currently assign a Seattle job to a Sausalito tech if they knew the auth_id | small — add a trigger or a tighter UPDATE check policy |
 | 6 | No way to surface "this user has no location_id assigned yet" warning in the Technicians page | Footgun from migration 013 — invitees show up as `individual` + NULL location and see nothing | tiny — badge on the profile card if location_id is null |
 
-When Sausalito timeline becomes concrete, tackle in order: 4, 5, 1, 6, 3, 2.
+When Sausalito timeline becomes concrete, tackle remaining in order: 5, 1, 6, 3, 2.
 
 ## Files involved (so you know where to look)
 

@@ -159,6 +159,8 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `025_parts.sql` — `parts` table (parts-to-order) + RLS + `current_profile_org()` helper + `set_part_org` BEFORE INSERT org-assign trigger
 - `026_owner_only_user_management.sql` — `is_owner()` SQL helper (mirrors `lib/owner.ts` email + auth_id allowlist) + re-gates `admin_set_user_role` / `admin_delete_user` on `is_owner()` instead of `is_admin()`. Role-management is now Owner-only at the database layer.
 - `027_manager_role.sql` — adds `manager` role + `is_manager()` helper + fixes a latent bug from migration 018 (missing `shop_update_jobs` / `shop_delete_jobs`). Promotes Darik to `manager` + Seattle. Multi-location data model is now ready for Sausalito / San Diego — see `docs/superpowers/specs/2026-06-07-multi-location-expansion.md` for the onboarding runbook.
+- `028_rls_audit_reports_parts.sql` — completes the location-scoped RLS audit across every shop-sensitive table: adds the missing shop SELECT/INSERT/UPDATE/DELETE for `service_reports`, `pdi_reports`, `report_photos`, `checklist_items`, `pdi_checklist_items`; replaces the org-only parts policies with location-scoped ones. Adds `service_report_in_my_location()` and `pdi_report_in_my_location()` helpers for chained joins.
+- `029_tighten_shop_inserts.sql` — closes three remaining cross-location INSERT holes: replaces the permissive `tech_insert_jobs` (`WITH CHECK true`) with tier-aware `shop_insert_jobs` + `individual_insert_jobs`, and adds explicit location checks to `shop_insert_customers` and `shop_insert_boats` (defense in depth on top of migration 023's `set_customer_tenant` trigger).
 
 ## Parts-to-Order (live since 2026-06-05)
 
