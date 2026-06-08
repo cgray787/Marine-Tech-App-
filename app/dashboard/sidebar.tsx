@@ -32,7 +32,7 @@ const navItems: NavItem[] = [
   // Admins like Darik still manage data everywhere else; they just can't see
   // or change role assignments here.
   { label: "Technicians", href: "/dashboard/technicians", icon: "users", ownerOnly: true },
-  { label: "Customers & Boats", href: "/dashboard/customers", icon: "anchor" },
+  { label: "Clients", href: "/dashboard/customers", icon: "anchor" },
   { label: "PDI Reports", href: "/dashboard/pdi-reports", icon: "clipboard" },
 ];
 
