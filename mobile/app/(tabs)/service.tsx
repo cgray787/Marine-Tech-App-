@@ -139,6 +139,9 @@ export default function ServiceScreen() {
   const [generalNotes, setGeneralNotes] = useState("");
   const [checklist, setChecklist] = useState<ChecklistState>({});
 
+  // Per-service description (for the current jobName service type).
+  const [serviceDescription, setServiceDescription] = useState("");
+
   // Scheduling — when this job should happen (lands on the calendar)
   const [scheduledStart, setScheduledStart] = useState<Date>(() => {
     // Default to next top-of-the-hour
@@ -147,8 +150,19 @@ export default function ServiceScreen() {
     d.setHours(d.getHours() + 1);
     return d;
   });
+  // Optional end date for multi-day jobs.
+  const [scheduledEnd, setScheduledEnd] = useState<Date | null>(null);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // True when scheduledEnd is a different (later) day than scheduledStart.
+  function toDateStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  const isMultiDay =
+    scheduledEnd !== null &&
+    toDateStr(scheduledEnd) > toDateStr(scheduledStart);
 
   // Parts needed state
   type Part = {
@@ -604,17 +618,32 @@ export default function ServiceScreen() {
 
     setSubmitting(true);
 
-    const scheduledEnd = new Date(scheduledStart.getTime() + 60 * 60 * 1000);
+    // Build per-service descriptions payload.
+    const serviceDescPayload: Record<string, string> = {};
+    if (jobName && serviceDescription.trim()) {
+      serviceDescPayload[jobName] = serviceDescription.trim();
+    }
+
+    // Multi-day or single-day end calculation.
+    const scheduledEndComputed: Date = isMultiDay && scheduledEnd
+      ? (() => { const d = new Date(scheduledEnd); d.setHours(17, 0, 0, 0); return d; })()
+      : new Date(scheduledStart.getTime() + 60 * 60 * 1000);
+    const endDateOnly: string | null = isMultiDay && scheduledEnd
+      ? toDateStr(scheduledEnd)
+      : null;
+
     const jobPayload = {
       customer_id: customerId || null,
       boat_id: boatId || null,
       marina_id: null,
       service_types: jobName ? [jobName] : [],
+      service_descriptions: serviceDescPayload,
       status: "completed",
       notes: jobDescription || null,
       scheduled_start: scheduledStart.toISOString(),
-      scheduled_end: scheduledEnd.toISOString(),
-      scheduled_date: scheduledStart.toISOString().slice(0, 10),
+      scheduled_end: scheduledEndComputed.toISOString(),
+      scheduled_date: toDateStr(scheduledStart),
+      scheduled_end_date: endDateOnly,
     };
 
     let reportId: string;
@@ -855,6 +884,7 @@ export default function ServiceScreen() {
   function resetForm() {
     setJobName("");
     setJobDescription("");
+    setServiceDescription("");
     setCustomerId("");
     setShowClientDropdown(false);
     setClientSearch("");
@@ -864,6 +894,7 @@ export default function ServiceScreen() {
     setLocation("");
     setLocationSaved(false);
     setGeneralNotes("");
+    setScheduledEnd(null);
     setParts([]);
     setNewPartName("");
     setChecklist({});
@@ -892,14 +923,30 @@ export default function ServiceScreen() {
       </View>
 
       {/* Job Name */}
-      <Text style={styles.label}>Job Name</Text>
+      <Text style={styles.label}>Job Name / Service Type</Text>
       <TextInput
         style={styles.input}
-        placeholder="e.g. Spring service, Hull repair..."
+        placeholder="e.g. Engine Service, Hull repair..."
         placeholderTextColor={colors.textSecondary + "80"}
         value={jobName}
         onChangeText={setJobName}
       />
+      {/* Per-service description — shown once jobName is non-empty */}
+      {jobName.trim().length > 0 && (
+        <View style={{ marginBottom: 12 }}>
+          <Text style={[styles.label, { marginTop: 8 }]}>
+            Notes for "{jobName}"
+          </Text>
+          <TextInput
+            style={[styles.input, { height: 72, textAlignVertical: "top", paddingTop: 10 }]}
+            placeholder={`Describe the ${jobName} work…`}
+            placeholderTextColor={colors.textSecondary + "80"}
+            multiline
+            value={serviceDescription}
+            onChangeText={setServiceDescription}
+          />
+        </View>
+      )}
 
       {/* Job Description */}
       <View style={styles.jobDescSection}>
@@ -1155,6 +1202,48 @@ export default function ServiceScreen() {
             setShowTimePicker(false);
           }}
         >
+          <Text style={styles.saveFieldText}>Done</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* End date (multi-day) */}
+      {!isMultiDay ? (
+        <TouchableOpacity
+          style={styles.addEndDateBtn}
+          onPress={() => setShowEndDatePicker(true)}
+        >
+          <Text style={styles.addEndDateText}>+ Add end date (multi-day)</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.endDateRow}>
+          <Text style={styles.endDateLabel}>
+            Multi-day through{" "}
+            {scheduledEnd!.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          </Text>
+          <TouchableOpacity onPress={() => setScheduledEnd(null)}>
+            <Text style={styles.endDateClearText}>Remove</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {showEndDatePicker && (
+        <DateTimePicker
+          value={scheduledEnd ?? scheduledStart}
+          mode="date"
+          display={Platform.OS === "ios" ? "inline" : "default"}
+          themeVariant="dark"
+          minimumDate={scheduledStart}
+          onChange={(_e, date) => {
+            if (Platform.OS === "android") setShowEndDatePicker(false);
+            if (date) {
+              const ed = new Date(date);
+              ed.setHours(17, 0, 0, 0);
+              setScheduledEnd(ed);
+            }
+          }}
+        />
+      )}
+      {Platform.OS === "ios" && showEndDatePicker && (
+        <TouchableOpacity style={styles.saveFieldBtn} onPress={() => setShowEndDatePicker(false)}>
           <Text style={styles.saveFieldText}>Done</Text>
         </TouchableOpacity>
       )}
@@ -1786,6 +1875,41 @@ const styles = StyleSheet.create({
     color: colors.bgPrimary,
     fontSize: 13,
     fontWeight: "700",
+  },
+  // End date multi-day
+  addEndDateBtn: {
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignSelf: "flex-start",
+  },
+  addEndDateText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  endDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gold + "40",
+    backgroundColor: colors.goldMuted,
+  },
+  endDateLabel: {
+    color: colors.gold,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  endDateClearText: {
+    color: colors.textSecondary,
+    fontSize: 12,
   },
   savedRow: {
     flexDirection: "row",

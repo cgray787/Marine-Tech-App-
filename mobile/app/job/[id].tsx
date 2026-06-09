@@ -85,11 +85,20 @@ type Job = {
   id: string;
   status: string;
   service_types: string[] | null;
+  service_descriptions: Record<string, string> | null;
   scheduled_date: string | null;
   notes: string | null;
   customers: Customer | null;
   boats: Boat | null;
   marinas: Marina | null;
+  boat_id: string | null;
+};
+
+type OtherJob = {
+  id: string;
+  status: string;
+  service_types: string[] | null;
+  scheduled_date: string | null;
 };
 
 export default function JobDetailScreen() {
@@ -102,6 +111,7 @@ export default function JobDetailScreen() {
   const [report, setReport] = useState<ServiceReport | null>(null);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [photos, setPhotos] = useState<ReportPhoto[]>([]);
+  const [otherJobs, setOtherJobs] = useState<OtherJob[]>([]);
   const [deleting, setDeleting] = useState(false);
 
   const fetchJobData = useCallback(async () => {
@@ -111,11 +121,25 @@ export default function JobDetailScreen() {
     // Fetch job with customer, boat, and marina details
     const { data: jobData } = await supabase
       .from("jobs")
-      .select("id, status, service_types, scheduled_date, notes, customers(name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color), marinas(name, address)")
+      .select("id, status, service_types, service_descriptions, scheduled_date, notes, boat_id, customers(name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color), marinas(name, address)")
       .eq("id", id)
       .single();
 
     if (jobData) setJob(jobData as unknown as Job);
+
+    // Other active jobs for the same boat (Task 3).
+    const boatId = (jobData as unknown as { boat_id?: string | null })?.boat_id;
+    if (boatId) {
+      const { data: otherJobsData } = await supabase
+        .from("jobs")
+        .select("id, status, service_types, scheduled_date")
+        .eq("boat_id", boatId)
+        .neq("status", "completed")
+        .neq("id", id)
+        .order("scheduled_date", { ascending: true, nullsFirst: false })
+        .limit(10);
+      if (otherJobsData) setOtherJobs(otherJobsData as OtherJob[]);
+    }
 
     // Fetch service report for this job
     const { data: reportData } = await supabase
@@ -409,6 +433,57 @@ export default function JobDetailScreen() {
             <View key={i} style={styles.serviceChip}>
               <Text style={styles.serviceChipText}>{type}</Text>
             </View>
+          ))}
+        </View>
+      )}
+
+      {/* Service notes — per-service descriptions */}
+      {(() => {
+        const descs = job.service_descriptions;
+        const entries = descs ? Object.entries(descs).filter(([, v]) => v && v.trim()) : [];
+        if (entries.length === 0) return null;
+        return (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Service Notes</Text>
+            {entries.map(([type, desc]) => (
+              <View key={type} style={styles.serviceNoteRow}>
+                <View style={styles.serviceNoteChip}>
+                  <Text style={styles.serviceNoteChipText}>{type}</Text>
+                </View>
+                <Text style={styles.serviceNoteText}>{desc}</Text>
+              </View>
+            ))}
+          </View>
+        );
+      })()}
+
+      {/* Other active jobs for this boat */}
+      {otherJobs.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Other Active Jobs — Same Boat</Text>
+          {otherJobs.map((oj) => (
+            <TouchableOpacity
+              key={oj.id}
+              style={styles.otherJobRow}
+              onPress={() => router.push({ pathname: "/job/[id]", params: { id: oj.id } })}
+              activeOpacity={0.7}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.otherJobName}>
+                  {oj.service_types && oj.service_types.length > 0
+                    ? oj.service_types.join(", ")
+                    : "Job"}
+                </Text>
+                {oj.scheduled_date && (
+                  <Text style={styles.otherJobDate}>{formatDate(oj.scheduled_date)}</Text>
+                )}
+              </View>
+              <View style={[styles.otherJobBadge, { backgroundColor: (STATUS_COLORS[oj.status] ?? "#4ade80") + "20" }]}>
+                <Text style={[styles.otherJobBadgeText, { color: STATUS_COLORS[oj.status] ?? "#4ade80" }]}>
+                  {STATUS_LABELS[oj.status] ?? oj.status}
+                </Text>
+              </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}
@@ -1016,5 +1091,61 @@ const styles = StyleSheet.create({
     color: colors.bgPrimary,
     fontSize: 15,
     fontWeight: "700",
+  },
+  // Service notes
+  serviceNoteRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  serviceNoteChip: {
+    backgroundColor: colors.goldMuted,
+    borderWidth: 1,
+    borderColor: colors.gold + "40",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexShrink: 0,
+  },
+  serviceNoteChipText: {
+    color: colors.gold,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  serviceNoteText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  // Other active jobs
+  otherJobRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 8,
+  },
+  otherJobName: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  otherJobDate: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  otherJobBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  otherJobBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
 });

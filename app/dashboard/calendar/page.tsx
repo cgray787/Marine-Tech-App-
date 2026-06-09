@@ -166,11 +166,12 @@ export default function CalendarPage() {
           job={scheduleJob}
           initial={scheduleJob.scheduledStart ? new Date(scheduleJob.scheduledStart) : null}
           onCancel={() => setScheduleJob(null)}
-          onSave={async ({ scheduledStart, scheduledEnd }) => {
+          onSave={async ({ scheduledStart, scheduledEnd, scheduledEndDate }) => {
             await updateJob(supabase, {
               id: scheduleJob.id,
               scheduledStart,
               scheduledEnd,
+              ...(scheduledEndDate != null ? { scheduledEndDate } : {}),
             });
             // Invalidate every 'calendar' query (month grid + UNSCHEDULED panel
             // + lookups). Prefix match covers them all in one call.

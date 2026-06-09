@@ -42,10 +42,22 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
     } | null>(null);
     const [mode, setMode] = useState<Mode>("calendar");
     const [pickedDate, setPickedDate] = useState<Date>(() => new Date());
+    // endDate: null = single-day, Date = multi-day end.
+    const [endDate, setEndDate] = useState<Date | null>(null);
+    // Whether the calendar/picker is currently selecting the end date.
+    const [pickingEnd, setPickingEnd] = useState(false);
     const [location, setLocation] = useState("");
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [saving, setSaving] = useState(false);
-    const snapPoints = useMemo(() => ["75%"], []);
+    const snapPoints = useMemo(() => ["90%"], []);
+
+    // True when endDate is a different (later) day than pickedDate.
+    const isMultiDay =
+      endDate !== null &&
+      endDate > pickedDate &&
+      (endDate.getFullYear() !== pickedDate.getFullYear() ||
+        endDate.getMonth() !== pickedDate.getMonth() ||
+        endDate.getDate() !== pickedDate.getDate());
 
     useImperativeHandle(ref, () => ({
       present: (j) => {
@@ -58,6 +70,8 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
               return d;
             })();
         setPickedDate(initial);
+        setEndDate(null);
+        setPickingEnd(false);
         setLocation(j.currentLocation ?? "");
         setMode("calendar");
         sheetRef.current?.snapToIndex(0);
@@ -65,28 +79,44 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
       dismiss: () => sheetRef.current?.close(),
     }));
 
+    function dateToString(d: Date): string {
+      // react-native-calendars expects YYYY-MM-DD in local time.
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
     function selectedDateString(): string {
-      // react-native-calendars expects YYYY-MM-DD in the device's local time.
-      // toISOString() converts to UTC, which causes the highlight to jump a
-      // day for users west of UTC if pickedDate has an early-morning hour.
-      const y = pickedDate.getFullYear();
-      const m = String(pickedDate.getMonth() + 1).padStart(2, "0");
-      const d = String(pickedDate.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
+      return dateToString(pickedDate);
     }
 
     async function save() {
       if (!job) return;
       setSaving(true);
       const start = pickedDate.toISOString();
-      const end = new Date(pickedDate.getTime() + 60 * 60 * 1000).toISOString();
-      const dateOnly = pickedDate.toISOString().slice(0, 10);
+      const startDateOnly = dateToString(pickedDate);
+
+      let end: string;
+      let endDateOnly: string | null = null;
+
+      if (isMultiDay && endDate) {
+        // End = end date at 17:00 local time.
+        const endAt5 = new Date(endDate);
+        endAt5.setHours(17, 0, 0, 0);
+        end = endAt5.toISOString();
+        endDateOnly = dateToString(endDate);
+      } else {
+        end = new Date(pickedDate.getTime() + 60 * 60 * 1000).toISOString();
+      }
+
       const { error } = await supabase
         .from("jobs")
         .update({
           scheduled_start: start,
           scheduled_end: end,
-          scheduled_date: dateOnly,
+          scheduled_date: startDateOnly,
+          scheduled_end_date: endDateOnly,
           location_override: location.trim() || null,
         })
         .eq("id", job.id);
@@ -152,18 +182,33 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
                 </Pressable>
               </View>
 
+              {/* Mode tabs now also serve end-date picking */}
+              <Text style={[styles.pickerLabel, { marginBottom: 2 }]}>
+                {pickingEnd ? "End date" : "Start date"}
+              </Text>
+
               {mode === "calendar" ? (
                 <Calendar
                   onDayPress={(d: DateData) => {
-                    const next = new Date(pickedDate);
+                    const next = new Date(pickingEnd ? (endDate ?? pickedDate) : pickedDate);
                     next.setFullYear(d.year, d.month - 1, d.day);
-                    if (next.getHours() === 0 && next.getMinutes() === 0) {
+                    if (!pickingEnd && next.getHours() === 0 && next.getMinutes() === 0) {
                       next.setHours(9, 0, 0, 0);
                     }
-                    setPickedDate(next);
+                    if (pickingEnd) {
+                      // End date must be >= start.
+                      if (next >= pickedDate) {
+                        next.setHours(17, 0, 0, 0);
+                        setEndDate(next);
+                        setPickingEnd(false);
+                      }
+                    } else {
+                      setPickedDate(next);
+                    }
                   }}
                   markedDates={{
-                    [selectedDateString()]: { selected: true },
+                    [selectedDateString()]: { selected: !pickingEnd, startingDay: isMultiDay, marked: isMultiDay },
+                    ...(endDate && isMultiDay ? { [dateToString(endDate)]: { selected: pickingEnd, endingDay: true, marked: true } } : {}),
                   }}
                   theme={{
                     calendarBackground: colors.bgCard,
@@ -179,19 +224,50 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
                 />
               ) : (
                 <View style={styles.pickerWrap}>
-                  <Text style={styles.pickerLabel}>Date & time</Text>
                   <DateTimePicker
-                    value={pickedDate}
-                    mode="datetime"
+                    value={pickingEnd ? (endDate ?? pickedDate) : pickedDate}
+                    mode={pickingEnd ? "date" : "datetime"}
                     display={Platform.OS === "ios" ? "inline" : "default"}
                     themeVariant="dark"
+                    minimumDate={pickingEnd ? pickedDate : undefined}
                     onChange={(_e, d) => {
                       if (Platform.OS === "android") setShowTimePicker(false);
-                      if (d) setPickedDate(d);
+                      if (!d) return;
+                      if (pickingEnd) {
+                        const ed = new Date(d);
+                        ed.setHours(17, 0, 0, 0);
+                        setEndDate(ed);
+                        setPickingEnd(false);
+                      } else {
+                        setPickedDate(d);
+                      }
                     }}
                   />
                 </View>
               )}
+
+              {/* End date toggle row */}
+              <View style={styles.endDateRow}>
+                {isMultiDay && endDate ? (
+                  <View style={styles.endDateBadge}>
+                    <Text style={styles.endDateBadgeText}>
+                      Multi-day through {endDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </Text>
+                    <Pressable onPress={() => { setEndDate(null); setPickingEnd(false); }} style={styles.endDateClear}>
+                      <Text style={styles.endDateClearText}>✕</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => setPickingEnd((p) => !p)}
+                    style={[styles.endDateToggle, pickingEnd && styles.endDateToggleActive]}
+                  >
+                    <Text style={[styles.endDateToggleText, pickingEnd && styles.endDateToggleTextActive]}>
+                      {pickingEnd ? "Picking end date…" : "+ Add end date (multi-day)"}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
 
               <View>
                 <Text style={styles.pickerLabel}>Location</Text>
@@ -205,17 +281,18 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
               </View>
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Will schedule for</Text>
+                <Text style={styles.summaryLabel}>
+                  {isMultiDay ? "Spans" : "Will schedule for"}
+                </Text>
                 <Text style={styles.summaryValue}>
                   {pickedDate.toLocaleDateString(undefined, {
                     weekday: "short",
                     month: "short",
                     day: "numeric",
-                  })}{" "}
-                  {pickedDate.toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
                   })}
+                  {isMultiDay && endDate
+                    ? ` – ${endDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`
+                    : ` ${pickedDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
                 </Text>
               </View>
 
@@ -317,4 +394,51 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { color: colors.bgPrimary, fontWeight: "700", fontSize: 15 },
+  // End date
+  endDateRow: {
+    marginTop: 4,
+  },
+  endDateToggle: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignSelf: "flex-start",
+  },
+  endDateToggleActive: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldMuted,
+  },
+  endDateToggleText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  endDateToggleTextActive: {
+    color: colors.gold,
+  },
+  endDateBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gold + "40",
+    backgroundColor: colors.goldMuted,
+    alignSelf: "flex-start",
+  },
+  endDateBadgeText: {
+    color: colors.gold,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  endDateClear: {
+    paddingHorizontal: 4,
+  },
+  endDateClearText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
 });

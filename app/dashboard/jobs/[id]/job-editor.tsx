@@ -17,9 +17,11 @@ export interface JobEditorInitial {
   id: string;
   status: string;
   service_types: string[] | null;
+  service_descriptions: Record<string, string> | null;
   notes: string | null;
   scheduled_start: string | null;
   scheduled_end: string | null;
+  scheduled_end_date: string | null;
   marina_id: string | null;
   assigned_to: string | null;
 }
@@ -63,6 +65,19 @@ function durationHours(startIso: string | null, endIso: string | null): number {
   const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
   return Math.max(0.5, Math.round((ms / 3_600_000) * 2) / 2);
 }
+// Derive the initial end-date string from scheduled_end_date (date column) or
+// fall back to the date part of scheduled_end (timestamptz). Returns "" if the
+// end date equals the start date (single-day job).
+function deriveEndDateStr(
+  startIso: string | null,
+  endDateCol: string | null,
+  endIso: string | null,
+): string {
+  const startDate = startIso ? isoToDateInput(startIso) : "";
+  const endDate = endDateCol ?? (endIso ? isoToDateInput(endIso) : "");
+  if (!endDate || endDate === startDate) return "";
+  return endDate;
+}
 
 export function JobEditor({
   initial,
@@ -79,12 +94,21 @@ export function JobEditor({
   // ── form state ──────────────────────────────────────────────────────────
   const [status, setStatus] = useState(initial.status ?? "new");
   const [serviceTypes, setServiceTypes] = useState<string[]>(initial.service_types ?? []);
+  // Per-service descriptions keyed by service type string.
+  const [serviceDescriptions, setServiceDescriptions] = useState<Record<string, string>>(
+    initial.service_descriptions ?? {},
+  );
   const [notes, setNotes] = useState(initial.notes ?? "");
   const [assignedTo, setAssignedTo] = useState(initial.assigned_to ?? "");
   const [marinaId, setMarinaId] = useState(initial.marina_id ?? "");
   const [dateStr, setDateStr] = useState(isoToDateInput(initial.scheduled_start));
   const [timeStr, setTimeStr] = useState(isoToTimeInput(initial.scheduled_start));
   const [hours, setHours] = useState<number>(durationHours(initial.scheduled_start, initial.scheduled_end));
+  // End date for multi-day jobs. Empty string = single-day.
+  const [endDateStr, setEndDateStr] = useState(
+    deriveEndDateStr(initial.scheduled_start, initial.scheduled_end_date, initial.scheduled_end),
+  );
+  const isMultiDay = !!endDateStr && endDateStr > dateStr;
 
   // ── marinas (with inline-add, mirrored from CreateJobForm) ──────────────
   const [addedMarinas, setAddedMarinas] = useState<Marina[]>([]);
@@ -110,6 +134,19 @@ export function JobEditor({
     setServiceTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
     );
+    // When un-checking, remove the description to keep state clean.
+    setServiceDescriptions((prev) => {
+      if (serviceTypes.includes(type)) {
+        const next = { ...prev };
+        delete next[type];
+        return next;
+      }
+      return prev;
+    });
+  }
+
+  function setServiceDescription(type: string, desc: string) {
+    setServiceDescriptions((prev) => ({ ...prev, [type]: desc }));
   }
 
   async function saveNewMarina() {
@@ -139,18 +176,41 @@ export function JobEditor({
     setSaving(true);
     setSaveError("");
     const startIso = combineLocalToIso(dateStr, timeStr);
-    const endIso = startIso ? new Date(new Date(startIso).getTime() + hours * 3_600_000).toISOString() : null;
+
+    let endIso: string | null = null;
+    let endDateCol: string | null = null;
+    if (startIso) {
+      if (isMultiDay) {
+        // End = end date at 17:00 local time.
+        const endDt = new Date(`${endDateStr}T17:00`);
+        endIso = Number.isNaN(endDt.getTime()) ? null : endDt.toISOString();
+        endDateCol = endDateStr;
+      } else {
+        endIso = new Date(new Date(startIso).getTime() + hours * 3_600_000).toISOString();
+        endDateCol = null; // single-day: clear the multi-day end date
+      }
+    }
+
+    // Build descriptions for currently-checked services only.
+    const descPayload: Record<string, string> = {};
+    for (const type of serviceTypes) {
+      const d = serviceDescriptions[type];
+      if (d && d.trim()) descPayload[type] = d.trim();
+    }
+
     const supabase = createClient();
     const { error } = await supabase
       .from("jobs")
       .update({
         status,
         service_types: serviceTypes,
+        service_descriptions: descPayload,
         notes: notes || null,
         assigned_to: assignedTo || null,
         marina_id: marinaId || null,
         scheduled_start: startIso,
         scheduled_end: endIso,
+        scheduled_end_date: endDateCol,
       })
       .eq("id", initial.id);
     setSaving(false);
@@ -183,12 +243,27 @@ export function JobEditor({
         {/* Schedule */}
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Schedule</p>
-          <input
-            type="date"
-            value={dateStr}
-            onChange={(e) => setDateStr(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-          />
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-[10px] text-text-secondary">Start date</label>
+              <input
+                type="date"
+                value={dateStr}
+                onChange={(e) => setDateStr(e.target.value)}
+                className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] text-text-secondary">End date <span className="font-normal">(optional)</span></label>
+              <input
+                type="date"
+                value={endDateStr}
+                min={dateStr}
+                onChange={(e) => setEndDateStr(e.target.value)}
+                className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+            </div>
+          </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <input
               type="time"
@@ -196,15 +271,21 @@ export function JobEditor({
               onChange={(e) => setTimeStr(e.target.value)}
               className="rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
             />
-            <select
-              value={hours}
-              onChange={(e) => setHours(Number(e.target.value))}
-              className="rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-            >
-              {[0.5, 1, 1.5, 2, 3, 4, 6, 8].map((h) => (
-                <option key={h} value={h}>{h === 0.5 ? "30 min" : h === 1 ? "1 hr" : `${h} hrs`}</option>
-              ))}
-            </select>
+            {!isMultiDay ? (
+              <select
+                value={hours}
+                onChange={(e) => setHours(Number(e.target.value))}
+                className="rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              >
+                {[0.5, 1, 1.5, 2, 3, 4, 6, 8].map((h) => (
+                  <option key={h} value={h}>{h === 0.5 ? "30 min" : h === 1 ? "1 hr" : `${h} hrs`}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex items-center rounded-lg border border-border-line bg-secondary-bg px-3 py-2">
+                <span className="text-xs text-text-secondary">Ends {endDateStr} @ 5 PM</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -275,22 +356,41 @@ export function JobEditor({
       {/* Services */}
       <div className="rounded-2xl border border-border-line bg-card-bg p-5">
         <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Services</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2 space-y-2">
           {SERVICE_TYPE_OPTIONS.map((s) => {
             const on = serviceTypes.includes(s);
             return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => toggleService(s)}
-                className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
-                  on
-                    ? "border-gold bg-gold/15 text-gold"
-                    : "border-border-line bg-secondary-bg text-text-secondary hover:border-gold/40"
-                }`}
-              >
-                {s}
-              </button>
+              <div key={s}>
+                <button
+                  type="button"
+                  onClick={() => toggleService(s)}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                    on
+                      ? "border-gold bg-gold/15 text-gold"
+                      : "border-border-line bg-secondary-bg text-text-secondary hover:border-gold/40"
+                  }`}
+                >
+                  <span className={`h-3.5 w-3.5 shrink-0 rounded border flex items-center justify-center ${
+                    on ? "border-gold bg-gold" : "border-text-secondary"
+                  }`}>
+                    {on && (
+                      <svg className="h-2.5 w-2.5 text-primary-bg" viewBox="0 0 10 10" fill="currentColor">
+                        <path d="M1.5 5l2.5 2.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                  {s}
+                </button>
+                {on && (
+                  <textarea
+                    rows={2}
+                    value={serviceDescriptions[s] ?? ""}
+                    onChange={(e) => setServiceDescription(s, e.target.value)}
+                    placeholder={`Notes for ${s}…`}
+                    className="mt-1 ml-5 w-[calc(100%-1.25rem)] resize-y rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-xs text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  />
+                )}
+              </div>
             );
           })}
         </div>

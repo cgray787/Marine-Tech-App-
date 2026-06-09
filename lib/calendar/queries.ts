@@ -75,6 +75,9 @@ export type CreateJobInput = {
   assignedTo?: string | null;
   scheduledStart?: string | null;
   scheduledEnd?: string | null;
+  // Date-only string (YYYY-MM-DD) for multi-day end. Mirrors the
+  // scheduled_end_date column so the portal calendar renders spans correctly.
+  scheduledEndDate?: string | null;
   serviceTypes?: string[];
   notes?: string | null;
 };
@@ -113,6 +116,7 @@ export async function updateJob(supabase: SupabaseClient, input: UpdateJobInput)
     payload.scheduled_date = rest.scheduledStart ? rest.scheduledStart.slice(0, 10) : null;
   }
   if ('scheduledEnd' in rest) payload.scheduled_end = rest.scheduledEnd;
+  if ('scheduledEndDate' in rest) payload.scheduled_end_date = rest.scheduledEndDate;
   if ('serviceTypes' in rest) payload.service_types = rest.serviceTypes;
   if ('notes' in rest) payload.notes = rest.notes;
 

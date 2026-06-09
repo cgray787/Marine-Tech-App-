@@ -12,7 +12,13 @@ interface Props {
   // Initial date for the picker. Defaults to today if the job has no prior time.
   initial?: Date | null;
   onCancel: () => void;
-  onSave: (input: { scheduledStart: string; scheduledEnd: string }) => Promise<void>;
+  // scheduledEndDate is the date-only string for the multi-day end (mirrors
+  // jobs.scheduled_end_date so the portal calendar can render the span).
+  onSave: (input: {
+    scheduledStart: string;
+    scheduledEnd: string;
+    scheduledEndDate?: string;
+  }) => Promise<void>;
 }
 
 const DEFAULT_DURATION_HOURS = 1;
@@ -51,8 +57,13 @@ export function ScheduleQuickPicker({ job, initial, onCancel, onSave }: Props) {
   const [dateStr, setDateStr] = useState(() => dateInputValue(seed));
   const [timeStr, setTimeStr] = useState(() => timeInputValue(seed));
   const [hours, setHours] = useState<number>(DEFAULT_DURATION_HOURS);
+  // Optional end date for multi-day jobs. Empty = single-day.
+  const [endDateStr, setEndDateStr] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // True when the operator has set an end date that is strictly after start.
+  const isMultiDay = !!endDateStr && endDateStr > dateStr;
 
   // Escape closes; Enter saves.
   useEffect(() => {
@@ -74,12 +85,28 @@ export function ScheduleQuickPicker({ job, initial, onCancel, onSave }: Props) {
       setError("Couldn't read that date/time.");
       return;
     }
-    const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+
+    let end: Date;
+    let scheduledEndDate: string | undefined;
+
+    if (isMultiDay) {
+      // End = end date at 17:00 local time.
+      end = new Date(`${endDateStr}T17:00`);
+      if (Number.isNaN(end.getTime())) {
+        setError("Couldn't read the end date.");
+        return;
+      }
+      scheduledEndDate = endDateStr;
+    } else {
+      end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+    }
+
     setSaving(true);
     try {
       await onSave({
         scheduledStart: start.toISOString(),
         scheduledEnd: end.toISOString(),
+        ...(scheduledEndDate ? { scheduledEndDate } : {}),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -101,21 +128,35 @@ export function ScheduleQuickPicker({ job, initial, onCancel, onSave }: Props) {
         <p className="mt-0.5 text-xs text-[#8892A5]">{summarizeLine(job)}</p>
 
         <div className="mt-4 space-y-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#8892A5]">
-              Date
-            </label>
-            <input
-              type="date"
-              value={dateStr}
-              onChange={(e) => setDateStr(e.target.value)}
-              className="w-full rounded-lg border border-[#1a2236] bg-[#060a12] px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#C9A96E] focus:outline-none focus:ring-1 focus:ring-[#C9A96E]"
-            />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#8892A5]">
-                Start
+                Start date
+              </label>
+              <input
+                type="date"
+                value={dateStr}
+                onChange={(e) => setDateStr(e.target.value)}
+                className="w-full rounded-lg border border-[#1a2236] bg-[#060a12] px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#C9A96E] focus:outline-none focus:ring-1 focus:ring-[#C9A96E]"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#8892A5]">
+                End date <span className="normal-case font-normal text-[#8892A5]">(optional)</span>
+              </label>
+              <input
+                type="date"
+                value={endDateStr}
+                min={dateStr}
+                onChange={(e) => setEndDateStr(e.target.value)}
+                className="w-full rounded-lg border border-[#1a2236] bg-[#060a12] px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#C9A96E] focus:outline-none focus:ring-1 focus:ring-[#C9A96E]"
+              />
+            </div>
+          </div>
+          <div className={`grid gap-3 ${isMultiDay ? "grid-cols-1" : "grid-cols-2"}`}>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#8892A5]">
+                Start time
               </label>
               <input
                 type="time"
@@ -124,23 +165,30 @@ export function ScheduleQuickPicker({ job, initial, onCancel, onSave }: Props) {
                 className="w-full rounded-lg border border-[#1a2236] bg-[#060a12] px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#C9A96E] focus:outline-none focus:ring-1 focus:ring-[#C9A96E]"
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#8892A5]">
-                Duration
-              </label>
-              <select
-                value={hours}
-                onChange={(e) => setHours(Number(e.target.value))}
-                className="w-full rounded-lg border border-[#1a2236] bg-[#060a12] px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#C9A96E] focus:outline-none focus:ring-1 focus:ring-[#C9A96E]"
-              >
-                {[0.5, 1, 1.5, 2, 3, 4, 6, 8].map((h) => (
-                  <option key={h} value={h}>
-                    {h === 0.5 ? "30 min" : h === 1 ? "1 hour" : `${h} hours`}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!isMultiDay && (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#8892A5]">
+                  Duration
+                </label>
+                <select
+                  value={hours}
+                  onChange={(e) => setHours(Number(e.target.value))}
+                  className="w-full rounded-lg border border-[#1a2236] bg-[#060a12] px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#C9A96E] focus:outline-none focus:ring-1 focus:ring-[#C9A96E]"
+                >
+                  {[0.5, 1, 1.5, 2, 3, 4, 6, 8].map((h) => (
+                    <option key={h} value={h}>
+                      {h === 0.5 ? "30 min" : h === 1 ? "1 hour" : `${h} hours`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
+          {isMultiDay && (
+            <p className="text-xs text-[#8892A5]">
+              Multi-day job — ends {endDateStr} at 5:00 PM.
+            </p>
+          )}
         </div>
 
         {error && (

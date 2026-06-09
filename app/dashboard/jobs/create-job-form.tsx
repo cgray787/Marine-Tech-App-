@@ -57,8 +57,13 @@ export function CreateJobForm({
   const [marinaSaving, setMarinaSaving] = useState(false);
   const [marinaError, setMarinaError] = useState("");
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
+  const [serviceDescriptions, setServiceDescriptions] = useState<Record<string, string>>({});
   const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledEndDate, setScheduledEndDate] = useState("");
   const [notes, setNotes] = useState("");
+
+  // True when a multi-day end date is set and is strictly after start.
+  const isMultiDay = !!scheduledEndDate && !!scheduledDate && scheduledEndDate > scheduledDate;
 
   const filteredBoats = customerId
     ? boats.filter((b) => b.customer_id === customerId)
@@ -68,6 +73,19 @@ export function CreateJobForm({
     setServiceTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
+    // Remove description when un-checking.
+    setServiceDescriptions((prev) => {
+      if (serviceTypes.includes(type)) {
+        const next = { ...prev };
+        delete next[type];
+        return next;
+      }
+      return prev;
+    });
+  }
+
+  function setServiceDescription(type: string, desc: string) {
+    setServiceDescriptions((prev) => ({ ...prev, [type]: desc }));
   }
 
   // Combined marina list for the select — server-fetched marinas + any added
@@ -116,6 +134,30 @@ export function CreateJobForm({
     setLoading(true);
     setError("");
 
+    // Build per-service descriptions for checked types only.
+    const descPayload: Record<string, string> = {};
+    for (const type of serviceTypes) {
+      const d = serviceDescriptions[type];
+      if (d && d.trim()) descPayload[type] = d.trim();
+    }
+
+    // Derive scheduled_start / scheduled_end / scheduled_end_date from dates.
+    // scheduledDate is a date-only string (from the date input). We treat it as
+    // a start-of-day (00:00 local) for the scheduled_start.
+    const scheduledStart = scheduledDate
+      ? new Date(`${scheduledDate}T09:00`).toISOString()
+      : null;
+    let scheduledEnd: string | null = null;
+    let endDateCol: string | null = null;
+    if (scheduledStart) {
+      if (isMultiDay) {
+        scheduledEnd = new Date(`${scheduledEndDate}T17:00`).toISOString();
+        endDateCol = scheduledEndDate;
+      } else {
+        scheduledEnd = new Date(new Date(scheduledStart).getTime() + 60 * 60 * 1000).toISOString();
+      }
+    }
+
     const supabase = createClient();
     const { error: insertError } = await supabase.from("jobs").insert({
       customer_id: customerId || null,
@@ -123,7 +165,11 @@ export function CreateJobForm({
       assigned_to: techId || null,
       marina_id: marinaId || null,
       service_types: serviceTypes,
+      service_descriptions: descPayload,
       scheduled_date: scheduledDate || null,
+      scheduled_start: scheduledStart,
+      scheduled_end: scheduledEnd,
+      scheduled_end_date: endDateCol,
       notes: notes || null,
       status: "new",
     });
@@ -140,7 +186,9 @@ export function CreateJobForm({
     setTechId("");
     setMarinaId("");
     setServiceTypes([]);
+    setServiceDescriptions({});
     setScheduledDate("");
+    setScheduledEndDate("");
     setNotes("");
     setOpen(false);
     setLoading(false);
@@ -313,7 +361,7 @@ export function CreateJobForm({
               {/* Scheduled Date */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-secondary">
-                  Scheduled Date
+                  Start Date
                 </label>
                 <input
                   type="date"
@@ -322,28 +370,69 @@ export function CreateJobForm({
                   className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                 />
               </div>
+
+              {/* End Date (multi-day) */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+                  End Date <span className="font-normal text-text-secondary/60">(optional — multi-day)</span>
+                </label>
+                <input
+                  type="date"
+                  value={scheduledEndDate}
+                  min={scheduledDate}
+                  onChange={(e) => setScheduledEndDate(e.target.value)}
+                  className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                />
+                {isMultiDay && (
+                  <p className="mt-1 text-xs text-text-secondary">
+                    Multi-day job through {scheduledEndDate}, ends at 5:00 PM.
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Service Types */}
+            {/* Service Types with per-service descriptions */}
             <div>
               <label className="mb-2 block text-sm font-medium text-text-secondary">
                 Service Types
               </label>
-              <div className="flex flex-wrap gap-2">
-                {SERVICE_TYPE_OPTIONS.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => toggleServiceType(type)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      serviceTypes.includes(type)
-                        ? "border-gold bg-gold-muted text-gold"
-                        : "border-border-line text-text-secondary hover:border-gold/30 hover:text-text-primary"
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                {SERVICE_TYPE_OPTIONS.map((type) => {
+                  const on = serviceTypes.includes(type);
+                  return (
+                    <div key={type}>
+                      <button
+                        type="button"
+                        onClick={() => toggleServiceType(type)}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          on
+                            ? "border-gold bg-gold-muted text-gold"
+                            : "border-border-line text-text-secondary hover:border-gold/30 hover:text-text-primary"
+                        }`}
+                      >
+                        <span className={`h-3.5 w-3.5 shrink-0 rounded border flex items-center justify-center ${
+                          on ? "border-gold bg-gold" : "border-current"
+                        }`}>
+                          {on && (
+                            <svg className="h-2.5 w-2.5 text-primary-bg" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M1.5 5l2.5 2.5L8.5 2.5" />
+                            </svg>
+                          )}
+                        </span>
+                        {type}
+                      </button>
+                      {on && (
+                        <textarea
+                          rows={2}
+                          value={serviceDescriptions[type] ?? ""}
+                          onChange={(e) => setServiceDescription(type, e.target.value)}
+                          placeholder={`Notes for ${type}…`}
+                          className="mt-1 ml-5 w-[calc(100%-1.25rem)] resize-y rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-xs text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
