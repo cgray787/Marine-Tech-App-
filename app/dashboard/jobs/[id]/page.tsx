@@ -40,8 +40,8 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
   const { data: job } = await supabase
     .from("jobs")
     .select(`
-      id, status, service_types, notes, created_at, marina_id, assigned_to,
-      scheduled_date, scheduled_start, scheduled_end, location_override,
+      id, status, service_types, service_descriptions, notes, created_at, marina_id, assigned_to,
+      scheduled_date, scheduled_start, scheduled_end, scheduled_end_date, location_override,
       customer:customer_id (id, name, email, phone, address),
       boat:boat_id (id, name, make_model, year, hin, engine_make, engine_model, color, home_marina, engine_hours_port, engine_hours_starboard),
       tech:assigned_to (id, full_name, email),
@@ -63,6 +63,27 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
       .order("full_name"),
     supabase.from("marinas").select("id, name").order("name"),
   ]);
+
+  // Other active jobs for the same boat (Task 3 — read-only, skipped if no boat).
+  const boatIdRaw = (job as unknown as { boat_id?: string }).boat_id;
+  const { data: otherJobsRaw } = boatIdRaw
+    ? await supabase
+        .from("jobs")
+        .select("id, status, service_types, scheduled_start, customer:customer_id(name)")
+        .eq("boat_id", boatIdRaw)
+        .neq("status", "completed")
+        .neq("id", id)
+        .order("scheduled_start", { ascending: true, nullsFirst: false })
+        .limit(10)
+    : { data: null };
+  type OtherJob = {
+    id: string;
+    status: string;
+    service_types: string[] | null;
+    scheduled_start: string | null;
+    customer: { name: string } | { name: string }[] | null;
+  };
+  const otherJobs: OtherJob[] = (otherJobsRaw ?? []) as unknown as OtherJob[];
 
   // Latest service report (techs may submit zero or one per job — newest wins).
   const { data: report } = await supabase
@@ -139,9 +160,11 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
           id: job.id,
           status: job.status,
           service_types: job.service_types,
+          service_descriptions: (job as unknown as { service_descriptions?: Record<string, string> | null }).service_descriptions ?? null,
           notes: job.notes,
           scheduled_start: job.scheduled_start,
           scheduled_end: job.scheduled_end,
+          scheduled_end_date: (job as unknown as { scheduled_end_date?: string | null }).scheduled_end_date ?? null,
           marina_id: job.marina_id ?? null,
           assigned_to: job.assigned_to ?? null,
         }}
@@ -178,6 +201,63 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
           </div>
         </div>
       </div>
+
+      {/* Service notes — per-service descriptions from service_descriptions JSONB */}
+      {(() => {
+        const descs = (job as unknown as { service_descriptions?: Record<string, string> | null }).service_descriptions;
+        const entries = descs ? Object.entries(descs).filter(([, v]) => v && v.trim()) : [];
+        if (entries.length === 0) return null;
+        return (
+          <div className="rounded-2xl border border-border-line bg-card-bg p-5">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Service notes</p>
+            <ul className="mt-3 space-y-3">
+              {entries.map(([type, desc]) => (
+                <li key={type} className="flex gap-3">
+                  <span className="mt-0.5 shrink-0 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-[10px] font-medium text-gold">
+                    {type}
+                  </span>
+                  <p className="text-sm text-text-primary">{desc}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
+
+      {/* Other active jobs for this boat */}
+      {otherJobs.length > 0 && (
+        <div className="rounded-2xl border border-border-line bg-card-bg p-5">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">
+            Other active jobs for this boat
+          </p>
+          <ul className="mt-3 space-y-2">
+            {otherJobs.map((oj) => {
+              const ojCustomer = Array.isArray(oj.customer) ? oj.customer[0] : oj.customer;
+              return (
+                <li key={oj.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
+                  <Link
+                    href={`/dashboard/jobs/${oj.id}`}
+                    className="font-medium text-gold hover:text-gold-hover underline"
+                  >
+                    {oj.service_types && oj.service_types.length > 0
+                      ? oj.service_types.join(", ")
+                      : "Job"}
+                  </Link>
+                  {ojCustomer?.name && (
+                    <span className="text-xs text-text-secondary">· {ojCustomer.name}</span>
+                  )}
+                  {oj.scheduled_start && (
+                    <span className="text-xs text-text-secondary">· {fmtTime(oj.scheduled_start)}</span>
+                  )}
+                  <span className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${STATUS_BADGE[oj.status] ?? "bg-slate-500/15 text-slate-300 border-slate-500/30"}`}>
+                    {oj.status}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Notes are part of <JobEditor /> above; the read-only render here is removed. */}
 

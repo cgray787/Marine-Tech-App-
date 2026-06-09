@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { CreateJobForm } from "./create-job-form";
 import { JobsByCustomer } from "./jobs-by-customer";
+import { PendingJobsPanel } from "./pending-jobs-panel";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 export default async function JobsPage() {
@@ -8,6 +9,7 @@ export default async function JobsPage() {
 
   const [
     { data: jobs },
+    { data: pendingJobs },
     { data: customers },
     { data: boats },
     { data: techs },
@@ -18,6 +20,16 @@ export default async function JobsPage() {
       .select(
         "id, status, service_types, scheduled_date, scheduled_start, scheduled_end, customer_id, notes, boats:boat_id(name, make_model), profiles:assigned_to(full_name), customers:customer_id(name)"
       )
+      .order("created_at", { ascending: false }),
+    // Pending = both timestamp columns null, not completed
+    supabase
+      .from("jobs")
+      .select(
+        "id, status, service_types, customer_id, notes, boats:boat_id(name, make_model), profiles:assigned_to(full_name), customers:customer_id(name)"
+      )
+      .is("scheduled_start", null)
+      .is("scheduled_date", null)
+      .neq("status", "completed")
       .order("created_at", { ascending: false }),
     supabase.from("customers").select("id, name").order("name"),
     supabase.from("boats").select("id, name, customer_id, make_model").order("name"),
@@ -50,6 +62,11 @@ export default async function JobsPage() {
         boats={boats || []}
         techs={techs || []}
         marinas={marinas || []}
+      />
+
+      {/* Pending Jobs panel — jobs with no schedule date at all */}
+      <PendingJobsPanel
+        jobs={(pendingJobs as unknown as Parameters<typeof PendingJobsPanel>[0]['jobs']) || []}
       />
 
       {/* Jobs grouped by customer */}

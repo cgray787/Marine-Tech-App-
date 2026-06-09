@@ -16,6 +16,11 @@ type Profile = {
   auth_id?: string | null;
 };
 
+type SidebarProps = {
+  profile: Profile;
+  pendingJobCount?: number;
+};
+
 interface NavItem {
   label: string;
   href: string;
@@ -85,7 +90,7 @@ function NavIcon({ icon }: { icon: string }) {
   }
 }
 
-export function Sidebar({ profile }: { profile: Profile }) {
+export function Sidebar({ profile, pendingJobCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -119,6 +124,9 @@ export function Sidebar({ profile }: { profile: Profile }) {
               ? pathname === "/dashboard"
               : pathname.startsWith(item.href);
 
+          const showPendingBadge =
+            item.href === "/dashboard/jobs" && pendingJobCount > 0;
+
           return (
             <Link
               key={item.href}
@@ -131,7 +139,12 @@ export function Sidebar({ profile }: { profile: Profile }) {
               )}
             >
               <NavIcon icon={item.icon} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {showPendingBadge && (
+                <span className="inline-flex items-center justify-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold leading-none text-amber-300">
+                  {pendingJobCount}
+                </span>
+              )}
             </Link>
           );
         })}
