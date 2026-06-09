@@ -215,6 +215,25 @@ export function CustomerList({
     setExpandedCustomer(b.customer_id);
   }
 
+  async function deleteCustomer(customerId: string, customerName: string) {
+    if (
+      !confirm(
+        `Delete ${customerName}? Their boats and any unsubmitted job records under them will be removed. This can't be undone.`
+      )
+    )
+      return;
+    const supabase = createClient();
+    const { error: delError } = await supabase
+      .from("customers")
+      .delete()
+      .eq("id", customerId);
+    if (delError) {
+      setError(delError.message);
+      return;
+    }
+    router.refresh();
+  }
+
   function cancelBoatForm() {
     setShowBoatForm(null);
     setEditingBoatId(null);
@@ -475,7 +494,7 @@ export function CustomerList({
                       </p>
                     )}
 
-                    {/* Client actions: Edit + Salesforce */}
+                    {/* Client actions: Edit + Delete + Salesforce */}
                     <div className="mb-4 flex flex-wrap items-center gap-2">
                       {canWrite && (
                         <button
@@ -483,6 +502,14 @@ export function CustomerList({
                           className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 bg-gold-muted px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/20"
                         >
                           ✎ Edit Client
+                        </button>
+                      )}
+                      {canWrite && (
+                        <button
+                          onClick={() => deleteCustomer(customer.id, customer.name)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                        >
+                          🗑 Delete Client
                         </button>
                       )}
                       {isSafeSalesforceUrl(customer.salesforce_url) ? (

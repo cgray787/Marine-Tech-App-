@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 
-type Role = "admin" | "viewer" | string;
+type Role = "admin" | "manager" | "tech" | "viewer" | string;
 
 type RoleCtx = {
   role: Role;
@@ -10,6 +10,11 @@ type RoleCtx = {
 };
 
 const Ctx = createContext<RoleCtx>({ role: "admin", canWrite: true });
+
+/** True for admin, manager, and tech; false for viewer. Mirrors migration 027. */
+function computeCanWrite(role: Role): boolean {
+  return role === "admin" || role === "manager" || role === "tech";
+}
 
 export function RoleProvider({
   role,
@@ -19,7 +24,7 @@ export function RoleProvider({
   children: ReactNode;
 }) {
   return (
-    <Ctx.Provider value={{ role, canWrite: role === "admin" }}>
+    <Ctx.Provider value={{ role, canWrite: computeCanWrite(role) }}>
       {children}
     </Ctx.Provider>
   );

@@ -88,9 +88,15 @@ function formatDate(dateStr: string | null) {
   });
 }
 
+/** Matches migration 027: admin, manager, tech can write; viewer cannot. */
+function canWriteRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "manager" || role === "tech";
+}
+
 export default function ClientDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuth();
+  const canWrite = canWriteRole(profile?.role);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -574,12 +580,14 @@ export default function ClientDetailScreen() {
 
         {/* Customer Card */}
         <View style={styles.customerCard}>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={openEditClient}
-          >
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
+          {canWrite && (
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={openEditClient}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.customerAvatar}>
             <Text style={styles.customerAvatarText}>{initials}</Text>
           </View>
@@ -649,7 +657,7 @@ export default function ClientDetailScreen() {
               </Text>
             </TouchableOpacity>
           )}
-          {(profile?.role === "admin" || profile?.role === "owner") && (
+          {canWrite && (
             <TouchableOpacity style={styles.deleteClientBtn} onPress={handleDeleteClient}>
               <Text style={styles.deleteClientBtnText}>Delete Client</Text>
             </TouchableOpacity>
@@ -661,18 +669,20 @@ export default function ClientDetailScreen() {
           <Text style={styles.sectionTitle}>
             Boats ({boats.length})
           </Text>
-          <TouchableOpacity
-            style={styles.addSmallButton}
-            onPress={() => setShowAddBoat(true)}
-          >
-            <Text style={styles.addSmallButtonText}>+ Add Boat</Text>
-          </TouchableOpacity>
+          {canWrite && (
+            <TouchableOpacity
+              style={styles.addSmallButton}
+              onPress={() => setShowAddBoat(true)}
+            >
+              <Text style={styles.addSmallButtonText}>+ Add Boat</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {boats.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No boats yet. Tap &quot;+ Add Boat&quot; to add one.
+              No boats yet.{canWrite ? " Tap \"+ Add Boat\" to add one." : ""}
             </Text>
           </View>
         ) : (
@@ -680,14 +690,14 @@ export default function ClientDetailScreen() {
             <TouchableOpacity
               key={boat.id}
               style={styles.boatCard}
-              activeOpacity={0.7}
-              onPress={() => openEditBoat(boat)}
+              activeOpacity={canWrite ? 0.7 : 1}
+              onPress={canWrite ? () => openEditBoat(boat) : undefined}
             >
               <View style={styles.boatCardAccent} />
               <View style={styles.boatCardContent}>
                 <View style={styles.boatCardHeader}>
                   <Text style={styles.boatName}>{boat.name}</Text>
-                  <Text style={styles.boatEditHint}>Edit</Text>
+                  {canWrite && <Text style={styles.boatEditHint}>Edit</Text>}
                 </View>
                 {boat.make_model && (
                   <Text style={styles.boatDetail}>{boat.make_model}</Text>
@@ -747,28 +757,30 @@ export default function ClientDetailScreen() {
           <Text style={styles.sectionTitle}>
             Jobs ({jobs.length})
           </Text>
-          <TouchableOpacity
-            style={styles.newJobButton}
-            onPress={() => {
-              if (boats.length === 0) {
-                Alert.alert(
-                  "Add a Boat First",
-                  "You need to add at least one boat before creating a job."
-                );
-                return;
-              }
-              if (boats.length === 1) setJobBoatId(boats[0].id);
-              setShowNewJob(true);
-            }}
-          >
-            <Text style={styles.newJobButtonText}>+ New Job</Text>
-          </TouchableOpacity>
+          {canWrite && (
+            <TouchableOpacity
+              style={styles.newJobButton}
+              onPress={() => {
+                if (boats.length === 0) {
+                  Alert.alert(
+                    "Add a Boat First",
+                    "You need to add at least one boat before creating a job."
+                  );
+                  return;
+                }
+                if (boats.length === 1) setJobBoatId(boats[0].id);
+                setShowNewJob(true);
+              }}
+            >
+              <Text style={styles.newJobButtonText}>+ New Job</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {jobs.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No jobs yet. Tap &quot;+ New Job&quot; to create one.
+              No jobs yet.{canWrite ? " Tap \"+ New Job\" to create one." : ""}
             </Text>
           </View>
         ) : (
@@ -823,27 +835,29 @@ export default function ClientDetailScreen() {
           <Text style={styles.sectionTitle}>
             PDI ({pdiReports.length})
           </Text>
-          <TouchableOpacity
-            style={styles.newJobButton}
-            onPress={() => {
-              if (boats.length === 0) {
-                Alert.alert(
-                  "Add a Boat First",
-                  "You need to add at least one boat before creating a PDI."
-                );
-                return;
-              }
-              router.push("/(tabs)/pdi");
-            }}
-          >
-            <Text style={styles.newJobButtonText}>+ Create PDI</Text>
-          </TouchableOpacity>
+          {canWrite && (
+            <TouchableOpacity
+              style={styles.newJobButton}
+              onPress={() => {
+                if (boats.length === 0) {
+                  Alert.alert(
+                    "Add a Boat First",
+                    "You need to add at least one boat before creating a PDI."
+                  );
+                  return;
+                }
+                router.push("/(tabs)/pdi");
+              }}
+            >
+              <Text style={styles.newJobButtonText}>+ Create PDI</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {pdiReports.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No PDI reports yet. Tap &quot;+ Create PDI&quot; to start one.
+              No PDI reports yet.{canWrite ? " Tap \"+ Create PDI\" to start one." : ""}
             </Text>
           </View>
         ) : (

@@ -62,8 +62,14 @@ function formatDate(dateStr: string | null) {
   });
 }
 
+/** Matches migration 027 role hierarchy: admin, manager, tech can write; viewer cannot. */
+function canWriteRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "manager" || role === "tech";
+}
+
 export default function ClientsScreen() {
   const { profile } = useAuth();
+  const canWrite = canWriteRole(profile?.role);
   const [clients, setClients] = useState<Client[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
@@ -101,12 +107,14 @@ export default function ClientsScreen() {
             {clients.length} client{clients.length !== 1 ? "s" : ""}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => router.push("/client/new")}
-        >
-          <Text style={styles.addButtonText}>+ Add Client</Text>
-        </TouchableOpacity>
+        {canWrite && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => router.push("/client/new")}
+          >
+            <Text style={styles.addButtonText}>+ Add Client</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Search bar */}
