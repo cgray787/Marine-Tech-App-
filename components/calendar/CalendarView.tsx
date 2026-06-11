@@ -48,6 +48,7 @@ export function CalendarView({ jobs, view, date, onNavigate, onView, onSelectJob
       onNavigate={onNavigate}
       onView={(v) => onView(v as ViewMode)}
       views={['month', 'week', 'day']}
+      popup
       selectable={!!onSelectSlot}
       onSelectSlot={(slotInfo) => onSelectSlot?.(slotInfo.start, slotInfo.end)}
       onSelectEvent={(event, e) =>
