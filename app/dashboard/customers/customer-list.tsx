@@ -218,18 +218,31 @@ export function CustomerList({
   async function deleteCustomer(customerId: string, customerName: string) {
     if (
       !confirm(
-        `Delete ${customerName}? Their boats and any unsubmitted job records under them will be removed. This can't be undone.`
+        `Delete ${customerName}? Their boats, jobs, service reports, and PDI reports will be removed. This can't be undone.`
       )
     )
       return;
     const supabase = createClient();
-    const { error: delError } = await supabase
-      .from("customers")
-      .delete()
-      .eq("id", customerId);
-    if (delError) {
-      setError(delError.message);
-      return;
+    // jobs / service_reports / pdi_reports reference customers WITHOUT
+    // ON DELETE CASCADE (migration 001), so a single DELETE on the parent
+    // would fail with an FK violation. Walk children first, parent last —
+    // mirrors the cascade the mobile app's handleDeleteClient does.
+    const steps = [
+      supabase.from("service_reports").delete().eq("customer_id", customerId),
+      supabase.from("pdi_reports").delete().eq("customer_id", customerId),
+      supabase.from("jobs").delete().eq("customer_id", customerId),
+      // boats has ON DELETE CASCADE so it goes with the parent — no manual
+      // step needed, but we DELETE it explicitly so a partial RLS failure
+      // surfaces clearly instead of cascading silently.
+      supabase.from("boats").delete().eq("customer_id", customerId),
+      supabase.from("customers").delete().eq("id", customerId),
+    ];
+    for (const step of steps) {
+      const { error: delError } = await step;
+      if (delError) {
+        setError(delError.message);
+        return;
+      }
     }
     router.refresh();
   }
