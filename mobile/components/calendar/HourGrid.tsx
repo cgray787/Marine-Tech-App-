@@ -20,8 +20,10 @@ type Props = {
   jobs: CalendarJob[];
   selectedDate: string;     // 'yyyy-MM-dd'
   onSelectJob: (job: CalendarJob) => void;
-  onScheduleJob: (job: CalendarJob) => void;
-  onTapEmptySlot: (isoTimestamp: string) => void;
+  /** Omit for read-only roles — hides/disables scheduling affordances. */
+  onScheduleJob?: (job: CalendarJob) => void;
+  /** Omit for read-only roles — empty slots become inert. */
+  onTapEmptySlot?: (isoTimestamp: string) => void;
 };
 
 export function HourGrid({
@@ -96,8 +98,10 @@ export function HourGrid({
                 {rowJobs.length === 0 ? (
                   <Pressable
                     style={styles.emptySlot}
-                    onPress={() =>
-                      onTapEmptySlot(buildIsoSlot(selectedDate, hour))
+                    onPress={
+                      onTapEmptySlot
+                        ? () => onTapEmptySlot(buildIsoSlot(selectedDate, hour))
+                        : undefined
                     }
                     testID={`empty-slot-${hour}`}
                   />
@@ -107,7 +111,7 @@ export function HourGrid({
                       key={j.id}
                       job={j}
                       onPress={() => onSelectJob(j)}
-                      onLongPress={() => onScheduleJob(j)}
+                      onLongPress={onScheduleJob ? () => onScheduleJob(j) : undefined}
                     />
                   ))
                 )}
@@ -129,7 +133,9 @@ export function HourGrid({
       {!hasAnyJobs && (
         <View style={[styles.emptyOverlay, { pointerEvents: "none" }]}>
           <Text style={styles.emptyTitle}>No jobs scheduled</Text>
-          <Text style={styles.emptyHint}>Tap any hour to schedule</Text>
+          {onTapEmptySlot && (
+            <Text style={styles.emptyHint}>Tap any hour to schedule</Text>
+          )}
         </View>
       )}
     </View>
@@ -143,7 +149,7 @@ function JobLane({
 }: {
   job: CalendarJob;
   onPress: () => void;
-  onLongPress: () => void;
+  onLongPress?: () => void;
 }) {
   const bg     = job.tech ? techColor(job.tech.id) : "#3b6cd6";
   const stripe = statusStripeColor(job.status);

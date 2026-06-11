@@ -364,7 +364,7 @@ export default function JobDetailScreen() {
 
   return (
     <>
-      {profile && (
+      {profile && profile.role !== "viewer" && (
         <Stack.Screen
           options={{
             headerRight: () => (

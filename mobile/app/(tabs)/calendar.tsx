@@ -15,10 +15,18 @@ import {
 import { ScheduleSheet, ScheduleSheetHandle } from "@/components/ScheduleSheet";
 import { ViewToggle, type CalendarPanelMode } from "@/components/calendar/ViewToggle";
 import { HourGrid } from "@/components/calendar/HourGrid";
+import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/constants/Colors";
+
+/** Matches migration 027: admin, manager, tech can write; viewer cannot. */
+function canWriteRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "manager" || role === "tech";
+}
 
 export default function CalendarScreen() {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const canWrite = canWriteRole(profile?.role);
   const [monthDate, setMonthDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [viewMode, setViewMode] = useState<CalendarPanelMode>("week");
@@ -71,14 +79,17 @@ export default function CalendarScreen() {
           unscheduledJobs={unscheduledQuery.data ?? []}
           weekOf={parseISO(selectedDate)}
           onSelectJob={(j) => sheetRef.current?.present(j)}
-          onScheduleJob={(j) =>
-            scheduleSheetRef.current?.present({
-              id: j.id,
-              customerName: j.customer?.name ?? "Unassigned",
-              boatName: j.boat?.name ?? null,
-              currentScheduledStart: j.scheduledStart,
-              currentLocation: j.locationOverride ?? j.marina?.name ?? null,
-            })
+          onScheduleJob={
+            canWrite
+              ? (j) =>
+                  scheduleSheetRef.current?.present({
+                    id: j.id,
+                    customerName: j.customer?.name ?? "Unassigned",
+                    boatName: j.boat?.name ?? null,
+                    currentScheduledStart: j.scheduledStart,
+                    currentLocation: j.locationOverride ?? j.marina?.name ?? null,
+                  })
+              : undefined
           }
         />
       ) : (
@@ -86,22 +97,28 @@ export default function CalendarScreen() {
           jobs={jobsQuery.data ?? []}
           selectedDate={selectedDate}
           onSelectJob={(j) => sheetRef.current?.present(j)}
-          onScheduleJob={(j) =>
-            scheduleSheetRef.current?.present({
-              id: j.id,
-              customerName: j.customer?.name ?? "Unassigned",
-              boatName: j.boat?.name ?? null,
-              currentScheduledStart: j.scheduledStart,
-              currentLocation: j.locationOverride ?? j.marina?.name ?? null,
-            })
+          onScheduleJob={
+            canWrite
+              ? (j) =>
+                  scheduleSheetRef.current?.present({
+                    id: j.id,
+                    customerName: j.customer?.name ?? "Unassigned",
+                    boatName: j.boat?.name ?? null,
+                    currentScheduledStart: j.scheduledStart,
+                    currentLocation: j.locationOverride ?? j.marina?.name ?? null,
+                  })
+              : undefined
           }
-          onTapEmptySlot={(iso) =>
-            // Every new job goes through the full Service form, with the
-            // tapped slot's start time preselected.
-            router.push({
-              pathname: "/(tabs)/service",
-              params: { newStartIso: iso },
-            })
+          onTapEmptySlot={
+            canWrite
+              ? (iso) =>
+                  // Every new job goes through the full Service form, with the
+                  // tapped slot's start time preselected.
+                  router.push({
+                    pathname: "/(tabs)/service",
+                    params: { newStartIso: iso },
+                  })
+              : undefined
           }
         />
       )}

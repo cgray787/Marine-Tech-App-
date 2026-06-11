@@ -928,6 +928,37 @@ export default function ServiceScreen() {
     setSelectedPhotoCategory("Other");
   }
 
+  // Viewers are read-only — matches migration 032's DB-level enforcement,
+  // so don't present a form whose submit would be rejected by RLS.
+  if (profile && profile.role === "viewer") {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.bgPrimary,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 32,
+        }}
+      >
+        <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: "600" }}>
+          Read-only account
+        </Text>
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontSize: 14,
+            textAlign: "center",
+            marginTop: 8,
+          }}
+        >
+          Your account can view jobs and reports but can&apos;t create or edit
+          them. Ask the owner for Edit access.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}

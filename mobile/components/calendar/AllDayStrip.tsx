@@ -7,7 +7,8 @@ type Props = {
   jobs: CalendarJob[];
   selectedDate: string;
   onSelectJob: (job: CalendarJob) => void;
-  onScheduleJob: (job: CalendarJob) => void;
+  /** Omit for read-only roles — long-press scheduling disabled. */
+  onScheduleJob?: (job: CalendarJob) => void;
 };
 
 export function AllDayStrip({ jobs, selectedDate, onSelectJob, onScheduleJob }: Props) {
@@ -27,7 +28,7 @@ export function AllDayStrip({ jobs, selectedDate, onSelectJob, onScheduleJob }: 
           <Pressable
             key={j.id}
             onPress={() => onSelectJob(j)}
-            onLongPress={() => onScheduleJob(j)}
+            onLongPress={onScheduleJob ? () => onScheduleJob(j) : undefined}
             delayLongPress={500}
             style={[styles.chip, { backgroundColor: bg, borderLeftColor: stripe }]}
             testID={`all-day-chip-${j.id}`}

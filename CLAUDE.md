@@ -79,8 +79,8 @@ npx eas-cli update --branch production --message "..." # Push JS-only patch to p
 
 # App Store Connect API (from repo root, requires AuthKey_2B5Z869244.p8 at mobile/.secrets/)
 node mobile/scripts/asc-builds.mjs                     # List recent builds
-node mobile/scripts/asc-submit.mjs <version> <buildNum># Create version + attach build + submit for review
-node mobile/scripts/asc-resubmit.mjs                   # Retry submit past post-attach 409 (STATE_ERROR)
+node scripts/asc-submit.mjs <version> <buildNum>       # Create version + attach build + submit for review (root scripts/)
+node scripts/asc-resubmit.mjs                          # Retry submit past post-attach 409 (STATE_ERROR) (root scripts/)
 
 # Mobile e2e (Maestro — install: curl -Ls "https://get.maestro.mobile.dev" | bash)
 maestro test mobile/.maestro/calendar.yaml             # Run a single flow
@@ -90,7 +90,7 @@ npm run dev                                            # Start Next.js dev serve
 npm test                                               # Run vitest unit tests
 npm run test:watch                                     # Vitest in watch mode
 npm run test:e2e                                       # Playwright e2e tests
-npx opennextjs-cloudflare build && npx wrangler deploy # Deploy to CF Workers
+npm run deploy                                         # Deploy to CF Workers (sources .env.local, cleans .next/.open-next, builds, deploys)
 
 # Type check
 npx tsc --noEmit       # Run from /mobile or root as needed
@@ -99,6 +99,13 @@ npx tsc --noEmit       # Run from /mobile or root as needed
 ## GitHub Repo
 
 https://github.com/cgray787/Marine-Tech-App-.git
+
+## Live URLs
+
+- **Admin dashboard (canonical):** `https://marinetech.grayyachts.com` — custom domain on the Cloudflare-managed grayyachts.com zone (wrangler auto-creates DNS + TLS on deploy)
+- **Fallback:** `https://marine-tech-dashboard.connorgray41.workers.dev` — kept alive via `workers_dev = true` for old bookmarks/docs
+- **Second dashboard:** grayyachts.com `/portal/marine-tech` (lives in the separate `~/Desktop/Claude OS/grayyachts.com` repo, same Supabase backend, different UI). **Both dashboards are canonical — mirror dashboard UI changes across both repos.**
+- Dashboard login is protected by Cloudflare Turnstile ('Marine Tech Login' widget; public sitekey in `wrangler.toml`, paired `TURNSTILE_SECRET` wrangler secret — falls back to Cloudflare's always-passes test secret if unset)
 
 ## Supabase
 
@@ -113,7 +120,7 @@ https://github.com/cgray787/Marine-Tech-App-.git
 
 ## Database Schema
 
-**Tables (live as of migration 017):**
+**Tables (live as of migration 031):**
 
 | Table | Purpose | Key columns |
 |---|---|---|
@@ -130,6 +137,7 @@ https://github.com/cgray787/Marine-Tech-App-.git
 | `pdi_reports` | Pre-Delivery Inspection reports | same shape as service_reports |
 | `pdi_checklist_items` | PDI assessments | same shape as checklist_items |
 | `invites` | Tech invite tokens (7-day expiry) | `token`, `email`, `expires_at`, `used_at` (no tier/location columns — invitees default to `individual` + NULL location, must be promoted post-signup) |
+| `parts` | Parts-to-order from service reports | `name`, `part_number`, `qty`, `description`, `supplier`, `url`, `photo_path`, `ordered`, `notified_at`, `org_id` (set by trigger), `location_id` |
 
 **Migrations:**
 - `001_create_tables.sql` — all base tables + RLS enabled
@@ -161,6 +169,10 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `027_manager_role.sql` — adds `manager` role + `is_manager()` helper + fixes a latent bug from migration 018 (missing `shop_update_jobs` / `shop_delete_jobs`). Promotes Darik to `manager` + Seattle. Multi-location data model is now ready for Sausalito / San Diego — see `docs/superpowers/specs/2026-06-07-multi-location-expansion.md` for the onboarding runbook.
 - `028_rls_audit_reports_parts.sql` — completes the location-scoped RLS audit across every shop-sensitive table: adds the missing shop SELECT/INSERT/UPDATE/DELETE for `service_reports`, `pdi_reports`, `report_photos`, `checklist_items`, `pdi_checklist_items`; replaces the org-only parts policies with location-scoped ones. Adds `service_report_in_my_location()` and `pdi_report_in_my_location()` helpers for chained joins.
 - `029_tighten_shop_inserts.sql` — closes three remaining cross-location INSERT holes: replaces the permissive `tech_insert_jobs` (`WITH CHECK true`) with tier-aware `shop_insert_jobs` + `individual_insert_jobs`, and adds explicit location checks to `shop_insert_customers` and `shop_insert_boats` (defense in depth on top of migration 023's `set_customer_tenant` trigger).
+- `030_marinas_insert_for_team.sql` — opens `marinas` INSERT to shop tier + admins (was admin-only) so Create Job's inline "+ Add new marina" works; viewers are blocked at the UI by `canWrite`.
+- `031_jobs_service_descriptions.sql` — adds `jobs.service_descriptions` JSONB (per-service-type descriptions keyed by `service_types` values, default `{}`), powering per-area notes on the Create Job form.
+
+**Numbering collision footgun:** two files share the `026` prefix — `026_owner_only_user_management.sql` and `026_parts_order_email.sql` (pg_cron schedule + `parts-order-email` edge-function wiring). Both are applied; next new migration should be `032`. Migrations are applied via Supabase MCP (`mcp__supabase__apply_migration`), not the Supabase CLI.
 
 ## Parts-to-Order (live since 2026-06-05)
 
@@ -227,13 +239,15 @@ marine-tech-app/
 │   └── dashboard/
 │       ├── layout.tsx             # Sidebar + QueryClientProvider wrap
 │       ├── sidebar.tsx            # Inline-SVG nav (Dashboard / Reports / Jobs / Calendar / Technicians / Customers & Boats / PDI Reports)
-│       ├── page.tsx               # Dashboard home
-│       ├── jobs/                  # Jobs table
-│       ├── calendar/              # NEW: Calendar tab (Month/Week/Day)
+│       ├── page.tsx               # Dashboard home (KPI cards incl. Parts to Order)
+│       ├── jobs/                  # Jobs table + pending-jobs panel + create-job-form
+│       │   └── [id]/              # Job detail page with JobEditor client island (F4/F5)
+│       ├── calendar/              # Calendar tab (Month/Week/Day)
 │       │   ├── page.tsx
 │       │   ├── loading.tsx
 │       │   └── error.tsx
-│       ├── customers/, technicians/, reports/, pdi-reports/
+│       ├── customers/             # "Clients" page (renamed from "Customers & Boats"; editable client + boat cards, Delete Client)
+│       ├── technicians/, reports/, pdi-reports/
 ├── components/
 │   └── calendar/                  # NEW
 │       ├── CalendarView.tsx       # react-big-calendar wrapper
@@ -255,8 +269,8 @@ marine-tech-app/
 │       └── realtime.ts            # subscribeToJobs (Supabase Realtime channel)
 ├── middleware.ts                   # Auth middleware
 ├── supabase/
-│   ├── migrations/                # 001-017
-│   ├── functions/                 # Edge functions (e.g., send-invite)
+│   ├── migrations/                # 001-031 (two files share prefix 026 — see footgun above)
+│   ├── functions/                 # Edge functions: send-invite, salesforce-sync, parts-order-email, job-notification-webhook, send-notification
 │   └── rls_policies.sql
 ├── e2e/calendar.spec.ts           # NEW: Playwright tests
 ├── playwright.config.ts           # NEW
@@ -279,7 +293,11 @@ marine-tech-app/
     ├── components/
     │   ├── calendar/
     │   │   ├── MonthCalendar.tsx  # react-native-calendars with multi-dot markers
-    │   │   ├── WeeklyJobsPanel.tsx# Current bottom panel (replaces DayList): scheduled-this-week + unscheduled tray
+    │   │   ├── HourGrid.tsx       # Day-view vertical hour rows (shipped via feat/calendar-hourgrid-newjobsheet)
+    │   │   ├── AllDayStrip.tsx    # All-day/multi-day jobs strip above the HourGrid
+    │   │   ├── ViewToggle.tsx     # Month ⇄ Day view switcher
+    │   │   ├── NewJobSheet.tsx    # Create-job-from-calendar bottom sheet
+    │   │   ├── WeeklyJobsPanel.tsx# Month-view bottom panel: scheduled-this-week + unscheduled tray
     │   │   ├── DayList.tsx        # Legacy FlatList variant, kept but not mounted
     │   │   └── JobBottomSheet.tsx # @gorhom/bottom-sheet on tap
     │   └── ScheduleSheet.tsx      # Long-press scheduling sheet (date + time + duration → updateJob)
@@ -303,18 +321,19 @@ marine-tech-app/
 3. **Service** (Tab 2) — Job form with customer/boat dropdowns, category tabs, BAD/GOOD checklist, notes. Supports edit mode via `?editJobId=`.
 4. **PDI** (Tab 3) — Pre-Delivery Inspection with progress counter
 5. **Jobs** (Tab 4) — Browse + search assigned jobs, status filter, navigate to detail
-6. **Calendar** (Tab 5) — Month grid with multi-dot markers per tech; tap day → WeeklyJobsPanel; tap job → JobBottomSheet (25%/60% snap); **long-press a job → ScheduleSheet** (calendar + time picker, writes `scheduled_start`/`scheduled_end`/`scheduled_end_date`)
+6. **Calendar** (Tab 5) — Month ⇄ Day via ViewToggle. Month: multi-dot markers per tech, tap day → WeeklyJobsPanel. Day: HourGrid hour rows + AllDayStrip. Tap job → JobBottomSheet (25%/60% snap); **long-press a job → ScheduleSheet** (calendar + time picker, writes `scheduled_start`/`scheduled_end`/`scheduled_end_date`); create from calendar via NewJobSheet
 7. **Job Summary** (`/job/[id]`) — Read-only report view, photo gallery, Edit + Delete actions, Export PDF + Share.
 
 ## Admin Dashboard Pages
 
-1. **Dashboard** (`/dashboard`) — Home overview
+1. **Dashboard** (`/dashboard`) — Home overview (KPI cards incl. Parts to Order count + grouped parts section)
 2. **Reports** (`/dashboard/reports`)
-3. **Jobs** (`/dashboard/jobs`) — Table view with Create / Start / Complete actions
-4. **Calendar** (`/dashboard/calendar`) — NEW. Month/Week/Day. Tech filter. Unscheduled tray. Click-empty-cell → New job modal. Click chip → popover with "Open job" link. Realtime updates.
-5. **Technicians** (`/dashboard/technicians`)
-6. **Customers & Boats** (`/dashboard/customers`)
-7. **PDI Reports** (`/dashboard/pdi-reports`)
+3. **Jobs** (`/dashboard/jobs`) — Table view with Create / Start / Complete actions, pending-jobs panel + sidebar count, multi-day scheduling + per-service descriptions on Create Job
+4. **Job detail** (`/dashboard/jobs/[id]`) — vessel/engine/checklist/photos with editable JobEditor; target of the calendar's "Open job" link
+5. **Calendar** (`/dashboard/calendar`) — Month/Week/Day. Tech filter. Unscheduled tray. Click-empty-cell → New job modal. Click chip → popover with "Open job" link. Popup overlay for multi-job days. Realtime updates.
+6. **Technicians / Users & Access** (`/dashboard/technicians`) — owner-gated at three layers
+7. **Clients** (`/dashboard/customers`) — renamed from "Customers & Boats"; editable client + boat cards, Delete Client (cascade-deletes child records)
+8. **PDI Reports** (`/dashboard/pdi-reports`)
 
 ## Calendar Feature (shipped to `main`)
 
@@ -322,11 +341,9 @@ marine-tech-app/
 - **Plan:** `docs/superpowers/plans/2026-04-27-calendar-tab.md`
 - **Schema:** migration `008` (`scheduled_start`/`scheduled_end`/`location_override`) + migration `014` (`scheduled_end_date` for multi-day)
 - **Web** (`/dashboard/calendar`): Month / Week / Day via `react-big-calendar`. Color-by-tech (hashed) + status stripe. Click empty cell → create. Click chip → popover. Tech filter dropdown. Unscheduled tray. Realtime via Supabase channel.
-- **Mobile** (`(tabs)/calendar`): `MonthCalendar` (multi-dot markers) → `WeeklyJobsPanel` (scheduled-this-week + unscheduled tray) → `JobBottomSheet` (tap) + `ScheduleSheet` (long-press, picks date + start time + duration, writes through `updateJob`)
+- **Mobile** (`(tabs)/calendar`): `MonthCalendar` (multi-dot markers) → `WeeklyJobsPanel` (scheduled-this-week + unscheduled tray) → `JobBottomSheet` (tap) + `ScheduleSheet` (long-press, picks date + start time + duration, writes through `updateJob`). **Day view shipped** (merged via `feat/calendar-hourgrid-newjobsheet`): `ViewToggle` → `HourGrid` hour rows + `AllDayStrip`, plus `NewJobSheet` for create-from-calendar. Spec/plan: `docs/superpowers/{specs/2026-05-27-hourgrid-newjobsheet-design.md, plans/2026-05-27-hourgrid-newjobsheet.md}`
 - **Tests:** 20 unit tests (vitest), 3 Playwright e2e (auth setup still pending — won't run yet), 1 Maestro flow (manual run)
 - **Deferred (still open):**
-  - **Mobile HourGrid** — vertical hour rows for the selected day (spec calls for 6 AM – 8 PM, pinch-to-zoom). **Currently being designed.**
-  - **Mobile NewJobSheet** — create-job-from-calendar bottom sheet
   - Realtime polling fallback for offline disconnect
   - Migration to drop the legacy `scheduled_date` column once all reads have switched
   - Playwright auth setup so the 3 scaffolded e2e tests can actually run
@@ -354,18 +371,18 @@ marine-tech-app/
 
 ## Current Branches
 
-- `main` — calendar (Month + WeeklyJobsPanel + ScheduleSheet long-press) merged; mobile Jobs tab; multi-location orgs/locations + location-scoped RLS (mig 015 + 017); Salesforce link + mobile tap-to-call/text/email + "View in Salesforce" (mig 016); delete-client + org/location tagging
-- `feat/sso-apple-google` — Apple + Google Sign-In scaffolding. TestFlight build 35 submitted 2026-05-11 (`b10083ae-...`); not yet promoted to App Store
+- `main` — everything shipped: calendar (Month + Day/HourGrid + NewJobSheet, web Month/Week/Day), web job detail + editable Jobs/Clients pages (F4–F8 work), parts-to-order, Salesforce auto-link, role hierarchy + location-scoped RLS through migration 031
+- `feat/sso-apple-google` — Apple + Google Sign-In; periodically merged up from `main`; v1.2.0 / iOS build 36 bumped here. Finish review → merge → submit v1.2 to App Store.
 - `feat/supplier-dropdown` — supplier picker in the Service form (in flight)
+- `feat/calendar-hourgrid-newjobsheet` — **merged to `main`**, remote branch can be deleted
 - `feat/mobile-job-edit` — remote-only. Contained the original mobile Edit/Delete + Jobs-tab + push-removal work; much of it has since landed on `main` via other commits. Needs a careful diff against `main` before any merge — wholesale merge from the original 2026-04 plan would now conflict heavily and re-introduce stale code.
 
-## Stage B (next planned work)
+## Next planned work
 
-- **Mobile HourGrid** — day-view vertical hour rows for the Calendar tab (currently being designed)
-- **Mobile NewJobSheet** — create-job-from-calendar bottom sheet
-- **Admin job detail page** (`/dashboard/jobs/[id]`) — mirror mobile job view (vessel, engine data, checklist, photos). The calendar's "Open job" link on web currently 404s — this fixes it.
+- **Promote SSO** — finish `feat/sso-apple-google` review, merge, submit v1.2 (build 36) to App Store.
 - **Reconcile `feat/mobile-job-edit`** — diff against `main`, salvage anything not already shipped, then close the branch.
-- **Promote SSO** — finish `feat/sso-apple-google` review, merge, push v1.2 build to App Store.
+- **Playwright auth setup** — so the 3 scaffolded e2e tests can actually run.
+- **Sausalito / San Diego opening pre-reqs** (runbook: `docs/superpowers/specs/2026-06-07-multi-location-expansion.md`) — remaining gaps: gate `jobs.assigned_to` reassignment to same-location techs; owner location filter on web. (The reports/parts RLS audit gap was closed by migrations 028–029.)
 
 ## iOS App Store / EAS
 
@@ -374,16 +391,16 @@ marine-tech-app/
 - **ASC App ID:** `6762853683` · **App name (ASC):** `JBY-Marine Tech` (in-app display name remains `Marine Tech`)
 - **ASC API key:** `2B5Z869244` (Issuer `f3b47a16-d70b-4ef4-bc3b-e30fed4d2766`); `.p8` lives at `mobile/.secrets/AuthKey_2B5Z869244.p8` (gitignored)
 - **EAS:** owner `cgrayy`, slug `marine-tech`, project `5e70f74a-b7b2-49e0-a65f-4e40d2527fb0`
-- **Live:** v1.0 `READY_FOR_SALE`. v1.1.0 (build 34) submitted to review 2026-05-26 (`WAITING_FOR_REVIEW`)
-- **EAS Update:** wired with `runtimeVersion = appVersion` (build 24+ can receive OTA; build 23 cannot)
+- **Live:** v1.0 and v1.1.0 both `READY_FOR_SALE` (v1.1.0 approved after the 2026-05-26 submission). v1.2.0 / build 36 bumped on `feat/sso-apple-google`, not yet submitted.
+- **EAS Update:** wired with `runtimeVersion = appVersion` (build 24+ can receive OTA; build 23 cannot). OTA only applies when the installed build's runtime matches exactly — publish to both runtimes if two versions are live (run from `mobile/`, no `--runtime-version` flag).
 
 **Autonomous App Store update flow** (uses ASC API end-to-end):
 1. EAS production build, non-interactive via env vars — see `reference_eas_noninteractive_ios_creds` memory (`EXPO_ASC_KEY_ID`, not `EXPO_ASC_API_KEY_ID`)
 2. `eas submit --id <buildId> --profile production` — uploads + processes
-3. `node mobile/scripts/asc-submit.mjs <version> <buildNumber>` — creates `appStoreVersion`, attaches build, sets `whatsNew`, submits for review
-4. **Gotcha:** final submit will 409 with `STATE_ERROR "Version is not ready yet, try again later"` for a few minutes right after attach. `node mobile/scripts/asc-resubmit.mjs` polls past it.
+3. `node scripts/asc-submit.mjs <version> <buildNumber>` — creates `appStoreVersion`, attaches build, sets `whatsNew`, submits for review (note: root `scripts/`, not `mobile/scripts/`)
+4. **Gotcha:** final submit will 409 with `STATE_ERROR "Version is not ready yet, try again later"` for a few minutes right after attach. `node scripts/asc-resubmit.mjs` polls past it.
 
-**Reusable ASC API scripts** (`mobile/scripts/`, all sign their own JWT from the `.p8`):
+**Reusable ASC API scripts** (`mobile/scripts/` except where noted, all sign their own JWT from the `.p8`):
 - `asc-builds.mjs` — list recent builds
 - `asc-upload-screenshots.mjs` — parametric by device type
 - `asc-fill-metadata.mjs` — name / subtitle / description / keywords

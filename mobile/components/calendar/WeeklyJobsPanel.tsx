@@ -11,7 +11,8 @@ type Props = {
   unscheduledJobs: CalendarJob[];
   weekOf: Date;
   onSelectJob: (job: CalendarJob) => void;
-  onScheduleJob: (job: CalendarJob) => void;
+  /** Omit for read-only roles — hides the Schedule button. */
+  onScheduleJob?: (job: CalendarJob) => void;
 };
 
 export function WeeklyJobsPanel({
@@ -67,7 +68,7 @@ export function WeeklyJobsPanel({
               job={j}
               scheduled
               onSelect={() => onSelectJob(j)}
-              onSchedule={() => onScheduleJob(j)}
+              onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
             />
           ))}
 
@@ -84,7 +85,7 @@ export function WeeklyJobsPanel({
               job={j}
               scheduled={false}
               onSelect={() => onSelectJob(j)}
-              onSchedule={() => onScheduleJob(j)}
+              onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
             />
           ))}
         </ScrollView>
@@ -119,7 +120,7 @@ function JobRow({
   job: CalendarJob;
   scheduled: boolean;
   onSelect: () => void;
-  onSchedule: () => void;
+  onSchedule?: () => void;
 }) {
   const tech = job.tech ? techColor(job.tech.id) : "#3b6cd6";
   const stripe = statusStripeColor(job.status);
@@ -165,7 +166,7 @@ function JobRow({
         </View>
       </Pressable>
 
-      {!scheduled && (
+      {!scheduled && onSchedule && (
         <Pressable onPress={onSchedule} style={styles.scheduleBtn}>
           <Text style={styles.scheduleBtnText}>Schedule</Text>
         </Pressable>
