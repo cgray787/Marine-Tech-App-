@@ -224,9 +224,26 @@ export function JobEditor({
   }
 
   async function handleDelete() {
-    if (!confirm("Delete this job? This cannot be undone.")) return;
+    if (
+      !confirm(
+        "Delete this job? Its service report, checklist, and photos will also be removed. This cannot be undone."
+      )
+    )
+      return;
     setSaving(true);
     const supabase = createClient();
+    // service_reports.job_id has no ON DELETE CASCADE (migration 001), so
+    // delete reports first (their checklist_items/report_photos DO cascade),
+    // then the job — mirrors mobile handleDelete in mobile/app/job/[id].tsx.
+    const { error: reportError } = await supabase
+      .from("service_reports")
+      .delete()
+      .eq("job_id", initial.id);
+    if (reportError) {
+      setSaving(false);
+      setSaveError(reportError.message);
+      return;
+    }
     const { error } = await supabase.from("jobs").delete().eq("id", initial.id);
     setSaving(false);
     if (error) {
