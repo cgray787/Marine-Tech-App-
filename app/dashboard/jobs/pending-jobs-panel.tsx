@@ -37,6 +37,7 @@ export function PendingJobsPanel({ jobs }: Props) {
       id: job.id,
       scheduledStart: null,
       scheduledEnd: null,
+      scheduledEndDate: null,
       status: job.status as CalendarJob["status"],
       notes: job.notes ?? null,
       locationOverride: null,
