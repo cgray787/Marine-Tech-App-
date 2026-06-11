@@ -13,21 +13,13 @@ appId: com.grayyachts.marinetech
 - assertVisible:
     id: "hour-grid"
 
-# Empty-slot tap opens NewJobSheet
+# Empty-slot tap opens the full Service form (New Job) with start prefilled
 - tapOn:
     id: "empty-slot-9"
-- assertVisible:
-    id: "new-job-customer"
-- assertVisible:
-    id: "new-job-schedule"
+- assertVisible: "New Job"
 
-# Dismiss without saving
-- tapOn:
-    id: "new-job-cancel"
-- assertNotVisible:
-    id: "new-job-customer"
-
-# Back to Week
+# Back to the Calendar tab, switch to Week
+- tapOn: "Calendar"
 - tapOn:
     id: "view-toggle-week"
 

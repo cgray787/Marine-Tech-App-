@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
+import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { supabase } from "@/lib/supabase";
@@ -14,7 +15,6 @@ import {
 import { ScheduleSheet, ScheduleSheetHandle } from "@/components/ScheduleSheet";
 import { ViewToggle, type CalendarPanelMode } from "@/components/calendar/ViewToggle";
 import { HourGrid } from "@/components/calendar/HourGrid";
-import { NewJobSheet, NewJobSheetHandle } from "@/components/calendar/NewJobSheet";
 import { colors } from "@/constants/Colors";
 
 export default function CalendarScreen() {
@@ -22,9 +22,9 @@ export default function CalendarScreen() {
   const [monthDate, setMonthDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [viewMode, setViewMode] = useState<CalendarPanelMode>("week");
+  const router = useRouter();
   const sheetRef = useRef<JobBottomSheetHandle>(null);
   const scheduleSheetRef = useRef<ScheduleSheetHandle>(null);
-  const newJobSheetRef = useRef<NewJobSheetHandle>(null);
 
   const range = useMemo(
     () => ({
@@ -95,20 +95,20 @@ export default function CalendarScreen() {
               currentLocation: j.locationOverride ?? j.marina?.name ?? null,
             })
           }
-          onTapEmptySlot={(iso) => newJobSheetRef.current?.present(iso)}
+          onTapEmptySlot={(iso) =>
+            // Every new job goes through the full Service form, with the
+            // tapped slot's start time preselected.
+            router.push({
+              pathname: "/(tabs)/service",
+              params: { newStartIso: iso },
+            })
+          }
         />
       )}
       <JobBottomSheet ref={sheetRef} />
       <ScheduleSheet
         ref={scheduleSheetRef}
         onScheduled={() => {
-          queryClient.invalidateQueries({ queryKey: ["calendar-mobile"] });
-          queryClient.invalidateQueries({ queryKey: ["calendar-mobile-unscheduled"] });
-        }}
-      />
-      <NewJobSheet
-        ref={newJobSheetRef}
-        onCreated={() => {
           queryClient.invalidateQueries({ queryKey: ["calendar-mobile"] });
           queryClient.invalidateQueries({ queryKey: ["calendar-mobile-unscheduled"] });
         }}

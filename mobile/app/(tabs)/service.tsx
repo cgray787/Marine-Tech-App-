@@ -115,7 +115,12 @@ export default function ServiceScreen() {
   const { profile } = useAuth();
   const { isOnline } = useOffline();
   const router = useRouter();
-  const params = useLocalSearchParams<{ editJobId?: string }>();
+  const params = useLocalSearchParams<{
+    editJobId?: string;
+    newCustomerId?: string;
+    newBoatId?: string;
+    newStartIso?: string;
+  }>();
   const editJobId = typeof params.editJobId === "string" ? params.editJobId : null;
   const [editReportId, setEditReportId] = useState<string | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(false);
@@ -233,6 +238,26 @@ export default function ServiceScreen() {
       fetchReferenceData();
     }, [fetchReferenceData])
   );
+
+  // Prefill for "New Job" entry points (client screen + calendar empty slot):
+  // every new job goes through this full form, with customer/boat/start
+  // preselected by the caller. Params are cleared after applying so a later
+  // tab re-focus doesn't overwrite what the operator changed.
+  const newCustomerId = typeof params.newCustomerId === "string" ? params.newCustomerId : "";
+  const newBoatId = typeof params.newBoatId === "string" ? params.newBoatId : "";
+  const newStartIso = typeof params.newStartIso === "string" ? params.newStartIso : "";
+  useEffect(() => {
+    if (editJobId) return;
+    if (!newCustomerId && !newBoatId && !newStartIso) return;
+    if (newCustomerId) setCustomerId(newCustomerId);
+    if (newBoatId) setBoatId(newBoatId);
+    if (newStartIso) {
+      const d = new Date(newStartIso);
+      if (!isNaN(d.getTime())) setScheduledStart(d);
+    }
+    router.setParams({ newCustomerId: "", newBoatId: "", newStartIso: "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editJobId, newCustomerId, newBoatId, newStartIso]);
 
   // Prefill from an existing job when editJobId is set.
   useEffect(() => {

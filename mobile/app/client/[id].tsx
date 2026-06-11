@@ -149,14 +149,6 @@ export default function ClientDetailScreen() {
   const [expandedPdiId, setExpandedPdiId] = useState<string | null>(null);
   const [pdiChecklistItems, setPdiChecklistItems] = useState<Record<string, { id: string; item_name: string; assessment: string | null; notes: string | null }[]>>({});
 
-  // New job modal
-  const [showNewJob, setShowNewJob] = useState(false);
-  const [creatingJob, setCreatingJob] = useState(false);
-  const [jobBoatId, setJobBoatId] = useState("");
-  const [jobServiceTypes, setJobServiceTypes] = useState("");
-  const [jobNotes, setJobNotes] = useState("");
-  const [jobDate, setJobDate] = useState<Date | null>(null);
-  const [showJobDatePicker, setShowJobDatePicker] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -469,70 +461,6 @@ export default function ClientDetailScreen() {
     fetchData();
   }
 
-  async function handleCreateJob() {
-    if (!jobBoatId) {
-      Alert.alert("Required", "Please select a boat for this job.");
-      return;
-    }
-    setCreatingJob(true);
-
-    // Get profile ID — use context if available, otherwise fetch directly
-    let profileId = profile?.id ?? null;
-    if (!profileId) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: p } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("auth_id", session.user.id)
-          .single();
-        profileId = p?.id ?? null;
-      }
-    }
-
-    const serviceTypes = jobServiceTypes
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const { data: job, error } = await supabase
-      .from("jobs")
-      .insert({
-        assigned_to: profileId,
-        customer_id: id,
-        boat_id: jobBoatId,
-        service_types: serviceTypes.length > 0 ? serviceTypes : null,
-        // Postgres `date` wants a YYYY-MM-DD string or null. Picker gives a
-        // Date object; format it ourselves to avoid timezone drift from
-        // toISOString() (which converts to UTC and can roll the date back
-        // one day for PT users).
-        scheduled_date: jobDate
-          ? `${jobDate.getFullYear()}-${String(jobDate.getMonth() + 1).padStart(2, "0")}-${String(jobDate.getDate()).padStart(2, "0")}`
-          : null,
-        notes: jobNotes.trim() || null,
-        status: "new",
-        created_by: profileId,
-      })
-      .select("id")
-      .single();
-
-    setCreatingJob(false);
-    if (error || !job) {
-      Alert.alert("Error", error?.message || "Failed to create job.");
-      return;
-    }
-
-    setShowNewJob(false);
-    setJobBoatId("");
-    setJobServiceTypes("");
-    setJobNotes("");
-    setJobDate(null);
-    Alert.alert("Job Created", "The job has been created.", [
-      { text: "View Job", onPress: () => router.push(`/job/${job.id}`) },
-      { text: "OK", onPress: () => fetchData() },
-    ]);
-  }
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -768,8 +696,15 @@ export default function ClientDetailScreen() {
                   );
                   return;
                 }
-                if (boats.length === 1) setJobBoatId(boats[0].id);
-                setShowNewJob(true);
+                // Open the full Service form (the complete job editor) with
+                // this client + boat preselected, instead of a minimal modal.
+                router.push({
+                  pathname: "/(tabs)/service",
+                  params: {
+                    newCustomerId: id,
+                    ...(boats.length === 1 ? { newBoatId: boats[0].id } : {}),
+                  },
+                });
               }}
             >
               <Text style={styles.newJobButtonText}>+ New Job</Text>
@@ -1335,149 +1270,6 @@ export default function ClientDetailScreen() {
                     <ActivityIndicator color={colors.bgPrimary} />
                   ) : (
                     <Text style={styles.modalSubmitText}>Save Changes</Text>
-                  )}
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* New Job Modal */}
-      <Modal visible={showNewJob} transparent animationType="slide">
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <ScrollView keyboardShouldPersistTaps="handled">
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>New Job</Text>
-                  <TouchableOpacity onPress={() => setShowNewJob(false)}>
-                    <Text style={styles.modalClose}>{"\u2715"}</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={styles.modalLabel}>
-                  Select Boat <Text style={{ color: colors.bad }}>*</Text>
-                </Text>
-                <View style={styles.boatSelector}>
-                  {boats.map((boat) => (
-                    <TouchableOpacity
-                      key={boat.id}
-                      style={[
-                        styles.boatOption,
-                        jobBoatId === boat.id && styles.boatOptionSelected,
-                      ]}
-                      onPress={() => setJobBoatId(boat.id)}
-                    >
-                      <Text
-                        style={[
-                          styles.boatOptionText,
-                          jobBoatId === boat.id &&
-                            styles.boatOptionTextSelected,
-                        ]}
-                      >
-                        {boat.name}
-                      </Text>
-                      {boat.make_model && (
-                        <Text style={styles.boatOptionSub}>
-                          {boat.make_model}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={styles.modalLabel}>Service Types</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. Oil Change, Annual Service"
-                  placeholderTextColor={colors.textSecondary + "80"}
-                  value={jobServiceTypes}
-                  onChangeText={setJobServiceTypes}
-                />
-                <Text style={styles.modalHint}>
-                  Separate multiple types with commas
-                </Text>
-
-                <Text style={styles.modalLabel}>Scheduled Date</Text>
-                <View style={styles.dateRow}>
-                  <TouchableOpacity
-                    style={[styles.modalInput, styles.dateField]}
-                    onPress={() => setShowJobDatePicker(true)}
-                  >
-                    <Text
-                      style={[
-                        styles.dateText,
-                        !jobDate && { color: colors.textSecondary + "80" },
-                      ]}
-                    >
-                      {jobDate
-                        ? jobDate.toLocaleDateString(undefined, {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })
-                        : "TBD — tap to schedule"}
-                    </Text>
-                  </TouchableOpacity>
-                  {jobDate && (
-                    <TouchableOpacity
-                      style={styles.dateClear}
-                      onPress={() => setJobDate(null)}
-                    >
-                      <Text style={styles.dateClearText}>Clear</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {showJobDatePicker && (
-                  <DateTimePicker
-                    value={jobDate ?? new Date()}
-                    mode="date"
-                    display={Platform.OS === "ios" ? "inline" : "default"}
-                    themeVariant="dark"
-                    onChange={(_e, d) => {
-                      // Android dismisses on its own; iOS inline stays open.
-                      if (Platform.OS === "android") setShowJobDatePicker(false);
-                      if (d) setJobDate(d);
-                    }}
-                  />
-                )}
-                {Platform.OS === "ios" && showJobDatePicker && (
-                  <TouchableOpacity
-                    style={styles.dateDone}
-                    onPress={() => setShowJobDatePicker(false)}
-                  >
-                    <Text style={styles.dateDoneText}>Done</Text>
-                  </TouchableOpacity>
-                )}
-
-                <Text style={styles.modalLabel}>Job Notes</Text>
-                <TextInput
-                  style={[styles.modalInput, { minHeight: 80 }]}
-                  placeholder="Describe the work needed..."
-                  placeholderTextColor={colors.textSecondary + "80"}
-                  value={jobNotes}
-                  onChangeText={setJobNotes}
-                  multiline
-                  textAlignVertical="top"
-                />
-
-                <TouchableOpacity
-                  style={[
-                    styles.modalSubmit,
-                    creatingJob && { opacity: 0.6 },
-                  ]}
-                  onPress={handleCreateJob}
-                  disabled={creatingJob}
-                >
-                  {creatingJob ? (
-                    <ActivityIndicator color={colors.bgPrimary} />
-                  ) : (
-                    <Text style={styles.modalSubmitText}>Create Job</Text>
                   )}
                 </TouchableOpacity>
               </ScrollView>
