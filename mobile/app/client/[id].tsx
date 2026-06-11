@@ -13,8 +13,10 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from "react-native";
 import { router } from "expo-router";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
@@ -27,7 +29,10 @@ type Boat = {
   hin: string | null;
   engine_make: string | null;
   engine_model: string | null;
+  engine_hours_port: number | null;
+  engine_hours_starboard: number | null;
   color: string | null;
+  home_marina: string | null;
 };
 
 type Job = {
@@ -46,6 +51,7 @@ type Customer = {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  salesforce_url: string | null;
 };
 
 type PdiReport = {
@@ -82,9 +88,15 @@ function formatDate(dateStr: string | null) {
   });
 }
 
+/** Matches migration 027: admin, manager, tech can write; viewer cannot. */
+function canWriteRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "manager" || role === "tech";
+}
+
 export default function ClientDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuth();
+  const canWrite = canWriteRole(profile?.role);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -101,7 +113,10 @@ export default function ClientDetailScreen() {
   const [newBoatHin, setNewBoatHin] = useState("");
   const [newBoatEngineMake, setNewBoatEngineMake] = useState("");
   const [newBoatEngineModel, setNewBoatEngineModel] = useState("");
+  const [newBoatEngineHoursPort, setNewBoatEngineHoursPort] = useState("");
+  const [newBoatEngineHoursStarboard, setNewBoatEngineHoursStarboard] = useState("");
   const [newBoatColor, setNewBoatColor] = useState("");
+  const [newBoatHomeMarina, setNewBoatHomeMarina] = useState("");
 
   // Edit client modal
   const [showEditClient, setShowEditClient] = useState(false);
@@ -122,7 +137,10 @@ export default function ClientDetailScreen() {
   const [editBoatHin, setEditBoatHin] = useState("");
   const [editBoatEngineMake, setEditBoatEngineMake] = useState("");
   const [editBoatEngineModel, setEditBoatEngineModel] = useState("");
+  const [editBoatEngineHoursPort, setEditBoatEngineHoursPort] = useState("");
+  const [editBoatEngineHoursStarboard, setEditBoatEngineHoursStarboard] = useState("");
   const [editBoatColor, setEditBoatColor] = useState("");
+  const [editBoatHomeMarina, setEditBoatHomeMarina] = useState("");
 
   // Create PDI modal
   const [showCreatePdi, setShowCreatePdi] = useState(false);
@@ -137,7 +155,8 @@ export default function ClientDetailScreen() {
   const [jobBoatId, setJobBoatId] = useState("");
   const [jobServiceTypes, setJobServiceTypes] = useState("");
   const [jobNotes, setJobNotes] = useState("");
-  const [jobDate, setJobDate] = useState("");
+  const [jobDate, setJobDate] = useState<Date | null>(null);
+  const [showJobDatePicker, setShowJobDatePicker] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -146,7 +165,7 @@ export default function ClientDetailScreen() {
       supabase.from("customers").select("*").eq("id", id).single(),
       supabase
         .from("boats")
-        .select("id, name, make_model, year, hin, engine_make, engine_model, color")
+        .select("id, name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color, home_marina")
         .eq("customer_id", id)
         .order("name"),
       supabase
@@ -196,7 +215,10 @@ export default function ClientDetailScreen() {
     }
     setSavingClient(true);
 
-    const { error } = await supabase
+    // .select() makes the UPDATE return the affected rows. A 0-row return
+    // with no error means RLS silently filtered the row out — surface that
+    // instead of closing the modal and pretending we saved.
+    const { data, error } = await supabase
       .from("customers")
       .update({
         name: editName.trim(),
@@ -205,11 +227,19 @@ export default function ClientDetailScreen() {
         address: editAddress.trim() || null,
         notes: editNotes.trim() || null,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
     setSavingClient(false);
     if (error) {
       Alert.alert("Error", error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      Alert.alert(
+        "Couldn't save",
+        "You don't have permission to edit this client (or they belong to a different office). Contact an admin if this is unexpected.",
+      );
       return;
     }
 
@@ -290,6 +320,12 @@ export default function ClientDetailScreen() {
     setExpandedPdiId(expandedPdiId === pdiId ? null : pdiId);
   }
 
+  // Engine hours are stored numeric (tenths allowed); blank/garbage → null.
+  function parseHours(v: string): number | null {
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+
   async function handleAddBoat() {
     if (!newBoatName.trim()) {
       Alert.alert("Required", "Please enter a boat name.");
@@ -305,7 +341,10 @@ export default function ClientDetailScreen() {
       hin: newBoatHin.trim() || null,
       engine_make: newBoatEngineMake.trim() || null,
       engine_model: newBoatEngineModel.trim() || null,
+      engine_hours_port: parseHours(newBoatEngineHoursPort),
+      engine_hours_starboard: parseHours(newBoatEngineHoursStarboard),
       color: newBoatColor.trim() || null,
+      home_marina: newBoatHomeMarina.trim() || null,
     });
 
     setAddingBoat(false);
@@ -321,7 +360,10 @@ export default function ClientDetailScreen() {
     setNewBoatHin("");
     setNewBoatEngineMake("");
     setNewBoatEngineModel("");
+    setNewBoatEngineHoursPort("");
+    setNewBoatEngineHoursStarboard("");
     setNewBoatColor("");
+    setNewBoatHomeMarina("");
     fetchData();
   }
 
@@ -340,6 +382,34 @@ export default function ClientDetailScreen() {
     ]);
   }
 
+  async function handleDeleteClient() {
+    if (!customer) return;
+    Alert.alert(
+      "Delete Client",
+      `Permanently delete ${customer.name}, along with their boats, jobs, and reports? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            // jobs/reports reference customers with NO cascade — remove them first.
+            // boats cascade automatically on customer delete.
+            await supabase.from("service_reports").delete().eq("customer_id", customer.id);
+            await supabase.from("pdi_reports").delete().eq("customer_id", customer.id);
+            await supabase.from("jobs").delete().eq("customer_id", customer.id);
+            const { error } = await supabase.from("customers").delete().eq("id", customer.id);
+            if (error) {
+              Alert.alert("Delete failed", error.message);
+              return;
+            }
+            router.back();
+          },
+        },
+      ]
+    );
+  }
+
   function openEditBoat(boat: Boat) {
     setEditBoatId(boat.id);
     setEditBoatName(boat.name);
@@ -348,7 +418,10 @@ export default function ClientDetailScreen() {
     setEditBoatHin(boat.hin || "");
     setEditBoatEngineMake(boat.engine_make || "");
     setEditBoatEngineModel(boat.engine_model || "");
+    setEditBoatEngineHoursPort(boat.engine_hours_port != null ? String(boat.engine_hours_port) : "");
+    setEditBoatEngineHoursStarboard(boat.engine_hours_starboard != null ? String(boat.engine_hours_starboard) : "");
     setEditBoatColor(boat.color || "");
+    setEditBoatHomeMarina(boat.home_marina || "");
     setShowEditBoat(true);
   }
 
@@ -359,7 +432,10 @@ export default function ClientDetailScreen() {
     }
     setSavingBoat(true);
 
-    const { error } = await supabase
+    // See handleUpdateClient — .select() + length check catches the silent
+    // RLS-filtered-zero-rows case that would otherwise close the modal as
+    // if the edit had saved.
+    const { data, error } = await supabase
       .from("boats")
       .update({
         name: editBoatName.trim(),
@@ -368,13 +444,24 @@ export default function ClientDetailScreen() {
         hin: editBoatHin.trim() || null,
         engine_make: editBoatEngineMake.trim() || null,
         engine_model: editBoatEngineModel.trim() || null,
+        engine_hours_port: parseHours(editBoatEngineHoursPort),
+        engine_hours_starboard: parseHours(editBoatEngineHoursStarboard),
         color: editBoatColor.trim() || null,
+        home_marina: editBoatHomeMarina.trim() || null,
       })
-      .eq("id", editBoatId);
+      .eq("id", editBoatId)
+      .select("id");
 
     setSavingBoat(false);
     if (error) {
       Alert.alert("Error", error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      Alert.alert(
+        "Couldn't save",
+        "You don't have permission to edit this boat (or it belongs to a different office). Contact an admin if this is unexpected.",
+      );
       return;
     }
 
@@ -415,7 +502,13 @@ export default function ClientDetailScreen() {
         customer_id: id,
         boat_id: jobBoatId,
         service_types: serviceTypes.length > 0 ? serviceTypes : null,
-        scheduled_date: jobDate.trim() || null,
+        // Postgres `date` wants a YYYY-MM-DD string or null. Picker gives a
+        // Date object; format it ourselves to avoid timezone drift from
+        // toISOString() (which converts to UTC and can roll the date back
+        // one day for PT users).
+        scheduled_date: jobDate
+          ? `${jobDate.getFullYear()}-${String(jobDate.getMonth() + 1).padStart(2, "0")}-${String(jobDate.getDate()).padStart(2, "0")}`
+          : null,
         notes: jobNotes.trim() || null,
         status: "new",
         created_by: profileId,
@@ -433,7 +526,7 @@ export default function ClientDetailScreen() {
     setJobBoatId("");
     setJobServiceTypes("");
     setJobNotes("");
-    setJobDate("");
+    setJobDate(null);
     Alert.alert("Job Created", "The job has been created.", [
       { text: "View Job", onPress: () => router.push(`/job/${job.id}`) },
       { text: "OK", onPress: () => fetchData() },
@@ -487,27 +580,48 @@ export default function ClientDetailScreen() {
 
         {/* Customer Card */}
         <View style={styles.customerCard}>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={openEditClient}
-          >
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
+          {canWrite && (
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={openEditClient}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.customerAvatar}>
             <Text style={styles.customerAvatarText}>{initials}</Text>
           </View>
           <Text style={styles.customerName}>{customer.name}</Text>
           {customer.phone && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoIcon}>{"\uD83D\uDCDE"}</Text>
-              <Text style={styles.infoText}>{customer.phone}</Text>
+            <View style={styles.contactActionRow}>
+              <TouchableOpacity
+                style={styles.contactChip}
+                onPress={() =>
+                  Linking.openURL(`tel:${customer.phone!.replace(/[^0-9+]/g, "")}`)
+                }
+              >
+                <Text style={styles.contactChipText}>
+                  {"\uD83D\uDCDE"}  {customer.phone}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.contactChip}
+                onPress={() =>
+                  Linking.openURL(`sms:${customer.phone!.replace(/[^0-9+]/g, "")}`)
+                }
+              >
+                <Text style={styles.contactChipText}>{"\uD83D\uDCAC"}  Text</Text>
+              </TouchableOpacity>
             </View>
           )}
           {customer.email && (
-            <View style={styles.infoRow}>
+            <TouchableOpacity
+              style={styles.infoRow}
+              onPress={() => Linking.openURL(`mailto:${customer.email}`)}
+            >
               <Text style={styles.infoIcon}>{"\u2709"}</Text>
-              <Text style={styles.infoText}>{customer.email}</Text>
-            </View>
+              <Text style={[styles.infoText, styles.infoLink]}>{customer.email}</Text>
+            </TouchableOpacity>
           )}
           {customer.address && (
             <View style={styles.infoRow}>
@@ -518,6 +632,36 @@ export default function ClientDetailScreen() {
           {customer.notes && (
             <Text style={styles.customerNotes}>{customer.notes}</Text>
           )}
+          {customer.salesforce_url ? (
+            <TouchableOpacity
+              style={styles.salesforceBtn}
+              onPress={() => Linking.openURL(customer.salesforce_url!)}
+            >
+              <Text style={styles.salesforceBtnText}>
+                {"\u2601"}  View in Salesforce
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            // Not linked yet (didn't auto-sync) \u2014 open Salesforce's blank
+            // New Person Account form so the client can be added manually.
+            <TouchableOpacity
+              style={[styles.salesforceBtn, styles.salesforceBtnAdd]}
+              onPress={() =>
+                Linking.openURL(
+                  "https://jeffbrownyachts.my.salesforce.com/lightning/o/Account/new?recordTypeId=0123h000000ANsqAAG"
+                )
+              }
+            >
+              <Text style={[styles.salesforceBtnText, styles.salesforceBtnAddText]}>
+                {"\u2795"}  Add to Salesforce
+              </Text>
+            </TouchableOpacity>
+          )}
+          {canWrite && (
+            <TouchableOpacity style={styles.deleteClientBtn} onPress={handleDeleteClient}>
+              <Text style={styles.deleteClientBtnText}>Delete Client</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Boats Section */}
@@ -525,18 +669,20 @@ export default function ClientDetailScreen() {
           <Text style={styles.sectionTitle}>
             Boats ({boats.length})
           </Text>
-          <TouchableOpacity
-            style={styles.addSmallButton}
-            onPress={() => setShowAddBoat(true)}
-          >
-            <Text style={styles.addSmallButtonText}>+ Add Boat</Text>
-          </TouchableOpacity>
+          {canWrite && (
+            <TouchableOpacity
+              style={styles.addSmallButton}
+              onPress={() => setShowAddBoat(true)}
+            >
+              <Text style={styles.addSmallButtonText}>+ Add Boat</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {boats.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No boats yet. Tap &quot;+ Add Boat&quot; to add one.
+              No boats yet.{canWrite ? " Tap \"+ Add Boat\" to add one." : ""}
             </Text>
           </View>
         ) : (
@@ -544,14 +690,14 @@ export default function ClientDetailScreen() {
             <TouchableOpacity
               key={boat.id}
               style={styles.boatCard}
-              activeOpacity={0.7}
-              onPress={() => openEditBoat(boat)}
+              activeOpacity={canWrite ? 0.7 : 1}
+              onPress={canWrite ? () => openEditBoat(boat) : undefined}
             >
               <View style={styles.boatCardAccent} />
               <View style={styles.boatCardContent}>
                 <View style={styles.boatCardHeader}>
                   <Text style={styles.boatName}>{boat.name}</Text>
-                  <Text style={styles.boatEditHint}>Edit</Text>
+                  {canWrite && <Text style={styles.boatEditHint}>Edit</Text>}
                 </View>
                 {boat.make_model && (
                   <Text style={styles.boatDetail}>{boat.make_model}</Text>
@@ -588,6 +734,18 @@ export default function ClientDetailScreen() {
                       </Text>
                     </View>
                   )}
+                  {(boat.engine_hours_port != null ||
+                    boat.engine_hours_starboard != null) && (
+                    <View style={styles.boatDetailChip}>
+                      <Text style={styles.boatDetailLabel}>Engine Hours</Text>
+                      <Text style={styles.boatDetailValue}>
+                        {boat.engine_hours_port != null &&
+                        boat.engine_hours_starboard != null
+                          ? `Port ${boat.engine_hours_port} · Stbd ${boat.engine_hours_starboard}`
+                          : `${boat.engine_hours_port ?? boat.engine_hours_starboard}`}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </TouchableOpacity>
@@ -599,28 +757,30 @@ export default function ClientDetailScreen() {
           <Text style={styles.sectionTitle}>
             Jobs ({jobs.length})
           </Text>
-          <TouchableOpacity
-            style={styles.newJobButton}
-            onPress={() => {
-              if (boats.length === 0) {
-                Alert.alert(
-                  "Add a Boat First",
-                  "You need to add at least one boat before creating a job."
-                );
-                return;
-              }
-              if (boats.length === 1) setJobBoatId(boats[0].id);
-              setShowNewJob(true);
-            }}
-          >
-            <Text style={styles.newJobButtonText}>+ New Job</Text>
-          </TouchableOpacity>
+          {canWrite && (
+            <TouchableOpacity
+              style={styles.newJobButton}
+              onPress={() => {
+                if (boats.length === 0) {
+                  Alert.alert(
+                    "Add a Boat First",
+                    "You need to add at least one boat before creating a job."
+                  );
+                  return;
+                }
+                if (boats.length === 1) setJobBoatId(boats[0].id);
+                setShowNewJob(true);
+              }}
+            >
+              <Text style={styles.newJobButtonText}>+ New Job</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {jobs.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No jobs yet. Tap &quot;+ New Job&quot; to create one.
+              No jobs yet.{canWrite ? " Tap \"+ New Job\" to create one." : ""}
             </Text>
           </View>
         ) : (
@@ -675,27 +835,29 @@ export default function ClientDetailScreen() {
           <Text style={styles.sectionTitle}>
             PDI ({pdiReports.length})
           </Text>
-          <TouchableOpacity
-            style={styles.newJobButton}
-            onPress={() => {
-              if (boats.length === 0) {
-                Alert.alert(
-                  "Add a Boat First",
-                  "You need to add at least one boat before creating a PDI."
-                );
-                return;
-              }
-              router.push("/(tabs)/pdi");
-            }}
-          >
-            <Text style={styles.newJobButtonText}>+ Create PDI</Text>
-          </TouchableOpacity>
+          {canWrite && (
+            <TouchableOpacity
+              style={styles.newJobButton}
+              onPress={() => {
+                if (boats.length === 0) {
+                  Alert.alert(
+                    "Add a Boat First",
+                    "You need to add at least one boat before creating a PDI."
+                  );
+                  return;
+                }
+                router.push("/(tabs)/pdi");
+              }}
+            >
+              <Text style={styles.newJobButtonText}>+ Create PDI</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {pdiReports.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              No PDI reports yet. Tap &quot;+ Create PDI&quot; to start one.
+              No PDI reports yet.{canWrite ? " Tap \"+ Create PDI\" to start one." : ""}
             </Text>
           </View>
         ) : (
@@ -1038,6 +1200,40 @@ export default function ClientDetailScreen() {
                   </View>
                 </View>
 
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalLabel}>Engine Hours (Port)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="e.g. 1234.5"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={newBoatEngineHoursPort}
+                      onChangeText={setNewBoatEngineHoursPort}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalLabel}>Engine Hours (Stbd)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="twin only"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={newBoatEngineHoursStarboard}
+                      onChangeText={setNewBoatEngineHoursStarboard}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.modalLabel}>Home Marina</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. Elliott Bay Marina"
+                  placeholderTextColor={colors.textSecondary + "80"}
+                  value={newBoatHomeMarina}
+                  onChangeText={setNewBoatHomeMarina}
+                />
+
                 <TouchableOpacity
                   style={[
                     styles.modalSubmit,
@@ -1207,13 +1403,57 @@ export default function ClientDetailScreen() {
                 </Text>
 
                 <Text style={styles.modalLabel}>Scheduled Date</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 2026-04-15"
-                  placeholderTextColor={colors.textSecondary + "80"}
-                  value={jobDate}
-                  onChangeText={setJobDate}
-                />
+                <View style={styles.dateRow}>
+                  <TouchableOpacity
+                    style={[styles.modalInput, styles.dateField]}
+                    onPress={() => setShowJobDatePicker(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.dateText,
+                        !jobDate && { color: colors.textSecondary + "80" },
+                      ]}
+                    >
+                      {jobDate
+                        ? jobDate.toLocaleDateString(undefined, {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "TBD — tap to schedule"}
+                    </Text>
+                  </TouchableOpacity>
+                  {jobDate && (
+                    <TouchableOpacity
+                      style={styles.dateClear}
+                      onPress={() => setJobDate(null)}
+                    >
+                      <Text style={styles.dateClearText}>Clear</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {showJobDatePicker && (
+                  <DateTimePicker
+                    value={jobDate ?? new Date()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "inline" : "default"}
+                    themeVariant="dark"
+                    onChange={(_e, d) => {
+                      // Android dismisses on its own; iOS inline stays open.
+                      if (Platform.OS === "android") setShowJobDatePicker(false);
+                      if (d) setJobDate(d);
+                    }}
+                  />
+                )}
+                {Platform.OS === "ios" && showJobDatePicker && (
+                  <TouchableOpacity
+                    style={styles.dateDone}
+                    onPress={() => setShowJobDatePicker(false)}
+                  >
+                    <Text style={styles.dateDoneText}>Done</Text>
+                  </TouchableOpacity>
+                )}
 
                 <Text style={styles.modalLabel}>Job Notes</Text>
                 <TextInput
@@ -1339,6 +1579,40 @@ export default function ClientDetailScreen() {
                     />
                   </View>
                 </View>
+
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalLabel}>Engine Hours (Port)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="e.g. 1234.5"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={editBoatEngineHoursPort}
+                      onChangeText={setEditBoatEngineHoursPort}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalLabel}>Engine Hours (Stbd)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="twin only"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={editBoatEngineHoursStarboard}
+                      onChangeText={setEditBoatEngineHoursStarboard}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.modalLabel}>Home Marina</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. Elliott Bay Marina"
+                  placeholderTextColor={colors.textSecondary + "80"}
+                  value={editBoatHomeMarina}
+                  onChangeText={setEditBoatHomeMarina}
+                />
 
                 <TouchableOpacity
                   style={[
@@ -1485,6 +1759,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+  deleteClientBtn: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: colors.bad,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    alignSelf: "stretch",
+  },
+  deleteClientBtnText: {
+    color: colors.bad,
+    fontSize: 15,
+    fontWeight: "700",
+  },
   pdiExpandedSection: {
     marginTop: 12,
     paddingTop: 12,
@@ -1620,6 +1909,54 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 15,
     color: colors.textSecondary,
+  },
+  infoLink: {
+    color: colors.gold,
+  },
+  contactActionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  contactChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.gold + "15",
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  contactChipText: {
+    color: colors.gold,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  salesforceBtn: {
+    marginTop: 16,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    alignSelf: "stretch",
+  },
+  salesforceBtnText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  salesforceBtnAdd: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldMuted,
+  },
+  salesforceBtnAddText: {
+    color: colors.gold,
   },
   customerNotes: {
     fontSize: 14,
@@ -1823,6 +2160,42 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: colors.textPrimary,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateField: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  dateText: {
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  dateClear: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dateClearText: {
+    color: colors.gold,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  dateDone: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  dateDoneText: {
+    color: colors.gold,
+    fontSize: 14,
+    fontWeight: "600",
   },
   modalHint: {
     fontSize: 11,

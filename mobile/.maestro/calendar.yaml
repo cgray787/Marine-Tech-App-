@@ -6,4 +6,29 @@ appId: com.grayyachts.marinetech
 - assertVisible:
     id: "calendar-screen"
     optional: true
+
+# Day view + HourGrid
+- tapOn:
+    id: "view-toggle-day"
+- assertVisible:
+    id: "hour-grid"
+
+# Empty-slot tap opens NewJobSheet
+- tapOn:
+    id: "empty-slot-9"
+- assertVisible:
+    id: "new-job-customer"
+- assertVisible:
+    id: "new-job-schedule"
+
+# Dismiss without saving
+- tapOn:
+    id: "new-job-cancel"
+- assertNotVisible:
+    id: "new-job-customer"
+
+# Back to Week
+- tapOn:
+    id: "view-toggle-week"
+
 - back

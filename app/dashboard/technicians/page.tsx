@@ -1,14 +1,21 @@
-import { requireAdmin } from "@/lib/admin";
+import { requireOwner } from "@/lib/owner-guard";
 import { formatDate } from "@/lib/utils";
 import { InviteTechForm } from "./invite-tech-form";
+import { ManageUserControls } from "./manage-user-controls";
 
 export default async function TechniciansPage() {
-  const { supabase } = await requireAdmin();
+  // Owner gate — admins (like Darik) get redirected to /dashboard.
+  // Only Connor can view this page and modify role assignments.
+  const { supabase } = await requireOwner();
 
+  // Managers + techs + viewers are the manageable staff. Admins (legacy
+  // accounts — including Connor's pre-Owner ones) are hidden so the page
+  // can't be used to demote another admin. The Owner allowlist is the real
+  // ceiling above admin anyway (migration 026).
   const { data: techs } = await supabase
     .from("profiles")
     .select("*")
-    .eq("role", "tech")
+    .in("role", ["manager", "tech", "viewer"])
     .order("created_at", { ascending: false });
 
   // Get job counts per tech
@@ -44,9 +51,9 @@ export default async function TechniciansPage() {
     <div>
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Technicians</h1>
+          <h1 className="text-2xl font-bold text-text-primary">Users &amp; Access</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Manage your marine service technicians
+            Manage your team&apos;s roles and access (Admin / Edit / Read-only), or remove a user
           </p>
         </div>
       </div>
@@ -119,13 +126,19 @@ export default async function TechniciansPage() {
                 <p className="mt-3 text-xs text-text-secondary">
                   Joined {formatDate(tech.created_at)}
                 </p>
+
+                <ManageUserControls
+                  profileId={tech.id}
+                  currentRole={tech.role}
+                  name={tech.full_name || tech.email || "this user"}
+                />
               </div>
             );
           })
         ) : (
           <div className="col-span-full rounded-xl border border-border-line bg-card-bg p-12 text-center">
             <p className="text-sm text-text-secondary">
-              No technicians yet. Invite one to get started.
+              No users yet. Invite one to get started.
             </p>
           </div>
         )}

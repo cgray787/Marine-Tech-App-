@@ -39,6 +39,14 @@ jobs:
         run: npm ci
 
       - name: Build (OpenNext)
+        # NEXT_PUBLIC_* must be in scope at build time so Next.js can
+        # inline them into the browser bundle. wrangler.toml's [vars]
+        # only apply at runtime on the server and do NOT reach client JS.
+        # These values are the public Supabase URL + anon publishable key
+        # (already committed in wrangler.toml) — safe to expose.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://ikfcnqdrlvhvlyhiuphs.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ"
         run: npx opennextjs-cloudflare build
 
       - name: Deploy (Wrangler)

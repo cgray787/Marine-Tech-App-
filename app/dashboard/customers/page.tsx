@@ -18,10 +18,10 @@ export default async function CustomersPage() {
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-text-primary">
-          Customers & Boats
+          Clients
         </h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Manage customers and their vessels
+          Manage clients and their vessels
         </p>
       </div>
 

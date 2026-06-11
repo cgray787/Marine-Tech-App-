@@ -6,11 +6,13 @@ type Profile = {
   id: string;
   email: string;
   full_name: string;
-  role: "admin" | "tech" | "viewer" | "owner";
+  role: "admin" | "manager" | "tech" | "viewer" | "owner";
   status: "active" | "invited" | "disabled" | string;
   tier: "shop" | "individual";
   phone: string | null;
   avatar_url: string | null;
+  org_id: string | null;
+  location_id: string | null;
 };
 
 type AuthContextType = {

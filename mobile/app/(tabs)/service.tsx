@@ -23,7 +23,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
-import { savePendingReport } from "@/lib/offline-db";
+import { savePendingReport, savePendingParts } from "@/lib/offline-db";
 import { colors } from "@/constants/Colors";
 import { SUPPLIERS } from "@/constants/Suppliers";
 
@@ -139,6 +139,9 @@ export default function ServiceScreen() {
   const [generalNotes, setGeneralNotes] = useState("");
   const [checklist, setChecklist] = useState<ChecklistState>({});
 
+  // Per-service description (for the current jobName service type).
+  const [serviceDescription, setServiceDescription] = useState("");
+
   // Scheduling — when this job should happen (lands on the calendar)
   const [scheduledStart, setScheduledStart] = useState<Date>(() => {
     // Default to next top-of-the-hour
@@ -147,8 +150,19 @@ export default function ServiceScreen() {
     d.setHours(d.getHours() + 1);
     return d;
   });
+  // Optional end date for multi-day jobs.
+  const [scheduledEnd, setScheduledEnd] = useState<Date | null>(null);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // True when scheduledEnd is a different (later) day than scheduledStart.
+  function toDateStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  const isMultiDay =
+    scheduledEnd !== null &&
+    toDateStr(scheduledEnd) > toDateStr(scheduledStart);
 
   // Parts needed state
   type Part = {
@@ -159,6 +173,7 @@ export default function ServiceScreen() {
     photo?: string;
     supplier: string;
     url: string;
+    description: string;
   };
   const [parts, setParts] = useState<Part[]>([]);
   const [newPartName, setNewPartName] = useState("");
@@ -485,6 +500,38 @@ export default function ServiceScreen() {
     }
   }
 
+  // Insert the current `parts` into the parts table for a saved report.
+  // Edit mode: caller deletes existing rows first, then this re-inserts.
+  async function persistParts(reportId: string, jobId: string) {
+    if (!profile || parts.length === 0) return;
+    for (const part of parts) {
+      let photoUrl: string | null = null;
+      if (part.photo) {
+        photoUrl = await uploadPhoto(part.photo, "report-photos", reportId, "part");
+      }
+      const { error } = await supabase.from("parts").insert({
+        service_report_id: reportId,
+        job_id: jobId,
+        customer_id: customerId || null,
+        boat_id: boatId || null,
+        created_by: profile.id,
+        name: part.name,
+        part_number: part.partNum || null,
+        quantity: part.qty || 1,
+        description: part.description || null,
+        supplier: part.supplier || null,
+        url: part.url || null,
+        photo_url: photoUrl,
+        status: part.ordered ? "ordered" : "need_to_order",
+        ordered_at: part.ordered ? new Date().toISOString() : null,
+      });
+      if (error) {
+        console.error("Part insert error:", error.message);
+        Alert.alert("Parts warning", `A part ("${part.name}") couldn't be saved: ${error.message}`);
+      }
+    }
+  }
+
   async function handleSubmitOffline() {
     if (!profile) return;
 
@@ -526,7 +573,7 @@ export default function ServiceScreen() {
         photos.push({ localUri: photo.uri, category: categorySlug });
       }
 
-      await savePendingReport({
+      const offlineReportId = await savePendingReport({
         jobId: "",
         techId: profile.id,
         boatId: boatId || null,
@@ -545,6 +592,10 @@ export default function ServiceScreen() {
         checklistItems,
         photos,
       });
+
+      if (parts.length > 0) {
+        await savePendingParts(offlineReportId, parts, profile.id);
+      }
 
       setSubmitting(false);
       Alert.alert(
@@ -567,17 +618,32 @@ export default function ServiceScreen() {
 
     setSubmitting(true);
 
-    const scheduledEnd = new Date(scheduledStart.getTime() + 60 * 60 * 1000);
+    // Build per-service descriptions payload.
+    const serviceDescPayload: Record<string, string> = {};
+    if (jobName && serviceDescription.trim()) {
+      serviceDescPayload[jobName] = serviceDescription.trim();
+    }
+
+    // Multi-day or single-day end calculation.
+    const scheduledEndComputed: Date = isMultiDay && scheduledEnd
+      ? (() => { const d = new Date(scheduledEnd); d.setHours(17, 0, 0, 0); return d; })()
+      : new Date(scheduledStart.getTime() + 60 * 60 * 1000);
+    const endDateOnly: string | null = isMultiDay && scheduledEnd
+      ? toDateStr(scheduledEnd)
+      : null;
+
     const jobPayload = {
       customer_id: customerId || null,
       boat_id: boatId || null,
       marina_id: null,
       service_types: jobName ? [jobName] : [],
+      service_descriptions: serviceDescPayload,
       status: "completed",
       notes: jobDescription || null,
       scheduled_start: scheduledStart.toISOString(),
-      scheduled_end: scheduledEnd.toISOString(),
-      scheduled_date: scheduledStart.toISOString().slice(0, 10),
+      scheduled_end: scheduledEndComputed.toISOString(),
+      scheduled_date: toDateStr(scheduledStart),
+      scheduled_end_date: endDateOnly,
     };
 
     let reportId: string;
@@ -621,9 +687,10 @@ export default function ServiceScreen() {
         }
         reportId = editReportId;
 
-        // Clear existing checklist items and photos — we re-insert from state.
+        // Clear existing checklist items, photos, and parts — we re-insert from state.
         await supabase.from("checklist_items").delete().eq("report_id", reportId);
         await supabase.from("report_photos").delete().eq("report_id", reportId);
+        await supabase.from("parts").delete().eq("service_report_id", reportId);
       } else {
         const { data: newReport, error: reportErr } = await supabase
           .from("service_reports")
@@ -768,6 +835,9 @@ export default function ServiceScreen() {
       return r.value.ok ? n : n + 1;
     }, 0);
 
+    // Persist parts (runs once for both new and edit paths).
+    await persistParts(reportId, jobId);
+
     setSubmitting(false);
 
     if (failedCount > 0) {
@@ -814,6 +884,7 @@ export default function ServiceScreen() {
   function resetForm() {
     setJobName("");
     setJobDescription("");
+    setServiceDescription("");
     setCustomerId("");
     setShowClientDropdown(false);
     setClientSearch("");
@@ -823,6 +894,7 @@ export default function ServiceScreen() {
     setLocation("");
     setLocationSaved(false);
     setGeneralNotes("");
+    setScheduledEnd(null);
     setParts([]);
     setNewPartName("");
     setChecklist({});
@@ -851,14 +923,30 @@ export default function ServiceScreen() {
       </View>
 
       {/* Job Name */}
-      <Text style={styles.label}>Job Name</Text>
+      <Text style={styles.label}>Job Name / Service Type</Text>
       <TextInput
         style={styles.input}
-        placeholder="e.g. Spring service, Hull repair..."
+        placeholder="e.g. Engine Service, Hull repair..."
         placeholderTextColor={colors.textSecondary + "80"}
         value={jobName}
         onChangeText={setJobName}
       />
+      {/* Per-service description — shown once jobName is non-empty */}
+      {jobName.trim().length > 0 && (
+        <View style={{ marginBottom: 12 }}>
+          <Text style={[styles.label, { marginTop: 8 }]}>
+            Notes for "{jobName}"
+          </Text>
+          <TextInput
+            style={[styles.input, { height: 72, textAlignVertical: "top", paddingTop: 10 }]}
+            placeholder={`Describe the ${jobName} work…`}
+            placeholderTextColor={colors.textSecondary + "80"}
+            multiline
+            value={serviceDescription}
+            onChangeText={setServiceDescription}
+          />
+        </View>
+      )}
 
       {/* Job Description */}
       <View style={styles.jobDescSection}>
@@ -1114,6 +1202,48 @@ export default function ServiceScreen() {
             setShowTimePicker(false);
           }}
         >
+          <Text style={styles.saveFieldText}>Done</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* End date (multi-day) */}
+      {!isMultiDay ? (
+        <TouchableOpacity
+          style={styles.addEndDateBtn}
+          onPress={() => setShowEndDatePicker(true)}
+        >
+          <Text style={styles.addEndDateText}>+ Add end date (multi-day)</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.endDateRow}>
+          <Text style={styles.endDateLabel}>
+            Multi-day through{" "}
+            {scheduledEnd!.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          </Text>
+          <TouchableOpacity onPress={() => setScheduledEnd(null)}>
+            <Text style={styles.endDateClearText}>Remove</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {showEndDatePicker && (
+        <DateTimePicker
+          value={scheduledEnd ?? scheduledStart}
+          mode="date"
+          display={Platform.OS === "ios" ? "inline" : "default"}
+          themeVariant="dark"
+          minimumDate={scheduledStart}
+          onChange={(_e, date) => {
+            if (Platform.OS === "android") setShowEndDatePicker(false);
+            if (date) {
+              const ed = new Date(date);
+              ed.setHours(17, 0, 0, 0);
+              setScheduledEnd(ed);
+            }
+          }}
+        />
+      )}
+      {Platform.OS === "ios" && showEndDatePicker && (
+        <TouchableOpacity style={styles.saveFieldBtn} onPress={() => setShowEndDatePicker(false)}>
           <Text style={styles.saveFieldText}>Done</Text>
         </TouchableOpacity>
       )}
@@ -1535,6 +1665,21 @@ export default function ServiceScreen() {
                     )}
                   </View>
 
+                  {/* Description */}
+                  <Text style={styles.partDetailLabel}>Description / details</Text>
+                  <TextInput
+                    style={styles.partDetailInput}
+                    value={part.description}
+                    onChangeText={(t) =>
+                      setParts((prev) =>
+                        prev.map((p, i) => (i === index ? { ...p, description: t } : p))
+                      )
+                    }
+                    placeholder="What's needed, location on the boat, etc."
+                    placeholderTextColor={colors.textSecondary + "80"}
+                    multiline
+                  />
+
                   {/* Photo + actions row */}
                   <View style={styles.partDetailActions}>
                     <TouchableOpacity
@@ -1582,7 +1727,7 @@ export default function ServiceScreen() {
             const newIndex = parts.length;
             setParts((prev) => [
               ...prev,
-              { name: newPartName.trim(), qty: 1, partNum: "", ordered: false, supplier: "", url: "" },
+              { name: newPartName.trim(), qty: 1, partNum: "", ordered: false, supplier: "", url: "", description: "" },
             ]);
             setNewPartName("");
             setExpandedPartIndex(newIndex);
@@ -1730,6 +1875,41 @@ const styles = StyleSheet.create({
     color: colors.bgPrimary,
     fontSize: 13,
     fontWeight: "700",
+  },
+  // End date multi-day
+  addEndDateBtn: {
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignSelf: "flex-start",
+  },
+  addEndDateText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  endDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gold + "40",
+    backgroundColor: colors.goldMuted,
+  },
+  endDateLabel: {
+    color: colors.gold,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  endDateClearText: {
+    color: colors.textSecondary,
+    fontSize: 12,
   },
   savedRow: {
     flexDirection: "row",

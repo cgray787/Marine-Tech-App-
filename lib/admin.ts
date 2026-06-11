@@ -23,7 +23,8 @@ export async function requireAdmin() {
     .eq("auth_id", user.id)
     .single();
 
-  if (!profile || (profile.role !== "admin" && profile.role !== "viewer")) {
+  const allowedRoles = ["admin", "manager", "tech", "viewer"];
+  if (!profile || !allowedRoles.includes(profile.role)) {
     redirect("/login?error=unauthorized");
   }
 
@@ -43,6 +44,8 @@ export async function requireStrictAdmin() {
   return ctx;
 }
 
+/** True for admin, manager, and tech; false for viewer. Mirrors migration 027 role hierarchy. */
 export function canWrite(profile: { role?: string | null } | null | undefined): boolean {
-  return profile?.role === "admin";
+  const r = profile?.role;
+  return r === "admin" || r === "manager" || r === "tech";
 }

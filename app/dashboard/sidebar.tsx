@@ -5,21 +5,39 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
+import { isOwner } from "@/lib/owner";
+
 type Profile = {
   id: string;
   full_name: string;
   email: string;
   role: string;
   avatar_url: string | null;
+  auth_id?: string | null;
 };
 
-const navItems = [
+type SidebarProps = {
+  profile: Profile;
+  pendingJobCount?: number;
+};
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: string;
+  ownerOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "grid" },
   { label: "Reports", href: "/dashboard/reports", icon: "file-text" },
   { label: "Jobs", href: "/dashboard/jobs", icon: "briefcase" },
   { label: "Calendar", href: "/dashboard/calendar", icon: "calendar" },
-  { label: "Technicians", href: "/dashboard/technicians", icon: "users" },
-  { label: "Customers & Boats", href: "/dashboard/customers", icon: "anchor" },
+  // Users & Access page — hidden from everyone except the operator (Connor).
+  // Admins like Darik still manage data everywhere else; they just can't see
+  // or change role assignments here.
+  { label: "Technicians", href: "/dashboard/technicians", icon: "users", ownerOnly: true },
+  { label: "Clients", href: "/dashboard/customers", icon: "anchor" },
   { label: "PDI Reports", href: "/dashboard/pdi-reports", icon: "clipboard" },
 ];
 
@@ -72,7 +90,7 @@ function NavIcon({ icon }: { icon: string }) {
   }
 }
 
-export function Sidebar({ profile }: { profile: Profile }) {
+export function Sidebar({ profile, pendingJobCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -98,13 +116,16 @@ export function Sidebar({ profile }: { profile: Profile }) {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation — ownerOnly entries get filtered out for non-owner users. */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => {
+        {navItems.filter((item) => !item.ownerOnly || isOwner(profile)).map((item) => {
           const isActive =
             item.href === "/dashboard"
               ? pathname === "/dashboard"
               : pathname.startsWith(item.href);
+
+          const showPendingBadge =
+            item.href === "/dashboard/jobs" && pendingJobCount > 0;
 
           return (
             <Link
@@ -118,7 +139,12 @@ export function Sidebar({ profile }: { profile: Profile }) {
               )}
             >
               <NavIcon icon={item.icon} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {showPendingBadge && (
+                <span className="inline-flex items-center justify-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold leading-none text-amber-300">
+                  {pendingJobCount}
+                </span>
+              )}
             </Link>
           );
         })}

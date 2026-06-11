@@ -2,6 +2,15 @@ name = "marine-tech-dashboard"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 main = ".open-next/worker.js"
+# Keep the old marine-tech-dashboard.connorgray41.workers.dev URL alive as a
+# fallback for any printed bookmarks / docs that still reference it.
+workers_dev = true
+
+# Pretty custom domain on the existing Cloudflare-managed grayyachts.com zone.
+# Wrangler auto-creates the DNS record and provisions the TLS cert on deploy.
+routes = [
+  { pattern = "marinetech.grayyachts.com", custom_domain = true }
+]
 
 [assets]
 directory = ".open-next/assets"
@@ -10,5 +19,12 @@ binding = "ASSETS"
 [vars]
 NEXT_PUBLIC_SUPABASE_URL = "https://ikfcnqdrlvhvlyhiuphs.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ"
-# SUPABASE_SERVICE_ROLE_KEY should be set as a Cloudflare secret:
-# npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# Cloudflare Turnstile sitekey (public). Real key created 2026-06-05 in
+# dash.cloudflare.com → Turnstile → 'Marine Tech Login'. Hostnames:
+# marinetech.grayyachts.com, marine-tech-dashboard.connorgray41.workers.dev,
+# localhost. Paired secret lives in the TURNSTILE_SECRET wrangler secret.
+NEXT_PUBLIC_TURNSTILE_SITEKEY = "0x4AAAAAADffjFfjP1zZtlR6"
+# Secrets to set with `npx wrangler secret put`:
+#   SUPABASE_SERVICE_ROLE_KEY  — service role JWT
+#   TURNSTILE_SECRET           — paired secret for the sitekey above
+#                                (defaults to Cloudflare's always-passes test secret if unset)

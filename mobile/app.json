@@ -3,7 +3,7 @@
     "name": "Marine Tech",
     "slug": "marine-tech",
     "owner": "cgrayy",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "marine-tech",
@@ -68,9 +68,7 @@
       ],
       "expo-secure-store",
       "expo-sqlite",
-      "@react-native-community/datetimepicker",
-      "expo-web-browser",
-      "expo-apple-authentication"
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {
@@ -83,6 +81,9 @@
     },
     "updates": {
       "url": "https://u.expo.dev/5e70f74a-b7b2-49e0-a65f-4e40d2527fb0"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CalendarJob, JobStatus } from './types';
 
 const SELECT = `
-  id, scheduled_start, scheduled_end, status, notes, location_override,
+  id, scheduled_start, scheduled_end, scheduled_end_date, status, notes, location_override,
   customer:customers(id, name),
   boat:boats(id, name, make_model),
   marina:marinas(id, name),
@@ -26,6 +26,7 @@ export function mapJobRowToCalendarJob(row: any): CalendarJob {
     id: row.id,
     scheduledStart: row.scheduled_start ?? null,
     scheduledEnd: row.scheduled_end ?? null,
+    scheduledEndDate: row.scheduled_end_date ?? null,
     status: row.status as JobStatus,
     notes: row.notes ?? null,
     locationOverride: row.location_override ?? null,
@@ -75,6 +76,9 @@ export type CreateJobInput = {
   assignedTo?: string | null;
   scheduledStart?: string | null;
   scheduledEnd?: string | null;
+  // Date-only string (YYYY-MM-DD) for multi-day end. Mirrors the
+  // scheduled_end_date column so the portal calendar renders spans correctly.
+  scheduledEndDate?: string | null;
   serviceTypes?: string[];
   notes?: string | null;
 };
@@ -113,6 +117,7 @@ export async function updateJob(supabase: SupabaseClient, input: UpdateJobInput)
     payload.scheduled_date = rest.scheduledStart ? rest.scheduledStart.slice(0, 10) : null;
   }
   if ('scheduledEnd' in rest) payload.scheduled_end = rest.scheduledEnd;
+  if ('scheduledEndDate' in rest) payload.scheduled_end_date = rest.scheduledEndDate;
   if ('serviceTypes' in rest) payload.service_types = rest.serviceTypes;
   if ('notes' in rest) payload.notes = rest.notes;
 

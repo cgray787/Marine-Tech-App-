@@ -46,9 +46,24 @@ export function CreateJobForm({
   const [boatId, setBoatId] = useState("");
   const [techId, setTechId] = useState("");
   const [marinaId, setMarinaId] = useState("");
+  // Optimistically-appended marinas added via the "+ Add new marina" inline
+  // form. Server-fetched `marinas` (a Server Component prop) doesn't refresh
+  // mid-form, so we keep the new ones in local state and merge for the select.
+  const [addedMarinas, setAddedMarinas] = useState<Marina[]>([]);
+  // Inline "add marina" UX state. When `addingMarina` is true the dropdown
+  // hides itself and shows a name input + Save/Cancel.
+  const [addingMarina, setAddingMarina] = useState(false);
+  const [newMarinaName, setNewMarinaName] = useState("");
+  const [marinaSaving, setMarinaSaving] = useState(false);
+  const [marinaError, setMarinaError] = useState("");
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
+  const [serviceDescriptions, setServiceDescriptions] = useState<Record<string, string>>({});
   const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledEndDate, setScheduledEndDate] = useState("");
   const [notes, setNotes] = useState("");
+
+  // True when a multi-day end date is set and is strictly after start.
+  const isMultiDay = !!scheduledEndDate && !!scheduledDate && scheduledEndDate > scheduledDate;
 
   const filteredBoats = customerId
     ? boats.filter((b) => b.customer_id === customerId)
@@ -58,12 +73,90 @@ export function CreateJobForm({
     setServiceTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
+    // Remove description when un-checking.
+    setServiceDescriptions((prev) => {
+      if (serviceTypes.includes(type)) {
+        const next = { ...prev };
+        delete next[type];
+        return next;
+      }
+      return prev;
+    });
+  }
+
+  function setServiceDescription(type: string, desc: string) {
+    setServiceDescriptions((prev) => ({ ...prev, [type]: desc }));
+  }
+
+  // Combined marina list for the select — server-fetched marinas + any added
+  // inline this session.
+  const allMarinas: Marina[] = [
+    ...marinas,
+    ...addedMarinas.filter((a) => !marinas.some((m) => m.id === a.id)),
+  ];
+
+  async function saveNewMarina() {
+    const name = newMarinaName.trim();
+    if (!name) {
+      setMarinaError("Name required");
+      return;
+    }
+    setMarinaSaving(true);
+    setMarinaError("");
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("marinas")
+      .insert({ name })
+      .select("id, name")
+      .single();
+    setMarinaSaving(false);
+    if (error || !data) {
+      setMarinaError(error?.message ?? "Failed to add marina");
+      return;
+    }
+    setAddedMarinas((prev) => [...prev, data as Marina]);
+    setMarinaId(data.id);
+    setNewMarinaName("");
+    setAddingMarina(false);
+    // Trigger a server refresh so the preference list is up-to-date the next
+    // time the form mounts; the local state already covers this render.
+    router.refresh();
+  }
+
+  function cancelAddMarina() {
+    setAddingMarina(false);
+    setNewMarinaName("");
+    setMarinaError("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Build per-service descriptions for checked types only.
+    const descPayload: Record<string, string> = {};
+    for (const type of serviceTypes) {
+      const d = serviceDescriptions[type];
+      if (d && d.trim()) descPayload[type] = d.trim();
+    }
+
+    // Derive scheduled_start / scheduled_end / scheduled_end_date from dates.
+    // scheduledDate is a date-only string (from the date input). We treat it as
+    // a start-of-day (00:00 local) for the scheduled_start.
+    const scheduledStart = scheduledDate
+      ? new Date(`${scheduledDate}T09:00`).toISOString()
+      : null;
+    let scheduledEnd: string | null = null;
+    let endDateCol: string | null = null;
+    if (scheduledStart) {
+      if (isMultiDay) {
+        scheduledEnd = new Date(`${scheduledEndDate}T17:00`).toISOString();
+        endDateCol = scheduledEndDate;
+      } else {
+        scheduledEnd = new Date(new Date(scheduledStart).getTime() + 60 * 60 * 1000).toISOString();
+      }
+    }
 
     const supabase = createClient();
     const { error: insertError } = await supabase.from("jobs").insert({
@@ -72,7 +165,11 @@ export function CreateJobForm({
       assigned_to: techId || null,
       marina_id: marinaId || null,
       service_types: serviceTypes,
+      service_descriptions: descPayload,
       scheduled_date: scheduledDate || null,
+      scheduled_start: scheduledStart,
+      scheduled_end: scheduledEnd,
+      scheduled_end_date: endDateCol,
       notes: notes || null,
       status: "new",
     });
@@ -89,7 +186,9 @@ export function CreateJobForm({
     setTechId("");
     setMarinaId("");
     setServiceTypes([]);
+    setServiceDescriptions({});
     setScheduledDate("");
+    setScheduledEndDate("");
     setNotes("");
     setOpen(false);
     setLoading(false);
@@ -189,29 +288,80 @@ export function CreateJobForm({
                 </select>
               </div>
 
-              {/* Marina */}
+              {/* Marina — supports inline "+ Add new marina" without leaving the form */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-secondary">
                   Marina
                 </label>
-                <select
-                  value={marinaId}
-                  onChange={(e) => setMarinaId(e.target.value)}
-                  className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-                >
-                  <option value="">Select marina...</option>
-                  {marinas.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+                {addingMarina ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={newMarinaName}
+                        onChange={(e) => setNewMarinaName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void saveNewMarina();
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelAddMarina();
+                          }
+                        }}
+                        placeholder="New marina name…"
+                        className="flex-1 rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                      />
+                      <button
+                        type="button"
+                        onClick={saveNewMarina}
+                        disabled={marinaSaving || !newMarinaName.trim()}
+                        className="rounded-lg bg-gold px-3 py-2.5 text-xs font-semibold tracking-wide text-primary-bg transition-colors hover:bg-gold-hover disabled:opacity-50"
+                      >
+                        {marinaSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelAddMarina}
+                        disabled={marinaSaving}
+                        className="rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-xs text-text-secondary hover:bg-border-line disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {marinaError && (
+                      <p className="text-xs text-red-400">{marinaError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <select
+                    value={marinaId}
+                    onChange={(e) => {
+                      if (e.target.value === "__add__") {
+                        setAddingMarina(true);
+                        return;
+                      }
+                      setMarinaId(e.target.value);
+                    }}
+                    className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  >
+                    <option value="">Select marina...</option>
+                    {allMarinas.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                    <option disabled>──────────</option>
+                    <option value="__add__">+ Add new marina…</option>
+                  </select>
+                )}
               </div>
 
               {/* Scheduled Date */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-secondary">
-                  Scheduled Date
+                  Start Date
                 </label>
                 <input
                   type="date"
@@ -220,28 +370,69 @@ export function CreateJobForm({
                   className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                 />
               </div>
+
+              {/* End Date (multi-day) */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+                  End Date <span className="font-normal text-text-secondary/60">(optional — multi-day)</span>
+                </label>
+                <input
+                  type="date"
+                  value={scheduledEndDate}
+                  min={scheduledDate}
+                  onChange={(e) => setScheduledEndDate(e.target.value)}
+                  className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2.5 text-sm text-text-primary focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                />
+                {isMultiDay && (
+                  <p className="mt-1 text-xs text-text-secondary">
+                    Multi-day job through {scheduledEndDate}, ends at 5:00 PM.
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Service Types */}
+            {/* Service Types with per-service descriptions */}
             <div>
               <label className="mb-2 block text-sm font-medium text-text-secondary">
                 Service Types
               </label>
-              <div className="flex flex-wrap gap-2">
-                {SERVICE_TYPE_OPTIONS.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => toggleServiceType(type)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      serviceTypes.includes(type)
-                        ? "border-gold bg-gold-muted text-gold"
-                        : "border-border-line text-text-secondary hover:border-gold/30 hover:text-text-primary"
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                {SERVICE_TYPE_OPTIONS.map((type) => {
+                  const on = serviceTypes.includes(type);
+                  return (
+                    <div key={type}>
+                      <button
+                        type="button"
+                        onClick={() => toggleServiceType(type)}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          on
+                            ? "border-gold bg-gold-muted text-gold"
+                            : "border-border-line text-text-secondary hover:border-gold/30 hover:text-text-primary"
+                        }`}
+                      >
+                        <span className={`h-3.5 w-3.5 shrink-0 rounded border flex items-center justify-center ${
+                          on ? "border-gold bg-gold" : "border-current"
+                        }`}>
+                          {on && (
+                            <svg className="h-2.5 w-2.5 text-primary-bg" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M1.5 5l2.5 2.5L8.5 2.5" />
+                            </svg>
+                          )}
+                        </span>
+                        {type}
+                      </button>
+                      {on && (
+                        <textarea
+                          rows={2}
+                          value={serviceDescriptions[type] ?? ""}
+                          onChange={(e) => setServiceDescription(type, e.target.value)}
+                          placeholder={`Notes for ${type}…`}
+                          className="mt-1 ml-5 w-[calc(100%-1.25rem)] resize-y rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-xs text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

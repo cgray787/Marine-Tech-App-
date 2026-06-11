@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "deploy": "set -a && . ./.env.local && set +a && rm -rf .next .open-next && opennextjs-cloudflare build && wrangler deploy"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.17.1",

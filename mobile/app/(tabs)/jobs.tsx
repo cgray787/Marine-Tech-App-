@@ -60,7 +60,7 @@ export default function JobsScreen() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "new" | "in_progress" | "completed">(
+  const [filter, setFilter] = useState<"all" | "scheduled" | "pending" | "completed">(
     "all"
   );
 
@@ -115,8 +115,21 @@ export default function JobsScreen() {
     );
   }
 
-  const byStatus = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
-  const filtered = byStatus.filter((j) => {
+  function matchesFilter(j: JobRow): boolean {
+    switch (filter) {
+      case "all":
+        return true;
+      case "scheduled":
+        return !!j.scheduled_start;
+      case "pending":
+        return !j.scheduled_start && j.status !== "completed";
+      case "completed":
+        return j.status === "completed";
+    }
+  }
+
+  const byFilter = jobs.filter(matchesFilter);
+  const filtered = byFilter.filter((j) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase().trim();
     const customer = j.customers?.name?.toLowerCase() || "";
@@ -134,8 +147,8 @@ export default function JobsScreen() {
   });
   const counts = {
     all: jobs.length,
-    new: jobs.filter((j) => j.status === "new").length,
-    in_progress: jobs.filter((j) => j.status === "in_progress").length,
+    scheduled: jobs.filter((j) => !!j.scheduled_start).length,
+    pending: jobs.filter((j) => !j.scheduled_start && j.status !== "completed").length,
     completed: jobs.filter((j) => j.status === "completed").length,
   };
 
@@ -198,7 +211,14 @@ export default function JobsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Jobs</Text>
         <Text style={styles.subtitle}>
-          {filtered.length} {filter === "all" ? "total" : STATUS_LABELS[filter]?.toLowerCase()}
+          {filtered.length}{" "}
+          {filter === "all"
+            ? "total"
+            : filter === "scheduled"
+            ? "scheduled"
+            : filter === "pending"
+            ? "pending"
+            : "completed"}
         </Text>
       </View>
 
@@ -221,9 +241,9 @@ export default function JobsScreen() {
         )}
       </View>
 
-      {/* Filter pills */}
+      {/* Filter pills — All · Scheduled · Pending · Completed */}
       <View style={styles.filterRow}>
-        {(["all", "new", "in_progress", "completed"] as const).map((f) => (
+        {(["all", "scheduled", "pending", "completed"] as const).map((f) => (
           <TouchableOpacity
             key={f}
             style={[styles.filterPill, filter === f && styles.filterPillActive]}
@@ -235,7 +255,14 @@ export default function JobsScreen() {
                 filter === f && styles.filterPillTextActive,
               ]}
             >
-              {f === "all" ? "All" : STATUS_LABELS[f]} ({counts[f]})
+              {f === "all"
+                ? "All"
+                : f === "scheduled"
+                ? "Scheduled"
+                : f === "pending"
+                ? "Pending"
+                : "Completed"}{" "}
+              ({counts[f]})
             </Text>
           </TouchableOpacity>
         ))}
@@ -258,7 +285,11 @@ export default function JobsScreen() {
             <Text style={styles.emptyText}>
               {filter === "all"
                 ? "No jobs yet."
-                : `No ${STATUS_LABELS[filter]?.toLowerCase()} jobs.`}
+                : filter === "pending"
+                ? "No pending jobs."
+                : filter === "scheduled"
+                ? "No scheduled jobs."
+                : "No completed jobs."}
             </Text>
             <Text style={styles.emptyHint}>
               Go to the Service tab to create one.

@@ -62,8 +62,14 @@ function formatDate(dateStr: string | null) {
   });
 }
 
+/** Matches migration 027 role hierarchy: admin, manager, tech can write; viewer cannot. */
+function canWriteRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "manager" || role === "tech";
+}
+
 export default function ClientsScreen() {
   const { profile } = useAuth();
+  const canWrite = canWriteRole(profile?.role);
   const [clients, setClients] = useState<Client[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
@@ -101,12 +107,14 @@ export default function ClientsScreen() {
             {clients.length} client{clients.length !== 1 ? "s" : ""}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => router.push("/client/new")}
-        >
-          <Text style={styles.addButtonText}>+ Add Client</Text>
-        </TouchableOpacity>
+        {canWrite && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => router.push("/client/new")}
+          >
+            <Text style={styles.addButtonText}>+ Add Client</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Search bar */}
@@ -174,11 +182,9 @@ export default function ClientsScreen() {
               <View style={styles.cardAccent} />
 
               <View style={styles.cardContent}>
-                {/* Row 1: Boat name + status badge */}
+                {/* Row 1: Client name + status badge */}
                 <View style={styles.row1}>
-                  <Text style={styles.boatName}>
-                    {primaryBoat?.name || item.name}
-                  </Text>
+                  <Text style={styles.clientName}>{item.name}</Text>
                   {jobStatus && (
                     <View
                       style={[
@@ -204,20 +210,17 @@ export default function ClientsScreen() {
                   )}
                 </View>
 
-                {/* Row 2: Client name */}
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoIcon}>{"\uD83D\uDC64"}</Text>
-                  <Text style={styles.infoText}>{item.name}</Text>
-                </View>
-
-                {/* Row 3: Boat make/model + year */}
-                {primaryBoat && (primaryBoat.make_model || primaryBoat.year) && (
+                {/* Row 2: Boat (smaller, under the name) */}
+                {primaryBoat && (
                   <View style={styles.infoRow}>
                     <Text style={styles.infoIcon}>{"\u2693"}</Text>
-                    <Text style={styles.infoText}>
-                      {primaryBoat.make_model || ""}
-                      {primaryBoat.make_model && primaryBoat.year ? "  \u2022  " : ""}
-                      {primaryBoat.year || ""}
+                    <Text style={styles.boatSubText}>
+                      {primaryBoat.name}
+                      {primaryBoat.make_model &&
+                      primaryBoat.make_model !== primaryBoat.name
+                        ? `  \u2022  ${primaryBoat.make_model}`
+                        : ""}
+                      {primaryBoat.year ? `  \u2022  ${primaryBoat.year}` : ""}
                     </Text>
                   </View>
                 )}
@@ -336,6 +339,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textPrimary,
     flex: 1,
+  },
+  clientName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  boatSubText: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   statusBadge: {
     borderRadius: 12,
