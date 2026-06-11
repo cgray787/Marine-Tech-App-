@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { formatTime, formatTimeRange } from '@/lib/calendar/format';
+import { formatTime, formatTimeRange, isMultiDay, dayOfN } from '@/lib/calendar/format';
+import type { CalendarJob } from '@/lib/calendar/types';
 
 describe('formatTime', () => {
   it('shows hour-only when minutes are zero', () => {
@@ -53,5 +54,60 @@ describe('formatTimeRange', () => {
 
   it('handles cross-midnight (PM to AM)', () => {
     expect(formatTimeRange('2026-04-27T23:00:00', '2026-04-28T01:00:00')).toBe('11 PM - 1 AM');
+  });
+});
+
+const makeJob = (overrides: Partial<CalendarJob> = {}): CalendarJob => ({
+  id: 'j1',
+  scheduledStart: '2026-03-04T10:00:00Z',
+  scheduledEnd: '2026-03-04T11:00:00Z',
+  scheduledEndDate: null,
+  status: 'new',
+  notes: null,
+  locationOverride: null,
+  customer: null,
+  boat: null,
+  marina: null,
+  tech: null,
+  ...overrides,
+});
+
+describe('isMultiDay', () => {
+  it('returns false when scheduledEndDate is null', () => {
+    expect(isMultiDay(makeJob({ scheduledEndDate: null }))).toBe(false);
+  });
+
+  it('returns false when scheduledStart is null', () => {
+    expect(isMultiDay(makeJob({ scheduledStart: null, scheduledEndDate: '2026-03-05' }))).toBe(false);
+  });
+
+  it('returns false when end date equals start date', () => {
+    expect(
+      isMultiDay(makeJob({ scheduledStart: '2026-03-04T10:00:00Z', scheduledEndDate: '2026-03-04' })),
+    ).toBe(false);
+  });
+
+  it('returns true when end date is after start date', () => {
+    expect(
+      isMultiDay(makeJob({ scheduledStart: '2026-03-04T10:00:00Z', scheduledEndDate: '2026-03-06' })),
+    ).toBe(true);
+  });
+});
+
+describe('dayOfN', () => {
+  it('returns 1/1 for a single-day job (defensive)', () => {
+    expect(dayOfN('2026-03-04', '2026-03-04T10:00:00Z', '2026-03-04')).toEqual({ day: 1, total: 1 });
+  });
+
+  it('returns 1/3 on the start day of a three-day span', () => {
+    expect(dayOfN('2026-03-04', '2026-03-04T10:00:00Z', '2026-03-06')).toEqual({ day: 1, total: 3 });
+  });
+
+  it('returns 2/3 on the middle day', () => {
+    expect(dayOfN('2026-03-05', '2026-03-04T10:00:00Z', '2026-03-06')).toEqual({ day: 2, total: 3 });
+  });
+
+  it('returns 3/3 on the last day', () => {
+    expect(dayOfN('2026-03-06', '2026-03-04T10:00:00Z', '2026-03-06')).toEqual({ day: 3, total: 3 });
   });
 });
