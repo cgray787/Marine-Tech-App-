@@ -42,7 +42,7 @@ export default async function ReportsPage() {
                   Technician
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                  Boat
+                  Client
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
                   Service Type
@@ -75,10 +75,12 @@ export default async function ReportsPage() {
                       <td className="px-6 py-4">
                         <div>
                           <p className="text-sm font-medium text-text-primary">
-                            {report.boat_name || "N/A"}
+                            {report.owner_name || "Unknown Client"}
                           </p>
                           <p className="text-xs text-text-secondary">
-                            {report.make_model || ""}
+                            {[report.boat_name, report.make_model]
+                              .filter(Boolean)
+                              .join(" · ") || "—"}
                           </p>
                         </div>
                       </td>

@@ -143,9 +143,10 @@ export default async function DashboardPage() {
                   >
                     <div>
                       <p className="text-sm font-medium text-text-primary">
-                        {report.boat_name || "Unknown Vessel"}
+                        {report.owner_name || "Unknown Client"}
                       </p>
                       <p className="text-xs text-text-secondary">
+                        {report.boat_name || "Unknown Vessel"} &middot;{" "}
                         {tech?.full_name || "Unknown Tech"} &middot;{" "}
                         {formatDateTime(report.submitted_at)}
                       </p>
@@ -190,10 +191,10 @@ export default async function DashboardPage() {
                   >
                     <div>
                       <p className="text-sm font-medium text-text-primary">
-                        {boat?.name || "Unassigned Boat"}
+                        {customer?.name || "No Customer"}
                       </p>
                       <p className="text-xs text-text-secondary">
-                        {customer?.name || "No Customer"} &middot;{" "}
+                        {boat?.name || "Unassigned Boat"} &middot;{" "}
                         {tech?.full_name || "Unassigned"} &middot;{" "}
                         {job.scheduled_date || "No date"}
                       </p>
