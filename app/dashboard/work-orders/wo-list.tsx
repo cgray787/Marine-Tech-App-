@@ -80,11 +80,16 @@ export function WOList({ rows, customers, canEdit, profileId }: Props) {
         supabase.from("wo_settings").select("*").single(),
         supabase.from("profiles").select("id, location_id, org_id").eq("id", profileId).single(),
       ]);
+      if (!me) {
+        setDialogError("Could not load your profile.");
+        setCreating(false);
+        return;
+      }
       const { data: created, error } = await supabase
         .from("work_orders")
         .insert({
-          org_id: me!.org_id,
-          location_id: me!.location_id,
+          org_id: me.org_id,
+          location_id: me.location_id,
           customer_id: chosenCustomerId,
           service_advisor: profileId,
           created_by: profileId,
