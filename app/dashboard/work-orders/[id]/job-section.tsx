@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { laborForJob, linePrice, fmtUSD } from "@/lib/work-orders/totals";
-import type { WOJob, WOLine, PriceLevel, LineKind } from "@/lib/work-orders/types";
+import type { WOJob, WOLine, LineKind } from "@/lib/work-orders/types";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -17,7 +17,6 @@ type Props = {
   defaultMarginPct: number;
   canEdit: boolean;
   hideCosts: boolean;
-  priceLevels: PriceLevel[];
   staff: { id: string; full_name: string }[];
   shopSuppliesAmount: number;
   onEdit: () => void;
@@ -336,7 +335,7 @@ export function JobSection({
   // Columns: Item / Description / Cost(or Price) / [Margin%] / Qty / Tax / Total / [Delete]
   // hideCosts removes the Margin column
   const showMarginCol = !hideCosts;
-  const colSpan = 5 + (showMarginCol ? 1 : 0) + (canEdit ? 1 : 0) + 1; // +1 for tax, +1 for total
+  const colSpan = 5 + (showMarginCol ? 1 : 0) + (canEdit ? 1 : 0) + 1; // 5 base cols (Item/Desc/Cost/Qty/Tax) + optional Margin + optional Delete + Total
 
   async function handleDeleteLine(lineId: string) {
     const supabase = createClient();

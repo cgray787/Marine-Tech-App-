@@ -307,7 +307,6 @@ export function WOEditor({
                 defaultMarginPct={Number(wo.default_margin_pct)}
                 canEdit={canEdit}
                 hideCosts={hideCosts}
-                priceLevels={priceLevels}
                 staff={staff}
                 shopSuppliesAmount={Number(settings?.shop_supplies_amount ?? 75)}
                 onEdit={() => setEditingJobId(job.id)}
