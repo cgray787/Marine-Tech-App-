@@ -92,4 +92,23 @@ describe("computeTotals — WO-4505 shape", () => {
     expect(computeTotals({ ...base, cc_fee_pct: null }).ccFee).toBe(0);
     expect(computeTotals({ ...base, cc_fee_pct: 3 }).ccFee).toBe(5.25);
   });
+
+  it("handles below-cost lines (negative margin) in profit", () => {
+    const t = computeTotals({
+      jobs: [job({ hours: 0, lines: [{ kind: "part", qty: 1, unit_cost: 100, margin_pct: -10, taxable: true }] })],
+      default_margin_pct: 25, taxes: [], cc_fee_pct: null, payments: [],
+    });
+    expect(t.totalParts).toBe(90);
+    expect(t.profit).toBe(-10);
+  });
+
+  it("empty work order returns clean zeros", () => {
+    const t = computeTotals({ jobs: [], default_margin_pct: 25, taxes: [{ name: "Tax", rate_pct: 10 }], cc_fee_pct: 3, payments: [] });
+    expect(t.subtotal).toBe(0);
+    expect(t.taxLines[0].amount).toBe(0);
+    expect(t.ccFee).toBe(0);
+    expect(t.amountDue).toBe(0);
+    expect(t.balanceDue).toBe(0);
+    expect(t.jobSubtotals).toEqual([]);
+  });
 });

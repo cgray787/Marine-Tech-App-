@@ -9,7 +9,9 @@ export interface TotalsLine {
 
 export interface TotalsJob {
   job_type: JobType; hours: number | null; flat_price: number | null;
-  boat_length_ft: number | null; rate: number; rate_unit: "hour" | "foot";
+  boat_length_ft: number | null; rate: number;
+  /** informational; laborForJob keys off job_type */
+  rate_unit: "hour" | "foot";
   labor_taxable: boolean; lines: TotalsLine[];
 }
 
@@ -28,7 +30,10 @@ export interface WOTotals {
   jobSubtotals: number[];
 }
 
-export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+export const round2 = (n: number) => {
+  const x = Number(n);
+  return Math.round((x + Number.EPSILON) * 100) / 100;
+};
 
 export function laborForJob(j: TotalsJob): number {
   if (j.job_type === "flat") return round2(j.flat_price ?? 0);
@@ -73,7 +78,7 @@ export function computeTotals(input: TotalsInput): WOTotals {
   const taxTotal = taxLines.reduce((s, t) => s + t.amount, 0);
   const ccFee = input.cc_fee_pct != null ? round2((subtotal + taxTotal) * input.cc_fee_pct / 100) : 0;
   const amountDue = round2(subtotal + taxTotal + ccFee);
-  const amountPaid = round2(input.payments.reduce((s, p) => s + p, 0));
+  const amountPaid = round2(input.payments.reduce((s, p) => s + Number(p), 0));
 
   return {
     totalLabor, totalParts: buckets.part, shopSupplies: buckets.shop_supplies,
