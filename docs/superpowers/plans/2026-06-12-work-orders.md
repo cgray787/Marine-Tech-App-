@@ -35,7 +35,7 @@ create sequence if not exists public.work_order_number_seq start 1001;
 
 create table public.price_levels (
   id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references public.orgs(id),
+  org_id uuid not null references public.organizations(id),
   name text not null,
   rate numeric(10,2) not null default 0,
   unit text not null default 'hour' check (unit in ('hour','foot')),
@@ -45,7 +45,7 @@ create table public.price_levels (
 
 create table public.job_templates (
   id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references public.orgs(id),
+  org_id uuid not null references public.organizations(id),
   name text not null,
   description text,
   notes_to_tech text,
@@ -56,7 +56,7 @@ create table public.job_templates (
 );
 
 create table public.wo_settings (
-  org_id uuid primary key references public.orgs(id),
+  org_id uuid primary key references public.organizations(id),
   shop_supplies_amount numeric(10,2) not null default 75.00,
   default_margin_pct numeric(5,2) not null default 25.00,
   default_cc_fee_pct numeric(5,2) not null default 3.00,
@@ -66,7 +66,7 @@ create table public.wo_settings (
 create table public.work_orders (
   id uuid primary key default gen_random_uuid(),
   wo_number int unique not null default nextval('public.work_order_number_seq'),
-  org_id uuid not null references public.orgs(id),
+  org_id uuid not null references public.organizations(id),
   location_id uuid references public.locations(id),
   customer_id uuid not null references public.customers(id) on delete restrict,
   boat_id uuid references public.boats(id) on delete set null,
@@ -203,7 +203,7 @@ declare
   v_org uuid;
   v_pl uuid;
 begin
-  select id into v_org from public.orgs limit 1;
+  select id into v_org from public.organizations limit 1;
   if v_org is null then return; end if;
 
   insert into public.wo_settings (org_id) values (v_org) on conflict do nothing;
