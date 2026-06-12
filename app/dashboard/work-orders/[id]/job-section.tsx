@@ -17,7 +17,6 @@ type Props = {
   defaultMarginPct: number;
   canEdit: boolean;
   hideCosts: boolean;
-  staff: { id: string; full_name: string }[];
   shopSuppliesAmount: number;
   onEdit: () => void;
 };

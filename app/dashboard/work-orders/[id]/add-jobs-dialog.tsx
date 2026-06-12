@@ -74,6 +74,7 @@ export function AddJobsDialog({
     setDialogError(null);
     const supabase = createClient();
     let i = 0;
+    let earlyExit = false;
 
     // Insert selected templates
     for (const t of toAdd) {
@@ -94,32 +95,44 @@ export function AddJobsDialog({
         .single();
 
       if (error || !jobRow) {
+        router.refresh();
         setDialogError(error?.message ?? "Failed to add job");
         setLoading(false);
         return;
       }
 
-      await supabase.from("work_order_lines").insert({
+      const { error: lineError } = await supabase.from("work_order_lines").insert({
         work_order_job_id: jobRow.id,
         kind: "shop_supplies",
         description: "Sealant, Zip Ties, Rags, Cleaning Products, Etc.",
         qty: 1,
         unit_cost: settings?.shop_supplies_amount ?? 75,
-        position: 999,
+        position: 0,
       });
 
+      if (lineError) {
+        earlyExit = true;
+        router.refresh();
+        setDialogError(`Job "${t.name}" was added but its Shop Supplies line failed: ${lineError.message}`);
+        setLoading(false);
+        break;
+      }
+
+      // Remove successfully inserted template from selection
+      setSelected(prev => { const n = new Set(prev); n.delete(t.id); return n; });
       i++;
     }
 
-    // Insert blank job if title provided
-    if (hasBlank) {
+    // Insert blank job if title provided (skip if template loop exited early on error)
+    if (!earlyExit && hasBlank) {
       const position = startPosition + i;
+      const title = blankTitle.trim();
       const { data: jobRow, error } = await supabase
         .from("work_order_jobs")
         .insert({
           work_order_id: woId,
           position,
-          title: blankTitle.trim(),
+          title,
           description: null,
           notes_to_tech: null,
           job_type: "frh",
@@ -130,24 +143,34 @@ export function AddJobsDialog({
         .single();
 
       if (error || !jobRow) {
+        router.refresh();
         setDialogError(error?.message ?? "Failed to add job");
         setLoading(false);
         return;
       }
 
-      await supabase.from("work_order_lines").insert({
+      const { error: lineError } = await supabase.from("work_order_lines").insert({
         work_order_job_id: jobRow.id,
         kind: "shop_supplies",
         description: "Sealant, Zip Ties, Rags, Cleaning Products, Etc.",
         qty: 1,
         unit_cost: settings?.shop_supplies_amount ?? 75,
-        position: 999,
+        position: 0,
       });
+
+      if (lineError) {
+        router.refresh();
+        setDialogError(`Job "${title}" was added but its Shop Supplies line failed: ${lineError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      setBlankTitle("");
     }
 
-    // Reset and close
+    // Reset and close (skip if we bailed out early on error)
+    if (earlyExit) return;
     setSelected(new Set());
-    setBlankTitle("");
     setQuery("");
     setLoading(false);
     onOpenChange(false);
