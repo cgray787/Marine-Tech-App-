@@ -376,6 +376,19 @@ export default function ClientDetailScreen() {
 
   async function handleDeleteClient() {
     if (!customer) return;
+    // Guard: work_orders.customer_id is ON DELETE RESTRICT — block before any
+    // deletes run so a client with WOs doesn't half-delete then fail on the FK.
+    const { count: woCount } = await supabase
+      .from("work_orders")
+      .select("*", { count: "exact", head: true })
+      .eq("customer_id", customer.id);
+    if ((woCount ?? 0) > 0) {
+      Alert.alert(
+        "Cannot Delete Client",
+        `This client has ${woCount} work order(s). Delete or reassign their work orders first — deleting a client does not delete financial records.`
+      );
+      return;
+    }
     Alert.alert(
       "Delete Client",
       `Permanently delete ${customer.name}, along with their boats, jobs, and reports? This cannot be undone.`,

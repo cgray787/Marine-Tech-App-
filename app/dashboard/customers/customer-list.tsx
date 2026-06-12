@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useCanWrite } from "@/lib/role-context";
 
@@ -223,6 +224,19 @@ export function CustomerList({
     )
       return;
     const supabase = createClient();
+    // Guard: work_orders.customer_id is ON DELETE RESTRICT — attempting to
+    // delete a client with open WOs would partially delete children then fail
+    // with a FK violation. Block before any deletes run.
+    const { count: woCount } = await supabase
+      .from("work_orders")
+      .select("*", { count: "exact", head: true })
+      .eq("customer_id", customerId);
+    if ((woCount ?? 0) > 0) {
+      setError(
+        `This client has ${woCount} work order(s). Delete or reassign their work orders first — deleting a client does not delete financial records.`
+      );
+      return;
+    }
     // jobs / service_reports / pdi_reports reference customers WITHOUT
     // ON DELETE CASCADE (migration 001), so a single DELETE on the parent
     // would fail with an FK violation. Walk children first, parent last —
@@ -462,9 +476,13 @@ export function CustomerList({
                         .slice(0, 2)}
                     </div>
                     <div>
-                      <p className="font-medium text-text-primary">
+                      <Link
+                        href={`/dashboard/customers/${customer.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-medium text-text-primary hover:text-gold transition-colors"
+                      >
                         {customer.name}
-                      </p>
+                      </Link>
                       <p className="text-xs text-text-secondary">
                         {customer.email || "No email"}{" "}
                         {customer.phone ? `| ${customer.phone}` : ""}
