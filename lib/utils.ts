@@ -37,6 +37,10 @@ export function statusColor(status: string) {
       return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
     case "correction_needed":
       return "bg-red-500/15 text-red-400 border-red-500/30";
+    case "draft":
+      return "bg-slate-500/15 text-slate-300 border-slate-500/30";
+    case "invoiced":
+      return "bg-gold-muted text-gold border-gold/30";
     default:
       return "bg-slate-500/15 text-slate-400 border-slate-500/30";
   }
