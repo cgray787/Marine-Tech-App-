@@ -99,13 +99,13 @@ export function WOList({ rows, customers, canEdit, profileId }: Props) {
         })
         .select("id")
         .single();
-      if (error) {
-        setDialogError(error.message);
+      if (error || !created) {
+        setDialogError(error?.message ?? "Work order was not created.");
         setCreating(false);
         return;
       }
       setDialogOpen(false);
-      router.push(`/dashboard/work-orders/${created!.id}`);
+      router.push(`/dashboard/work-orders/${created.id}`);
     } catch (err: unknown) {
       setDialogError(err instanceof Error ? err.message : "Unknown error");
       setCreating(false);

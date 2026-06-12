@@ -60,8 +60,10 @@ export function WOEditor({
       "Delete this work order and all its jobs, lines, and payments?"
     );
     if (!confirmed) return;
+    setError(null);
     const supabase = createClient();
-    await supabase.from("work_orders").delete().eq("id", wo.id);
+    const { error: delError } = await supabase.from("work_orders").delete().eq("id", wo.id);
+    if (delError) { setError(delError.message); return; }
     router.push("/dashboard/work-orders");
   }
 
@@ -238,19 +240,21 @@ export function WOEditor({
                   Mark Invoiced
                 </button>
               )}
+            </div>
+          )}
 
-              {/* Timestamps */}
-              <div className="ml-auto flex flex-col items-end gap-1 text-xs text-text-secondary">
-                {wo.approved_at && (
-                  <span>Approved {formatDate(wo.approved_at)}</span>
-                )}
-                {wo.completed_at && (
-                  <span>Completed {formatDate(wo.completed_at)}</span>
-                )}
-                {wo.invoiced_at && (
-                  <span>Invoiced {formatDate(wo.invoiced_at)}</span>
-                )}
-              </div>
+          {/* Timestamps — always visible so viewers see milestone history */}
+          {(wo.approved_at || wo.completed_at || wo.invoiced_at) && (
+            <div className="mt-3 flex flex-col items-end gap-1 text-xs text-text-secondary">
+              {wo.approved_at && (
+                <span>Approved {formatDate(wo.approved_at)}</span>
+              )}
+              {wo.completed_at && (
+                <span>Completed {formatDate(wo.completed_at)}</span>
+              )}
+              {wo.invoiced_at && (
+                <span>Invoiced {formatDate(wo.invoiced_at)}</span>
+              )}
             </div>
           )}
 
