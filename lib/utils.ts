@@ -13,6 +13,16 @@ export function formatDate(date: string | Date | null) {
   });
 }
 
+/** Format a DATE-ONLY string (YYYY-MM-DD) without the UTC-midnight timezone shift. */
+export function formatDateOnly(date: string | null) {
+  if (!date) return "N/A";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (!m) return formatDate(date);
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+}
+
 export function formatDateTime(date: string | Date | null) {
   if (!date) return "N/A";
   return new Date(date).toLocaleString("en-US", {

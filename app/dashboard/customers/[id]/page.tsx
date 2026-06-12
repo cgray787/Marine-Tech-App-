@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/admin";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { cn, formatDate, statusColor } from "@/lib/utils";
+import { cn, formatDate, formatDateOnly, statusColor } from "@/lib/utils";
 import { computeTotals, fmtUSD, isBalanceOverdue } from "@/lib/work-orders/totals";
 import { toTotalsInput } from "@/lib/work-orders/queries";
 import type { WorkOrderFull } from "@/lib/work-orders/types";
@@ -162,7 +162,7 @@ export default async function CustomerProfilePage({
                         </Link>
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-text-secondary">
-                        {formatDate(wo.wo_date)}
+                        {formatDateOnly(wo.wo_date)}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <span

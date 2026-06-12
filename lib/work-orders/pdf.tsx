@@ -254,10 +254,16 @@ const S = StyleSheet.create({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Date-only strings (YYYY-MM-DD) are parsed as local midnight to avoid UTC-shift. */
 function formatDate(s: string | null | undefined): string {
   if (!s) return "—";
-  const d = new Date(s);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) {
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString("en-US", {
+      year: "numeric", month: "short", day: "numeric",
+    });
+  }
+  return new Date(s).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 const KIND_LABELS: Record<string, string> = {

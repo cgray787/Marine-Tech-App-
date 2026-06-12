@@ -3,7 +3,7 @@ import { fetchWorkOrderFull } from "@/lib/work-orders/queries";
 import { computeTotals, laborForJob, laborDisplay, linePrice, fmtUSD } from "@/lib/work-orders/totals";
 import { toTotalsInput } from "@/lib/work-orders/queries";
 import { letterheadFor } from "@/lib/work-orders/letterhead";
-import { formatDate } from "@/lib/utils";
+import { formatDateOnly } from "@/lib/utils";
 import { PrintButton } from "@/components/print-button";
 import { DownloadPdfButton } from "@/app/dashboard/work-orders/[id]/download-pdf-button";
 import { notFound } from "next/navigation";
@@ -73,7 +73,7 @@ export default async function WorkOrderPrintPage({
             <h1 className="text-3xl font-bold">Work Order</h1>
             <p className="text-xl font-semibold text-red-600">WO-{wo.wo_number}</p>
             <p className="text-sm mt-1">Location: {wo.locations?.name ?? "—"}</p>
-            <p className="text-sm">Date: {formatDate(wo.wo_date)}</p>
+            <p className="text-sm">Date: {formatDateOnly(wo.wo_date)}</p>
             <p className="text-sm">Service Advisor: {wo.profiles?.full_name ?? "—"}</p>
           </div>
         </div>
@@ -333,7 +333,7 @@ export default async function WorkOrderPrintPage({
               <tbody>
                 {wo.work_order_payments!.map((pmt) => (
                   <tr key={pmt.id} className="border-b border-black/5">
-                    <td className="py-1 pr-4">{formatDate(pmt.paid_on)}</td>
+                    <td className="py-1 pr-4">{formatDateOnly(pmt.paid_on)}</td>
                     <td className="py-1 pr-4">{pmt.method ?? "—"}</td>
                     <td className="py-1 pr-4">{pmt.note ?? "—"}</td>
                     <td className="py-1 text-right">{fmtUSD(Number(pmt.amount))}</td>

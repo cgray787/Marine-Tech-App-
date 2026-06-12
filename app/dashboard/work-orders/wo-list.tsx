@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Settings } from "lucide-react";
-import { cn, formatDate, statusColor } from "@/lib/utils";
+import { cn, formatDateOnly, statusColor } from "@/lib/utils";
 import { computeTotals, fmtUSD, isBalanceOverdue } from "@/lib/work-orders/totals";
 import { toTotalsInput, createDraftWorkOrder } from "@/lib/work-orders/queries";
 import { createClient } from "@/lib/supabase/client";
@@ -190,7 +190,7 @@ export function WOList({ rows, customers, canEdit, profileId }: Props) {
                         WO-{row.wo_number}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-text-secondary">
-                        {formatDate(row.wo_date)}
+                        {formatDateOnly(row.wo_date)}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-text-primary">
                         {(row.customers as { name: string } | null)?.name ?? "—"}

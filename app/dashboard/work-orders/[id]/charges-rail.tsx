@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDateOnly } from "@/lib/utils";
 import { fmtUSD } from "@/lib/work-orders/totals";
 import type { WorkOrderFull, WOSettings, TaxEntry } from "@/lib/work-orders/types";
 import type { WOTotals } from "@/lib/work-orders/totals";
@@ -387,7 +387,7 @@ export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO,
             <div className="min-w-0">
               <p className="text-sm text-text-primary">{fmtUSD(Number(p.amount))}</p>
               <p className="text-xs text-text-secondary">
-                {formatDate(p.paid_on)}
+                {formatDateOnly(p.paid_on)}
                 {p.method ? ` · ${p.method}` : ""}
                 {p.note ? ` · ${p.note.slice(0, 40)}${p.note.length > 40 ? "…" : ""}` : ""}
               </p>
