@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { laborForJob, linePrice, fmtUSD } from "@/lib/work-orders/totals";
+import { laborForJob, laborDisplay, linePrice, fmtUSD } from "@/lib/work-orders/totals";
 import type { WOJob, WOLine, LineKind } from "@/lib/work-orders/types";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -34,15 +34,25 @@ function laborDescription(job: WOJob): string {
 }
 
 function laborQty(job: WOJob): string {
-  if (job.job_type === "flat") return "1";
-  if (job.job_type === "per_foot") return String(job.boat_length_ft ?? 0);
-  return String(job.hours ?? 0);
+  const { qty } = laborDisplay({
+    job_type: job.job_type,
+    hours: job.hours == null ? null : Number(job.hours),
+    flat_price: job.flat_price == null ? null : Number(job.flat_price),
+    boat_length_ft: job.boat_length_ft == null ? null : Number(job.boat_length_ft),
+    rate: Number(job.price_levels?.rate ?? 0),
+  });
+  return String(qty);
 }
 
 function laborUnitPrice(job: WOJob): string {
-  const rate = Number(job.price_levels?.rate ?? 0);
-  if (job.job_type === "flat") return fmtUSD(Number(job.flat_price ?? 0));
-  return fmtUSD(rate);
+  const { unit } = laborDisplay({
+    job_type: job.job_type,
+    hours: job.hours == null ? null : Number(job.hours),
+    flat_price: job.flat_price == null ? null : Number(job.flat_price),
+    boat_length_ft: job.boat_length_ft == null ? null : Number(job.boat_length_ft),
+    rate: Number(job.price_levels?.rate ?? 0),
+  });
+  return fmtUSD(unit);
 }
 
 // ── Job status display ─────────────────────────────────────────────────────────

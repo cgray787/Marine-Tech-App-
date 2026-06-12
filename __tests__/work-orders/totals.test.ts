@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeTotals, laborForJob, linePrice, type TotalsJob } from "@/lib/work-orders/totals";
+import { computeTotals, laborForJob, laborDisplay, linePrice, type TotalsJob } from "@/lib/work-orders/totals";
 
 const rate175 = { rate: 175, unit: "hour" as const };
 
@@ -110,5 +110,14 @@ describe("computeTotals — WO-4505 shape", () => {
     expect(t.amountDue).toBe(0);
     expect(t.balanceDue).toBe(0);
     expect(t.jobSubtotals).toEqual([]);
+  });
+});
+
+describe("laborDisplay", () => {
+  it("maps unit/qty per job type", () => {
+    expect(laborDisplay({ job_type: "frh", hours: 8, flat_price: null, boat_length_ft: null, rate: 175 })).toEqual({ unit: 175, qty: 8 });
+    expect(laborDisplay({ job_type: "frh", hours: null, flat_price: null, boat_length_ft: null, rate: 175 })).toEqual({ unit: 175, qty: 0 });
+    expect(laborDisplay({ job_type: "flat", hours: null, flat_price: 1850, boat_length_ft: null, rate: 0 })).toEqual({ unit: 1850, qty: 1 });
+    expect(laborDisplay({ job_type: "per_foot", hours: null, flat_price: null, boat_length_ft: 28, rate: 10 })).toEqual({ unit: 10, qty: 28 });
   });
 });

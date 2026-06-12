@@ -41,6 +41,13 @@ export function laborForJob(j: TotalsJob): number {
   return round2((j.hours ?? 0) * j.rate); // frh
 }
 
+/** Display mapping for the labor row: which figures show as unit price and qty per job_type. */
+export function laborDisplay(j: Pick<TotalsJob, "job_type" | "hours" | "flat_price" | "boat_length_ft" | "rate">): { unit: number; qty: number } {
+  if (j.job_type === "flat") return { unit: j.flat_price ?? 0, qty: 1 };
+  if (j.job_type === "per_foot") return { unit: j.rate, qty: j.boat_length_ft ?? 0 };
+  return { unit: j.rate, qty: j.hours ?? 0 }; // frh
+}
+
 export function effectiveMargin(line: Pick<TotalsLine, "kind" | "margin_pct">, defaultMargin: number): number {
   if (line.margin_pct != null) return line.margin_pct;
   return line.kind === "part" ? defaultMargin : 0;

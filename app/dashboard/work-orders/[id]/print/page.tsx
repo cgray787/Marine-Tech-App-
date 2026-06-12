@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/admin";
 import { fetchWorkOrderFull } from "@/lib/work-orders/queries";
-import { computeTotals, laborForJob, linePrice, fmtUSD } from "@/lib/work-orders/totals";
+import { computeTotals, laborForJob, laborDisplay, linePrice, fmtUSD } from "@/lib/work-orders/totals";
 import { toTotalsInput } from "@/lib/work-orders/queries";
 import { letterheadFor } from "@/lib/work-orders/letterhead";
 import { formatDate } from "@/lib/utils";
@@ -125,26 +125,24 @@ export default async function WorkOrderPrintPage({
           // Determine labor description
           const priceLevel = job.price_levels;
           let laborDesc = "Hourly Rate";
-          let laborUnit: string | number = Number(priceLevel?.rate ?? 0);
-          let laborQty: string | number = job.hours ?? 1;
+          if (job.job_type === "flat") laborDesc = "Flat Rate";
+          else if (job.job_type === "per_foot") laborDesc = "Per Foot";
 
-          if (job.job_type === "flat") {
-            laborDesc = "Flat Rate";
-            laborUnit = Number(job.flat_price ?? 0);
-            laborQty = 1;
-          } else if (job.job_type === "per_foot") {
-            laborDesc = "Per Foot";
-            laborUnit = Number(priceLevel?.rate ?? 0);
-            laborQty = job.boat_length_ft ?? 0;
-          }
+          const { unit: laborUnit, qty: laborQty } = laborDisplay({
+            job_type: job.job_type,
+            hours: job.hours == null ? null : Number(job.hours),
+            flat_price: job.flat_price == null ? null : Number(job.flat_price),
+            boat_length_ft: job.boat_length_ft == null ? null : Number(job.boat_length_ft),
+            rate: Number(priceLevel?.rate ?? 0),
+          });
 
-          const showLaborRow = laborAmt > 0 || job.job_type === "frh";
+          const showLaborRow = laborAmt > 0 || (job.job_type === "frh" && job.hours != null);
           const jobSubtotal = totals.jobSubtotals[i] ?? 0;
 
           return (
-            <section key={job.id} className="mb-6">
+            <section key={job.id} className="mb-6" style={{ breakInside: "avoid", pageBreakInside: "avoid" }}>
               {/* Title bar */}
-              <div className="bg-amber-400 text-black px-3 py-1.5 font-semibold flex justify-between items-center">
+              <div className="bg-amber-400 text-black px-3 py-1.5 font-semibold flex justify-between items-center" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
                 <span>
                   {i + 1}&nbsp;&nbsp;{job.title}
                 </span>
@@ -232,10 +230,10 @@ export default async function WorkOrderPrintPage({
         })}
 
         {/* 5. Customer Charges box */}
-        <div className="flex justify-end mb-6">
+        <div className="flex justify-end mb-6" style={{ breakInside: "avoid", pageBreakInside: "avoid" }}>
           <div className="w-72 border border-black/20 text-sm">
             {/* Header */}
-            <div className="bg-gray-100 px-3 py-1.5 font-semibold text-gray-700 border-b border-black/20">
+            <div className="bg-gray-100 px-3 py-1.5 font-semibold text-gray-700 border-b border-black/20" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
               Customer Charges
             </div>
 
