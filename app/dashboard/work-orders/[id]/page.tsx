@@ -33,6 +33,7 @@ export default async function WorkOrderPage({ params }: { params: Promise<{ id: 
         canEdit={canEdit}
         hideCosts={isViewer}
         profileId={profile.id}
+        orgId={profile.org_id}
       />
     </div>
   );

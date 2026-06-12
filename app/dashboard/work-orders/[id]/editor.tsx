@@ -9,6 +9,9 @@ import { computeTotals } from "@/lib/work-orders/totals";
 import { toTotalsInput } from "@/lib/work-orders/queries";
 import type { WorkOrderFull, WOSettings, PriceLevel, JobTemplate } from "@/lib/work-orders/types";
 import { ChargesRail } from "./charges-rail";
+import { JobSection } from "./job-section";
+import { JobSheet } from "./job-sheet";
+import { AddJobsDialog } from "./add-jobs-dialog";
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
@@ -23,6 +26,7 @@ type Props = {
   canEdit: boolean;
   hideCosts: boolean;
   profileId: string;
+  orgId: string;
 };
 
 // ── WOEditor ───────────────────────────────────────────────────────────────────
@@ -31,16 +35,21 @@ export function WOEditor({
   wo,
   customers,
   boats,
-  priceLevels: _priceLevels,
-  templates: _templates,
+  priceLevels,
+  templates,
   settings,
   staff,
   canEdit,
   hideCosts,
   profileId,
+  orgId,
 }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+
+  // ── Job section/dialog state ───────────────────────────────────────────────
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [addJobsOpen, setAddJobsOpen] = useState(false);
 
   // ── Shared mutation helper ──────────────────────────────────────────────────
   async function patchWO(fields: Record<string, unknown>) {
@@ -272,12 +281,76 @@ export function WOEditor({
           )}
         </div>
 
-        {/* Jobs area — Task 6 placeholder */}
-        <div className="rounded-xl border border-border-line bg-card-bg p-6">
-          <p className="text-center text-sm text-text-secondary">
-            No jobs on this work order yet.
-          </p>
-        </div>
+        {/* ── Job sections ──────────────────────────────────────────────── */}
+        {(wo.work_order_jobs ?? []).length === 0 ? (
+          <div className="rounded-xl border border-border-line bg-card-bg p-8 text-center">
+            <p className="mb-4 text-sm text-text-secondary">
+              No jobs on this work order yet.
+            </p>
+            {canEdit && (
+              <button
+                onClick={() => setAddJobsOpen(true)}
+                className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-[#060a12] transition-colors hover:bg-[#d4b87e]"
+              >
+                + Add Jobs
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(wo.work_order_jobs ?? []).map((job, index) => (
+              <JobSection
+                key={job.id}
+                job={job}
+                index={index}
+                subtotal={totals.jobSubtotals[index] ?? 0}
+                defaultMarginPct={Number(wo.default_margin_pct)}
+                canEdit={canEdit}
+                hideCosts={hideCosts}
+                priceLevels={priceLevels}
+                staff={staff}
+                shopSuppliesAmount={Number(settings?.shop_supplies_amount ?? 75)}
+                onEdit={() => setEditingJobId(job.id)}
+              />
+            ))}
+            {canEdit && (
+              <button
+                onClick={() => setAddJobsOpen(true)}
+                className="w-full rounded-xl border border-dashed border-border-line py-3 text-sm text-text-secondary hover:border-gold/50 hover:text-gold transition-colors"
+              >
+                + Add Jobs
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Job edit sheet ────────────────────────────────────────────── */}
+        {editingJobId && (() => {
+          const editingJob = (wo.work_order_jobs ?? []).find((j) => j.id === editingJobId);
+          if (!editingJob) return null;
+          return (
+            <JobSheet
+              job={editingJob}
+              open={true}
+              onOpenChange={(o) => { if (!o) setEditingJobId(null); }}
+              priceLevels={priceLevels}
+              staff={staff}
+              canEdit={canEdit}
+              orgId={orgId}
+            />
+          );
+        })()}
+
+        {/* ── Add Jobs dialog ───────────────────────────────────────────── */}
+        <AddJobsDialog
+          open={addJobsOpen}
+          onOpenChange={setAddJobsOpen}
+          woId={wo.id}
+          templates={templates}
+          priceLevels={priceLevels}
+          settings={settings}
+          startPosition={wo.work_order_jobs?.length ?? 0}
+        />
       </div>
 
       {/* ── Right column — Charges Rail ───────────────────────────────────── */}
