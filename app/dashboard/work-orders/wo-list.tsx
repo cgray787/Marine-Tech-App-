@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { X, Settings } from "lucide-react";
 import { cn, formatDate, statusColor } from "@/lib/utils";
 import { computeTotals, fmtUSD, isBalanceOverdue } from "@/lib/work-orders/totals";
 import { toTotalsInput, createDraftWorkOrder } from "@/lib/work-orders/queries";
@@ -104,16 +105,26 @@ export function WOList({ rows, customers, canEdit, profileId }: Props) {
           </p>
         </div>
         {canEdit && (
-          <button
-            onClick={() => {
-              setChosenCustomerId("");
-              setDialogError(null);
-              setDialogOpen(true);
-            }}
-            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-[#060a12] transition-colors hover:bg-[#d4b87e]"
-          >
-            New Work Order
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/work-orders/settings"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-line px-3 py-2 text-sm text-text-secondary transition-colors hover:text-text-primary"
+              aria-label="Work Order Settings"
+            >
+              <Settings size={15} />
+              <span className="hidden sm:inline">Settings</span>
+            </Link>
+            <button
+              onClick={() => {
+                setChosenCustomerId("");
+                setDialogError(null);
+                setDialogOpen(true);
+              }}
+              className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-[#060a12] transition-colors hover:bg-[#d4b87e]"
+            >
+              New Work Order
+            </button>
+          </div>
         )}
       </div>
 
