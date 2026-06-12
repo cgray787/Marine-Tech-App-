@@ -51,11 +51,16 @@ export function PriceLevelsCard({ priceLevels, orgId }: Props) {
     const s = rowState[pl.id];
     if (!s) return;
     if (!s.name.trim()) { setError("Name cannot be empty."); return; }
+    const rateV = Number(s.rate);
+    if (s.rate.trim() === "" || isNaN(rateV)) {
+      setField(pl.id, "rate", String(pl.rate));
+      return;
+    }
     setError(null);
     const supabase = createClient();
     const { error: err } = await supabase
       .from("price_levels")
-      .update({ name: s.name.trim(), rate: Number(s.rate), unit: s.unit, active: s.active })
+      .update({ name: s.name.trim(), rate: rateV, unit: s.unit, active: s.active })
       .eq("id", pl.id);
     if (err) { setError(err.message); return; }
     router.refresh();

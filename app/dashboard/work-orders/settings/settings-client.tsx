@@ -21,6 +21,7 @@ export function SettingsClient({ priceLevels, jobTemplates, woSettings, orgId }:
       <TemplatesCard
         jobTemplates={jobTemplates}
         activePriceLevels={activePriceLevels}
+        allPriceLevels={priceLevels}
         orgId={orgId}
       />
       <DefaultsCard woSettings={woSettings} orgId={orgId} />

@@ -48,15 +48,19 @@ export function DefaultsCard({ woSettings, orgId }: Props) {
     const supabase = createClient();
     const { error: err } = await supabase
       .from("wo_settings")
-      .update(fields)
-      .eq("org_id", orgId);
+      .upsert({ org_id: orgId, ...fields }, { onConflict: "org_id" });
     if (err) { setError(err.message); return; }
     router.refresh();
   }
 
   async function patchTaxes(updated: TaxEntry[]) {
     setTaxes(updated);
-    await patchSettings({ default_taxes: updated });
+    const supabase = createClient();
+    const { error: err } = await supabase
+      .from("wo_settings")
+      .upsert({ org_id: orgId, default_taxes: updated }, { onConflict: "org_id" });
+    if (err) { setError(err.message); return; }
+    router.refresh();
   }
 
   function removeTax(idx: number) {
@@ -92,9 +96,14 @@ export function DefaultsCard({ woSettings, orgId }: Props) {
               min="0"
               value={shopSupplies}
               onChange={(e) => setShopSupplies(e.target.value)}
-              onBlur={() =>
-                patchSettings({ shop_supplies_amount: Number(shopSupplies) })
-              }
+              onBlur={() => {
+                const v = Number(shopSupplies);
+                if (shopSupplies.trim() === "" || isNaN(v)) {
+                  setShopSupplies(String(woSettings?.shop_supplies_amount ?? 75));
+                  return;
+                }
+                patchSettings({ shop_supplies_amount: v });
+              }}
               className="w-28 rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-sm text-text-primary"
             />
           </label>
@@ -107,9 +116,14 @@ export function DefaultsCard({ woSettings, orgId }: Props) {
               min="0"
               value={marginPct}
               onChange={(e) => setMarginPct(e.target.value)}
-              onBlur={() =>
-                patchSettings({ default_margin_pct: Number(marginPct) })
-              }
+              onBlur={() => {
+                const v = Number(marginPct);
+                if (marginPct.trim() === "" || isNaN(v)) {
+                  setMarginPct(String(woSettings?.default_margin_pct ?? 25));
+                  return;
+                }
+                patchSettings({ default_margin_pct: v });
+              }}
               className="w-28 rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-sm text-text-primary"
             />
           </label>
@@ -122,9 +136,14 @@ export function DefaultsCard({ woSettings, orgId }: Props) {
               min="0"
               value={ccFeePct}
               onChange={(e) => setCcFeePct(e.target.value)}
-              onBlur={() =>
-                patchSettings({ default_cc_fee_pct: Number(ccFeePct) })
-              }
+              onBlur={() => {
+                const v = Number(ccFeePct);
+                if (ccFeePct.trim() === "" || isNaN(v)) {
+                  setCcFeePct(String(woSettings?.default_cc_fee_pct ?? 3));
+                  return;
+                }
+                patchSettings({ default_cc_fee_pct: v });
+              }}
               className="w-28 rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-sm text-text-primary"
             />
           </label>

@@ -8,18 +8,20 @@ import type { JobTemplate, PriceLevel } from "@/lib/work-orders/types";
 type Props = {
   jobTemplates: JobTemplate[];
   activePriceLevels: PriceLevel[];
+  allPriceLevels: PriceLevel[];
   orgId: string;
 };
 
 type RowState = {
   name: string;
   description: string;
+  notes_to_tech: string;
   default_hours: string;
   default_price_level_id: string;
   active: boolean;
 };
 
-export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props) {
+export function TemplatesCard({ jobTemplates, activePriceLevels, allPriceLevels, orgId }: Props) {
   const router = useRouter();
   const [rowState, setRowState] = useState<Record<string, RowState>>({});
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +29,7 @@ export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props)
   // Add form state
   const [addName, setAddName] = useState("");
   const [addDesc, setAddDesc] = useState("");
+  const [addNotes, setAddNotes] = useState("");
   const [addHours, setAddHours] = useState("");
   const [addPriceLevel, setAddPriceLevel] = useState("");
   const [adding, setAdding] = useState(false);
@@ -38,6 +41,7 @@ export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props)
       state[t.id] = {
         name: t.name,
         description: t.description ?? "",
+        notes_to_tech: t.notes_to_tech ?? "",
         default_hours: t.default_hours != null ? String(t.default_hours) : "",
         default_price_level_id: t.default_price_level_id ?? "",
         active: t.active,
@@ -62,6 +66,7 @@ export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props)
       .update({
         name: s.name.trim(),
         description: s.description.trim() || null,
+        notes_to_tech: s.notes_to_tech.trim() || null,
         default_hours: s.default_hours !== "" ? Number(s.default_hours) : null,
         default_price_level_id: s.default_price_level_id || null,
         active: s.active,
@@ -91,12 +96,14 @@ export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props)
       org_id: orgId,
       name: addName.trim(),
       description: addDesc.trim() || null,
+      notes_to_tech: addNotes.trim() || null,
       default_hours: addHours !== "" ? Number(addHours) : null,
       default_price_level_id: addPriceLevel || null,
     });
     if (err) { setError(err.message); setAdding(false); return; }
     setAddName("");
     setAddDesc("");
+    setAddNotes("");
     setAddHours("");
     setAddPriceLevel("");
     setAdding(false);
@@ -118,6 +125,7 @@ export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props)
             <tr className="border-b border-border-line bg-secondary-bg text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Description</th>
+              <th className="px-4 py-3">Notes to Tech</th>
               <th className="px-4 py-3">Hrs</th>
               <th className="px-4 py-3">Price Level</th>
               <th className="px-4 py-3 text-center">Active</th>
@@ -151,6 +159,16 @@ export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props)
                   </td>
                   <td className="px-4 py-3">
                     <input
+                      type="text"
+                      value={s.notes_to_tech}
+                      onChange={(e) => setField(t.id, "notes_to_tech", e.target.value)}
+                      onBlur={() => patchRow(t)}
+                      placeholder="—"
+                      className="w-full min-w-[180px] rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-sm text-text-primary placeholder-text-secondary"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
                       type="number"
                       step="0.5"
                       min="0"
@@ -176,6 +194,20 @@ export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props)
                           {pl.name}
                         </option>
                       ))}
+                      {/* Render current value as a disabled option if it refers to an inactive level */}
+                      {(() => {
+                        const currentId = s.default_price_level_id;
+                        if (!currentId) return null;
+                        const isActive = activePriceLevels.some((pl) => pl.id === currentId);
+                        if (isActive) return null;
+                        const inactivePl = allPriceLevels.find((pl) => pl.id === currentId);
+                        if (!inactivePl) return null;
+                        return (
+                          <option key={inactivePl.id} value={inactivePl.id} disabled>
+                            {inactivePl.name} (inactive)
+                          </option>
+                        );
+                      })()}
                     </select>
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -211,6 +243,15 @@ export function TemplatesCard({ jobTemplates, activePriceLevels, orgId }: Props)
                   value={addDesc}
                   onChange={(e) => setAddDesc(e.target.value)}
                   className="w-full min-w-[160px] rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-sm text-text-primary placeholder-text-secondary"
+                />
+              </td>
+              <td className="px-4 py-3">
+                <input
+                  type="text"
+                  placeholder="Notes (optional)"
+                  value={addNotes}
+                  onChange={(e) => setAddNotes(e.target.value)}
+                  className="w-full min-w-[180px] rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-sm text-text-primary placeholder-text-secondary"
                 />
               </td>
               <td className="px-4 py-3">
