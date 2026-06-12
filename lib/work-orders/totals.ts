@@ -97,3 +97,7 @@ export function computeTotals(input: TotalsInput): WOTotals {
 
 export const fmtUSD = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+/** True when a completed/invoiced work order still has money outstanding. */
+export const isBalanceOverdue = (status: string, balanceDue: number) =>
+  balanceDue > 0 && (status === "completed" || status === "invoiced");

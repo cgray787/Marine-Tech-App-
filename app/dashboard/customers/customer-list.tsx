@@ -85,6 +85,9 @@ export function CustomerList({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Per-customer delete guard message (shown inline near the Delete button).
+  // Separate from `error` so the Add/Edit form error isn't overwritten.
+  const [deleteGuardError, setDeleteGuardError] = useState<{ id: string; message: string } | null>(null);
 
   async function handleAddCustomer(e: React.FormEvent) {
     e.preventDefault();
@@ -217,6 +220,7 @@ export function CustomerList({
   }
 
   async function deleteCustomer(customerId: string, customerName: string) {
+    setDeleteGuardError(null);
     if (
       !confirm(
         `Delete ${customerName}? Their boats, jobs, service reports, and PDI reports will be removed. This can't be undone.`
@@ -227,14 +231,18 @@ export function CustomerList({
     // Guard: work_orders.customer_id is ON DELETE RESTRICT — attempting to
     // delete a client with open WOs would partially delete children then fail
     // with a FK violation. Block before any deletes run.
-    const { count: woCount } = await supabase
+    // Fail CLOSED: if the query itself errors, we block the delete too.
+    const { count: woCount, error: woErr } = await supabase
       .from("work_orders")
       .select("*", { count: "exact", head: true })
       .eq("customer_id", customerId);
-    if ((woCount ?? 0) > 0) {
-      setError(
-        `This client has ${woCount} work order(s). Delete or reassign their work orders first — deleting a client does not delete financial records.`
-      );
+    if (woErr || (woCount ?? 0) > 0) {
+      setDeleteGuardError({
+        id: customerId,
+        message: woErr
+          ? "Couldn't verify this client's work orders — try again."
+          : `This client has ${woCount} work order(s). Delete their work orders first — deleting a client does not delete financial records.`,
+      });
       return;
     }
     // jobs / service_reports / pdi_reports reference customers WITHOUT
@@ -461,9 +469,10 @@ export function CustomerList({
               >
                 {/* Customer Header */}
                 <button
-                  onClick={() =>
-                    setExpandedCustomer(isExpanded ? null : customer.id)
-                  }
+                  onClick={() => {
+                    setExpandedCustomer(isExpanded ? null : customer.id);
+                    if (isExpanded) setDeleteGuardError(null);
+                  }}
                   className="flex w-full items-center justify-between px-6 py-4 text-left transition-colors hover:bg-white/5"
                 >
                   <div className="flex items-center gap-4">
@@ -542,6 +551,9 @@ export function CustomerList({
                         >
                           🗑 Delete Client
                         </button>
+                      )}
+                      {deleteGuardError?.id === customer.id && (
+                        <p className="text-xs text-red-400">{deleteGuardError.message}</p>
                       )}
                       {isSafeSalesforceUrl(customer.salesforce_url) ? (
                         <a

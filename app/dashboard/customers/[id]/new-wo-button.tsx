@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { createDraftWorkOrder } from "@/lib/work-orders/queries";
 
 type Props = {
   customerId: string;
@@ -19,35 +20,13 @@ export function NewWOButton({ customerId, profileId }: Props) {
     setError(null);
     try {
       const supabase = createClient();
-      const [{ data: settings }, { data: me }] = await Promise.all([
-        supabase.from("wo_settings").select("*").single(),
-        supabase.from("profiles").select("id, location_id, org_id").eq("id", profileId).single(),
-      ]);
-      if (!me) {
-        setError("Could not load your profile.");
+      const result = await createDraftWorkOrder(supabase, { profileId, customerId });
+      if ("error" in result) {
+        setError(result.error);
         setCreating(false);
         return;
       }
-      const { data: created, error: insertError } = await supabase
-        .from("work_orders")
-        .insert({
-          org_id: me.org_id,
-          location_id: me.location_id,
-          customer_id: customerId,
-          service_advisor: profileId,
-          created_by: profileId,
-          default_margin_pct: settings?.default_margin_pct ?? 25,
-          taxes: settings?.default_taxes ?? [],
-          cc_fee_pct: null,
-        })
-        .select("id")
-        .single();
-      if (insertError || !created) {
-        setError(insertError?.message ?? "Work order was not created.");
-        setCreating(false);
-        return;
-      }
-      router.push(`/dashboard/work-orders/${created.id}`);
+      router.push(`/dashboard/work-orders/${result.id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unknown error");
       setCreating(false);

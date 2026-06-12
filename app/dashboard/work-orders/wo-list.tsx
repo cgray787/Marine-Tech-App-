@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn, formatDate, statusColor } from "@/lib/utils";
-import { computeTotals, fmtUSD } from "@/lib/work-orders/totals";
-import { toTotalsInput } from "@/lib/work-orders/queries";
+import { computeTotals, fmtUSD, isBalanceOverdue } from "@/lib/work-orders/totals";
+import { toTotalsInput, createDraftWorkOrder } from "@/lib/work-orders/queries";
 import { createClient } from "@/lib/supabase/client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -76,36 +76,17 @@ export function WOList({ rows, customers, canEdit, profileId }: Props) {
     setDialogError(null);
     try {
       const supabase = createClient();
-      const [{ data: settings }, { data: me }] = await Promise.all([
-        supabase.from("wo_settings").select("*").single(),
-        supabase.from("profiles").select("id, location_id, org_id").eq("id", profileId).single(),
-      ]);
-      if (!me) {
-        setDialogError("Could not load your profile.");
-        setCreating(false);
-        return;
-      }
-      const { data: created, error } = await supabase
-        .from("work_orders")
-        .insert({
-          org_id: me.org_id,
-          location_id: me.location_id,
-          customer_id: chosenCustomerId,
-          service_advisor: profileId,
-          created_by: profileId,
-          default_margin_pct: settings?.default_margin_pct ?? 25,
-          taxes: settings?.default_taxes ?? [],
-          cc_fee_pct: null,
-        })
-        .select("id")
-        .single();
-      if (error || !created) {
-        setDialogError(error?.message ?? "Work order was not created.");
+      const result = await createDraftWorkOrder(supabase, {
+        profileId,
+        customerId: chosenCustomerId,
+      });
+      if ("error" in result) {
+        setDialogError(result.error);
         setCreating(false);
         return;
       }
       setDialogOpen(false);
-      router.push(`/dashboard/work-orders/${created.id}`);
+      router.push(`/dashboard/work-orders/${result.id}`);
     } catch (err: unknown) {
       setDialogError(err instanceof Error ? err.message : "Unknown error");
       setCreating(false);
@@ -187,9 +168,7 @@ export function WOList({ rows, customers, canEdit, profileId }: Props) {
               {filtered.length > 0 ? (
                 filtered.map((row) => {
                   const totals = computeTotals(toTotalsInput(row as never));
-                  const balanceRed =
-                    totals.balanceDue > 0 &&
-                    (row.status === "completed" || row.status === "invoiced");
+                  const balanceRed = isBalanceOverdue(row.status, totals.balanceDue);
                   return (
                     <tr
                       key={row.id}

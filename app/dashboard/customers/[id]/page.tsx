@@ -3,7 +3,7 @@ import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { cn, formatDate, statusColor } from "@/lib/utils";
-import { computeTotals, fmtUSD } from "@/lib/work-orders/totals";
+import { computeTotals, fmtUSD, isBalanceOverdue } from "@/lib/work-orders/totals";
 import { toTotalsInput } from "@/lib/work-orders/queries";
 import type { WorkOrderFull } from "@/lib/work-orders/types";
 import { NewWOButton } from "./new-wo-button";
@@ -150,9 +150,7 @@ export default async function CustomerProfilePage({
               <tbody className="divide-y divide-border-line">
                 {((workOrders ?? []) as unknown as WorkOrderFull[]).map((wo) => {
                   const totals = computeTotals(toTotalsInput(wo));
-                  const balanceRed =
-                    totals.balanceDue > 0 &&
-                    (wo.status === "completed" || wo.status === "invoiced");
+                  const balanceRed = isBalanceOverdue(wo.status, totals.balanceDue);
                   return (
                     <tr key={wo.id} className="transition-colors hover:bg-white/5">
                       <td className="whitespace-nowrap px-6 py-4">

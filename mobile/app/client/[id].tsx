@@ -378,14 +378,17 @@ export default function ClientDetailScreen() {
     if (!customer) return;
     // Guard: work_orders.customer_id is ON DELETE RESTRICT — block before any
     // deletes run so a client with WOs doesn't half-delete then fail on the FK.
-    const { count: woCount } = await supabase
+    // Fail CLOSED: if the query itself errors, block the delete too.
+    const { count: woCount, error: woErr } = await supabase
       .from("work_orders")
       .select("*", { count: "exact", head: true })
       .eq("customer_id", customer.id);
-    if ((woCount ?? 0) > 0) {
+    if (woErr || (woCount ?? 0) > 0) {
       Alert.alert(
         "Cannot Delete Client",
-        `This client has ${woCount} work order(s). Delete or reassign their work orders first — deleting a client does not delete financial records.`
+        woErr
+          ? "Couldn't verify this client's work orders — check your connection and try again."
+          : `This client has ${woCount} work order(s). Delete or reassign their work orders first — deleting a client does not delete financial records.`
       );
       return;
     }

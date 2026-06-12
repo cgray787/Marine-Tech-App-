@@ -2,6 +2,33 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { WorkOrderFull, WOJob } from "./types";
 import type { TotalsInput, TotalsJob } from "./totals";
 
+export async function createDraftWorkOrder(
+  supabase: SupabaseClient,
+  { profileId, customerId }: { profileId: string; customerId: string }
+): Promise<{ id: string } | { error: string }> {
+  const [{ data: settings }, { data: me }] = await Promise.all([
+    supabase.from("wo_settings").select("*").single(),
+    supabase.from("profiles").select("id, org_id, location_id").eq("id", profileId).single(),
+  ]);
+  if (!me) return { error: "Could not load your profile." };
+  const { data: created, error } = await supabase
+    .from("work_orders")
+    .insert({
+      org_id: me.org_id,
+      location_id: me.location_id,
+      customer_id: customerId,
+      service_advisor: profileId,
+      created_by: profileId,
+      default_margin_pct: settings?.default_margin_pct ?? 25,
+      taxes: settings?.default_taxes ?? [],
+      cc_fee_pct: null,
+    })
+    .select("id")
+    .single();
+  if (error || !created) return { error: error?.message ?? "Work order was not created." };
+  return { id: created.id };
+}
+
 export const WO_FULL_SELECT = `
   id, wo_number, status, customer_id, boat_id, location_id, service_advisor,
   wo_date, default_margin_pct, taxes, cc_fee_pct, printed_notes, internal_notes,
