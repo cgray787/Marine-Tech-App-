@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatDate, statusColor } from "@/lib/utils";
-import { computeTotals, fmtUSD } from "@/lib/work-orders/totals";
+import { computeTotals } from "@/lib/work-orders/totals";
 import { toTotalsInput } from "@/lib/work-orders/queries";
 import type { WorkOrderFull, WOSettings, PriceLevel, JobTemplate } from "@/lib/work-orders/types";
 import { ChargesRail } from "./charges-rail";
@@ -128,7 +128,8 @@ export function WOEditor({
                 }
                 className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary disabled:opacity-60"
               >
-                <option value="">Select customer…</option>
+                {/* Only show placeholder when no customer is selected — prevents patching empty string into NOT NULL column (#7) */}
+                {!wo.customer_id && <option value="">Select customer…</option>}
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -295,5 +296,3 @@ export function WOEditor({
   );
 }
 
-// re-export fmtUSD for convenience (used in charges-rail which co-imports)
-export { fmtUSD };

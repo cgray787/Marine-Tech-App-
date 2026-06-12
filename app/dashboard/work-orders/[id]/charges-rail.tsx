@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
@@ -71,17 +71,40 @@ function ChargeRow({
 export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO, profileId }: Props) {
   const router = useRouter();
 
-  // CC fee local state (checkbox + pct input are controlled)
+  // ── Controlled inputs synced to server props (#1, #2) ──────────────────────
+  const [marginInput, setMarginInput] = useState(String(wo.default_margin_pct));
+  useEffect(() => { setMarginInput(String(wo.default_margin_pct)); }, [wo.default_margin_pct]);
+
+  const [ccPctInput, setCcPctInput] = useState(
+    String(wo.cc_fee_pct ?? settings?.default_cc_fee_pct ?? 3)
+  );
+  useEffect(() => {
+    setCcPctInput(String(wo.cc_fee_pct ?? settings?.default_cc_fee_pct ?? 3));
+  }, [wo.cc_fee_pct, settings?.default_cc_fee_pct]);
+
   const [ccChecked, setCcChecked] = useState(wo.cc_fee_pct != null);
-  const ccPctRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { setCcChecked(wo.cc_fee_pct != null); }, [wo.cc_fee_pct]);
+
+  const [printedNotes, setPrintedNotes] = useState(wo.printed_notes ?? "");
+  useEffect(() => { setPrintedNotes(wo.printed_notes ?? ""); }, [wo.printed_notes]);
+
+  const [internalNotes, setInternalNotes] = useState(wo.internal_notes ?? "");
+  useEffect(() => { setInternalNotes(wo.internal_notes ?? ""); }, [wo.internal_notes]);
+
+  // Preset tax select state (#8)
+  const [presetSelectValue, setPresetSelectValue] = useState("");
 
   // Custom tax form
   const [customTaxName, setCustomTaxName] = useState("");
   const [customTaxRate, setCustomTaxRate] = useState("");
 
-  // Payment dialog
+  // Payment dialog — local-date helper (#5)
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
   const [payDialogOpen, setPayDialogOpen] = useState(false);
-  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payDate, setPayDate] = useState(today);
   const [payMethod, setPayMethod] = useState("");
   const [payNote, setPayNote] = useState("");
   const [payAmount, setPayAmount] = useState("");
@@ -91,16 +114,14 @@ export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO,
   // ── CC fee helpers ──────────────────────────────────────────────────────────
   function handleCcCheck(checked: boolean) {
     setCcChecked(checked);
-    const pct = checked
-      ? Number(ccPctRef.current?.value ?? settings?.default_cc_fee_pct ?? 3)
-      : null;
+    const pct = checked ? (Number(ccPctInput) || (settings?.default_cc_fee_pct ?? 3)) : null;
     patchWO({ cc_fee_pct: pct });
   }
 
-  function handleCcPctBlur(e: React.FocusEvent<HTMLInputElement>) {
+  function handleCcPctBlur() {
     if (!ccChecked) return;
-    const val = Number(e.target.value);
-    if (val > 0) patchWO({ cc_fee_pct: val });
+    const val = Number(ccPctInput);
+    if (!isNaN(val) && val >= 0) patchWO({ cc_fee_pct: val }); // #3: >= 0 (0% is valid)
   }
 
   // ── Tax helpers ─────────────────────────────────────────────────────────────
@@ -218,16 +239,20 @@ export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO,
         <div className="p-4 space-y-3">
           <SectionTitle>Pricing Controls</SectionTitle>
 
-          {/* Default margin */}
+          {/* Default margin (#1) */}
           <label className="flex items-center gap-2">
             <span className="text-sm text-text-secondary flex-1">Default margin %</span>
             <input
               type="number"
               step="0.5"
-              defaultValue={wo.default_margin_pct}
-              onBlur={(e) =>
-                patchWO({ default_margin_pct: Number(e.target.value) })
-              }
+              value={marginInput}
+              onChange={(e) => setMarginInput(e.target.value)}
+              onBlur={() => {
+                const val = Number(marginInput);
+                if (!isNaN(val) && val !== wo.default_margin_pct) {
+                  patchWO({ default_margin_pct: val });
+                }
+              }}
               className="w-20 rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-sm text-text-primary"
             />
           </label>
@@ -245,10 +270,10 @@ export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO,
               Credit card fee
             </label>
             <input
-              ref={ccPctRef}
               type="number"
               step="0.1"
-              defaultValue={wo.cc_fee_pct ?? settings?.default_cc_fee_pct ?? 3}
+              value={ccPctInput}
+              onChange={(e) => setCcPctInput(e.target.value)}
               disabled={!ccChecked}
               onBlur={handleCcPctBlur}
               className="w-20 rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-sm text-text-primary disabled:opacity-40"
@@ -286,24 +311,22 @@ export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO,
         {canEdit && availablePresets.length > 0 && (
           <div className="flex gap-2 pt-1">
             <select
-              id="preset-tax-select"
+              value={presetSelectValue}
+              onChange={(e) => setPresetSelectValue(e.target.value)}
               className="flex-1 rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-xs text-text-primary"
-              defaultValue=""
             >
               <option value="">Add preset…</option>
               {availablePresets.map((p, i) => (
-                <option key={i} value={i}>
+                <option key={i} value={String(i)}>
                   {p.name} {p.rate_pct}%
                 </option>
               ))}
             </select>
             <button
               onClick={() => {
-                const sel = document.getElementById("preset-tax-select") as HTMLSelectElement;
-                const idx = Number(sel.value);
-                if (sel.value === "") return;
-                addPresetTax(availablePresets[idx]);
-                sel.value = "";
+                if (presetSelectValue === "") return;
+                addPresetTax(availablePresets[Number(presetSelectValue)]);
+                setPresetSelectValue("");
               }}
               className="rounded-lg border border-border-line px-3 py-1 text-xs text-text-secondary hover:text-text-primary"
             >
@@ -384,7 +407,7 @@ export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO,
         {canEdit && (
           <button
             onClick={() => {
-              setPayDate(new Date().toISOString().slice(0, 10));
+              setPayDate(today());
               setPayAmount("");
               setPayMethod("");
               setPayNote("");
@@ -409,8 +432,12 @@ export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO,
           <textarea
             rows={3}
             disabled={!canEdit}
-            defaultValue={wo.printed_notes ?? ""}
-            onBlur={(e) => patchWO({ printed_notes: e.target.value || null })}
+            value={printedNotes}
+            onChange={(e) => setPrintedNotes(e.target.value)}
+            onBlur={() => {
+              const val = printedNotes || null;
+              if (val !== (wo.printed_notes ?? null)) patchWO({ printed_notes: val });
+            }}
             className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary placeholder-text-secondary disabled:opacity-60 resize-none"
             placeholder="Notes visible to the customer…"
           />
@@ -423,8 +450,12 @@ export function ChargesRail({ wo, totals, canEdit, hideCosts, settings, patchWO,
           <textarea
             rows={3}
             disabled={!canEdit}
-            defaultValue={wo.internal_notes ?? ""}
-            onBlur={(e) => patchWO({ internal_notes: e.target.value || null })}
+            value={internalNotes}
+            onChange={(e) => setInternalNotes(e.target.value)}
+            onBlur={() => {
+              const val = internalNotes || null;
+              if (val !== (wo.internal_notes ?? null)) patchWO({ internal_notes: val });
+            }}
             className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary placeholder-text-secondary disabled:opacity-60 resize-none"
             placeholder="Internal notes (not printed)…"
           />
