@@ -12,6 +12,7 @@ import { ChargesRail } from "./charges-rail";
 import { JobSection } from "./job-section";
 import { JobSheet } from "./job-sheet";
 import { AddJobsDialog } from "./add-jobs-dialog";
+import { DownloadPdfButton } from "./download-pdf-button";
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
@@ -114,12 +115,15 @@ export function WOEditor({
             >
               {wo.status}
             </span>
-            <Link
-              href={`/dashboard/work-orders/${wo.id}/print`}
-              className="ml-auto rounded-lg border border-border-line px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-gold/50 hover:text-text-primary"
-            >
-              Print
-            </Link>
+            <div className="ml-auto flex items-center gap-2">
+              <Link
+                href={`/dashboard/work-orders/${wo.id}/print`}
+                className="rounded-lg border border-border-line px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-gold/50 hover:text-text-primary"
+              >
+                Print
+              </Link>
+              <DownloadPdfButton wo={wo} totals={totals} />
+            </div>
           </div>
 
           {/* Field grid */}

@@ -5,8 +5,10 @@ import { toTotalsInput } from "@/lib/work-orders/queries";
 import { letterheadFor } from "@/lib/work-orders/letterhead";
 import { formatDate } from "@/lib/utils";
 import { PrintButton } from "@/components/print-button";
+import { DownloadPdfButton } from "@/app/dashboard/work-orders/[id]/download-pdf-button";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 export default async function WorkOrderPrintPage({
   params,
@@ -52,6 +54,18 @@ export default async function WorkOrderPrintPage({
             {letterhead.lines.map((line, i) => (
               <p key={i} className="text-sm text-gray-600">{line}</p>
             ))}
+          </div>
+
+          {/* Center: round logo */}
+          <div className="flex items-start justify-center">
+            <Image
+              src="/jby-logo.png"
+              alt="Jeff Brown Yachts"
+              width={80}
+              height={80}
+              className="h-20 w-20 rounded-full"
+              style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties}
+            />
           </div>
 
           {/* Right: WO heading */}
@@ -341,6 +355,7 @@ export default async function WorkOrderPrintPage({
         {/* 8. Print/Back actions (hidden on print) */}
         <div className="print:hidden flex items-center gap-4 mt-8 pt-4 border-t border-black/10">
           <PrintButton />
+          <DownloadPdfButton wo={wo} totals={totals} />
           <Link
             href={`/dashboard/work-orders/${wo.id}`}
             className="text-sm text-gray-600 hover:text-black transition-colors"
