@@ -171,6 +171,8 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `029_tighten_shop_inserts.sql` — closes three remaining cross-location INSERT holes: replaces the permissive `tech_insert_jobs` (`WITH CHECK true`) with tier-aware `shop_insert_jobs` + `individual_insert_jobs`, and adds explicit location checks to `shop_insert_customers` and `shop_insert_boats` (defense in depth on top of migration 023's `set_customer_tenant` trigger).
 - `030_marinas_insert_for_team.sql` — opens `marinas` INSERT to shop tier + admins (was admin-only) so Create Job's inline "+ Add new marina" works; viewers are blocked at the UI by `canWrite`.
 - `031_jobs_service_descriptions.sql` — adds `jobs.service_descriptions` JSONB (per-service-type descriptions keyed by `service_types` values, default `{}`), powering per-area notes on the Create Job form.
+- `032_viewer_readonly_enforcement.sql` — `profile_can_write()` helper + RESTRICTIVE write policies on every user-writable table so `viewer` is read-only at the DB layer.
+- `033_work_orders.sql` — Work Orders module: `price_levels`, `job_templates`, `wo_settings`, `work_orders` (+`work_order_number_seq` from 1001), `work_order_jobs`, `work_order_lines`, `work_order_payments`; `wo_can_edit()` helper (admin+manager writes only); seeds 15 templates + Seattle $175/hr price level. **Pre-Sausalito follow-up:** migration 034 must add location scoping to the four `wo_*_write` policies (role-only today; latent until a 2nd location opens).
 
 **Numbering collision footgun:** two files share the `026` prefix — `026_owner_only_user_management.sql` and `026_parts_order_email.sql` (pg_cron schedule + `parts-order-email` edge-function wiring). Both are applied; next new migration should be `032`. Migrations are applied via Supabase MCP (`mcp__supabase__apply_migration`), not the Supabase CLI.
 
@@ -334,6 +336,7 @@ marine-tech-app/
 6. **Technicians / Users & Access** (`/dashboard/technicians`) — owner-gated at three layers
 7. **Clients** (`/dashboard/customers`) — renamed from "Customers & Boats"; editable client + boat cards, Delete Client (cascade-deletes child records)
 8. **PDI Reports** (`/dashboard/pdi-reports`)
+9. **Work Orders** (`/dashboard/work-orders`) — priced customer-facing work orders modeled on the Salesforce teamMarine W/O: list + editor (`[id]`) with job sections (FRH/Flat/Per-Foot labor off `price_levels`, 3-C fields, ESTIMATE flag, auto shop-supplies line), parts w/ hidden margin, stacked taxes, optional CC fee, payments + balance, internal profit (hidden from viewers), JBY-letterhead print view (`[id]/print`), Add-Jobs template catalog, settings page (`settings` — price levels / templates / defaults, admin+manager only). Money math single-sourced in `lib/work-orders/totals.ts` (unit-tested). Client profile page `/dashboard/customers/[id]` shows per-client WOs; delete-client is blocked while a client has WOs (fail-closed guard, web + mobile). Spec/plan: `docs/superpowers/{specs/2026-06-12-work-orders-design.md, plans/2026-06-12-work-orders.md}`. Phase 2 (not built): QuickBooks export, email/text WO, SF catalog import, portal mirror.
 
 ## Calendar Feature (shipped to `main`)
 
