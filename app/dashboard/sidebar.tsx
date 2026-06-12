@@ -32,8 +32,8 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "grid" },
   { label: "Reports", href: "/dashboard/reports", icon: "file-text" },
   { label: "Jobs", href: "/dashboard/jobs", icon: "briefcase" },
-  { label: "Calendar", href: "/dashboard/calendar", icon: "calendar" },
   { label: "Work Orders", href: "/dashboard/work-orders", icon: "wrench" },
+  { label: "Calendar", href: "/dashboard/calendar", icon: "calendar" },
   // Users & Access page — hidden from everyone except the operator (Connor).
   // Admins like Darik still manage data everywhere else; they just can't see
   // or change role assignments here.
