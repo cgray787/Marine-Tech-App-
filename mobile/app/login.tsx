@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,9 +11,11 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
+import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from "@/lib/sso";
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -22,6 +24,36 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState<"apple" | "google" | null>(null);
+
+  useEffect(() => {
+    isAppleSignInAvailable().then(setAppleAvailable);
+  }, []);
+
+  async function handleApple() {
+    setError(null);
+    setSsoLoading("apple");
+    const result = await signInWithApple();
+    setSsoLoading(null);
+    if (result.ok === true) {
+      router.replace("/(tabs)");
+    } else if (result.ok === false) {
+      setError(result.error);
+    }
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    setSsoLoading("google");
+    const result = await signInWithGoogle();
+    setSsoLoading(null);
+    if (result.ok === true) {
+      router.replace("/(tabs)");
+    } else if (result.ok === false) {
+      setError(result.error);
+    }
+  }
 
   async function handleSignIn() {
     if (!email || !password) {
@@ -151,6 +183,36 @@ export default function LoginScreen() {
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
 
+        {/* SSO providers */}
+        <View style={styles.ssoDividerRow}>
+          <View style={styles.ssoDividerLine} />
+          <Text style={styles.ssoDividerText}>or continue with</Text>
+          <View style={styles.ssoDividerLine} />
+        </View>
+
+        {appleAvailable && (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={10}
+            style={styles.appleButton}
+            onPress={handleApple}
+          />
+        )}
+
+        <TouchableOpacity
+          style={[styles.googleButton, ssoLoading === "google" && styles.signInButtonDisabled]}
+          onPress={handleGoogle}
+          disabled={ssoLoading !== null}
+          activeOpacity={0.8}
+        >
+          {ssoLoading === "google" ? (
+            <ActivityIndicator color="#1f1f1f" />
+          ) : (
+            <Text style={styles.googleButtonText}>{"🔒  Continue with Google"}</Text>
+          )}
+        </TouchableOpacity>
+
         {/* Create Account */}
         <View style={styles.divider} />
         <TouchableOpacity
@@ -277,6 +339,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginTop: 32,
     marginBottom: 20,
+  },
+  ssoDividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 28,
+    marginBottom: 16,
+  },
+  ssoDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  ssoDividerText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginHorizontal: 12,
+    letterSpacing: 1,
+  },
+  appleButton: {
+    height: 50,
+    width: "100%",
+    marginBottom: 12,
+  },
+  googleButton: {
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  googleButtonText: {
+    color: "#1f1f1f",
+    fontSize: 16,
+    fontWeight: "600",
   },
   createAccountButton: {
     alignItems: "center",
