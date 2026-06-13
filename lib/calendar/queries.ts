@@ -9,6 +9,20 @@ const SELECT = `
   tech:profiles!assigned_to(id, full_name)
 `;
 
+/**
+ * Jobs follow their customer's office, so the office filter needs an inner
+ * join on the embedded customer (a plain embed would only null the customer
+ * out instead of dropping the row). Exported for tests.
+ */
+export function calendarSelect(locationScoped: boolean): string {
+  return locationScoped
+    ? SELECT.replace(
+        'customer:customers(id, name)',
+        'customer:customers!inner(id, name, location_id)'
+      )
+    : SELECT;
+}
+
 type Rel<T> = T | T[] | null;
 
 function unwrap<T>(rel: Rel<T>): T | null {
@@ -44,14 +58,16 @@ export async function getJobsInRange(
   startUtc: string,
   endUtc: string,
   techId?: string,
+  locationId?: string,
 ): Promise<CalendarJob[]> {
   let q = supabase
     .from('jobs')
-    .select(SELECT)
+    .select(calendarSelect(!!locationId))
     .gte('scheduled_start', startUtc)
     .lte('scheduled_start', endUtc)
     .order('scheduled_start');
   if (techId) q = q.eq('assigned_to', techId);
+  if (locationId) q = q.eq('customer.location_id', locationId);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []).map(mapJobRowToCalendarJob);
@@ -60,9 +76,15 @@ export async function getJobsInRange(
 export async function getUnscheduledJobs(
   supabase: SupabaseClient,
   techId?: string,
+  locationId?: string,
 ): Promise<CalendarJob[]> {
-  let q = supabase.from('jobs').select(SELECT).is('scheduled_start', null).order('created_at');
+  let q = supabase
+    .from('jobs')
+    .select(calendarSelect(!!locationId))
+    .is('scheduled_start', null)
+    .order('created_at');
   if (techId) q = q.eq('assigned_to', techId);
+  if (locationId) q = q.eq('customer.location_id', locationId);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []).map(mapJobRowToCalendarJob);

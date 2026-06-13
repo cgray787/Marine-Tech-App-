@@ -1,18 +1,27 @@
 import { requireAdmin } from "@/lib/admin";
+import { locationFilterFor } from "@/lib/location/server";
 import { formatDate, statusColor } from "@/lib/utils";
 import Link from "next/link";
 import { ReportStatusActions } from "./report-actions";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 export default async function ReportsPage() {
-  const { supabase } = await requireAdmin();
+  const { supabase, profile } = await requireAdmin();
+  const loc = await locationFilterFor(profile);
 
-  const { data: reports, error: reportsError } = await supabase
-    .from("service_reports")
-    .select(
-      "id, boat_name, owner_name, make_model, status, submitted_at, service_types, tech_id, profiles:tech_id(full_name)"
-    )
-    .order("submitted_at", { ascending: false });
+  // Reports follow their customer's office — the filter rides an inner join.
+  // Two static select literals because supabase-js derives row types from them.
+  const reportsQuery = loc
+    ? supabase
+        .from("service_reports")
+        .select("id, boat_name, owner_name, make_model, status, submitted_at, service_types, tech_id, profiles:tech_id(full_name), customers:customer_id!inner(location_id)")
+        .eq("customers.location_id", loc)
+        .order("submitted_at", { ascending: false })
+    : supabase
+        .from("service_reports")
+        .select("id, boat_name, owner_name, make_model, status, submitted_at, service_types, tech_id, profiles:tech_id(full_name)")
+        .order("submitted_at", { ascending: false });
+  const { data: reports, error: reportsError } = await reportsQuery;
 
   if (reportsError) {
     console.error("Failed to load reports:", reportsError);

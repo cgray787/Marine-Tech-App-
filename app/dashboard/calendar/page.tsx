@@ -11,12 +11,16 @@ import { subscribeToJobs, unsubscribe } from '@/lib/calendar/realtime';
 import { createClient } from '@/lib/supabase/client';
 import { techColor, statusStripeColor } from '@/lib/calendar/colors';
 import { useCanWrite } from '@/lib/role-context';
+import { useLocationFilter } from '@/lib/location/client';
 import type { CalendarJob, CalendarView as ViewMode } from '@/lib/calendar/types';
 
 export default function CalendarPage() {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
   const canWrite = useCanWrite();
+  // Office filter set from the sidebar switcher (org-wide users only — for
+  // location-scoped users the cookie is never set and RLS scopes the data).
+  const locationId = useLocationFilter();
 
   const [view, setView] = useState<ViewMode>('month');
   const [date, setDate] = useState(new Date());
@@ -38,23 +42,26 @@ export default function CalendarPage() {
   }, [date, view]);
 
   const jobsQuery = useQuery({
-    queryKey: ['calendar', range.startUtc, range.endUtc, techId],
-    queryFn: () => getJobsInRange(supabase, range.startUtc, range.endUtc, techId ?? undefined),
+    queryKey: ['calendar', range.startUtc, range.endUtc, techId, locationId],
+    queryFn: () =>
+      getJobsInRange(supabase, range.startUtc, range.endUtc, techId ?? undefined, locationId ?? undefined),
   });
 
   const unscheduledQuery = useQuery({
-    queryKey: ['calendar', 'unscheduled', techId],
-    queryFn: () => getUnscheduledJobs(supabase, techId ?? undefined),
+    queryKey: ['calendar', 'unscheduled', techId, locationId],
+    queryFn: () => getUnscheduledJobs(supabase, techId ?? undefined, locationId ?? undefined),
   });
 
   const techsQuery = useQuery({
-    queryKey: ['techs'],
+    queryKey: ['techs', locationId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('profiles')
         .select('id, full_name')
         .eq('role', 'tech')
         .order('full_name');
+      if (locationId) q = q.eq('location_id', locationId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []).map((t) => ({ id: t.id, fullName: t.full_name }));
     },
