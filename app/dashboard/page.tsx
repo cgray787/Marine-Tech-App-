@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin";
+import { locationFilterFor } from "@/lib/location/server";
 import { formatDateTime, statusColor } from "@/lib/utils";
 import Link from "next/link";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
@@ -6,7 +7,72 @@ import { PartsToOrder } from "@/components/dashboard/parts-to-order";
 import type { PartRow } from "@/lib/dashboard/parts";
 
 export default async function DashboardPage() {
-  const { supabase } = await requireAdmin();
+  const { supabase, profile } = await requireAdmin();
+  const loc = await locationFilterFor(profile);
+
+  // Jobs and reports follow their customer's office, so the office filter
+  // rides an inner join on the embedded customer; parts and profiles carry
+  // their own location_id.
+  const custJoin = "customers:customer_id!inner(location_id)";
+
+  let totalJobsQ = supabase
+    .from("jobs")
+    .select(loc ? `id, ${custJoin}` : "*", { count: "exact", head: true });
+  if (loc) totalJobsQ = totalJobsQ.eq("customers.location_id", loc);
+
+  let pendingReviewsQ = supabase
+    .from("service_reports")
+    .select(loc ? `id, ${custJoin}` : "*", { count: "exact", head: true })
+    .eq("status", "submitted");
+  if (loc) pendingReviewsQ = pendingReviewsQ.eq("customers.location_id", loc);
+
+  // Count managers as techs too — they're part of the active field staff.
+  let activeTechsQ = supabase
+    .from("profiles")
+    .select("*", { count: "exact", head: true })
+    .in("role", ["tech", "manager"])
+    .eq("status", "active");
+  if (loc) activeTechsQ = activeTechsQ.eq("location_id", loc);
+
+  let openPdisQ = supabase
+    .from("pdi_reports")
+    .select(loc ? `id, ${custJoin}` : "*", { count: "exact", head: true })
+    .in("status", ["submitted", "reviewed"]);
+  if (loc) openPdisQ = openPdisQ.eq("customers.location_id", loc);
+
+  // Two static select literals per query (instead of one template string)
+  // because supabase-js derives row types by parsing the literal.
+  const recentReportsQ = loc
+    ? supabase
+        .from("service_reports")
+        .select("id, boat_name, owner_name, status, submitted_at, service_types, tech_id, profiles:tech_id(full_name), customers:customer_id!inner(location_id)")
+        .eq("customers.location_id", loc)
+        .order("submitted_at", { ascending: false })
+        .limit(5)
+    : supabase
+        .from("service_reports")
+        .select("id, boat_name, owner_name, status, submitted_at, service_types, tech_id, profiles:tech_id(full_name)")
+        .order("submitted_at", { ascending: false })
+        .limit(5);
+
+  const recentJobsQ = loc
+    ? supabase
+        .from("jobs")
+        .select("id, status, scheduled_date, service_types, boats:boat_id(name), profiles:assigned_to(full_name), customers:customer_id!inner(name, location_id)")
+        .eq("customers.location_id", loc)
+        .order("created_at", { ascending: false })
+        .limit(5)
+    : supabase
+        .from("jobs")
+        .select("id, status, scheduled_date, service_types, boats:boat_id(name), profiles:assigned_to(full_name), customers:customer_id(name)")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+  let partsQ = supabase
+    .from("parts")
+    .select("id, name, customer_id, boat_id, part_number, quantity, description, supplier, url, photo_url, status, ordered_at, customers:customer_id(name), boats:boat_id(name)")
+    .order("created_at", { ascending: false });
+  if (loc) partsQ = partsQ.eq("location_id", loc);
 
   // Fetch stats in parallel
   const [
@@ -18,35 +84,13 @@ export default async function DashboardPage() {
     { data: recentJobs },
     { data: partsRaw },
   ] = await Promise.all([
-    supabase.from("jobs").select("*", { count: "exact", head: true }),
-    supabase
-      .from("service_reports")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "submitted"),
-    // Count managers as techs too — they're part of the active field staff.
-    supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .in("role", ["tech", "manager"])
-      .eq("status", "active"),
-    supabase
-      .from("pdi_reports")
-      .select("*", { count: "exact", head: true })
-      .in("status", ["submitted", "reviewed"]),
-    supabase
-      .from("service_reports")
-      .select("id, boat_name, owner_name, status, submitted_at, service_types, tech_id, profiles:tech_id(full_name)")
-      .order("submitted_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("jobs")
-      .select("id, status, scheduled_date, service_types, boats:boat_id(name), profiles:assigned_to(full_name), customers:customer_id(name)")
-      .order("created_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("parts")
-      .select("id, name, customer_id, boat_id, part_number, quantity, description, supplier, url, photo_url, status, ordered_at, customers:customer_id(name), boats:boat_id(name)")
-      .order("created_at", { ascending: false }),
+    totalJobsQ,
+    pendingReviewsQ,
+    activeTechsQ,
+    openPdisQ,
+    recentReportsQ,
+    recentJobsQ,
+    partsQ,
   ]);
 
   const partsList: PartRow[] = (partsRaw ?? []).map((p) => ({
