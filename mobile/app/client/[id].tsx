@@ -601,11 +601,6 @@ export default function ClientDetailScreen() {
               </Text>
             </TouchableOpacity>
           )}
-          {canWrite && (
-            <TouchableOpacity style={styles.deleteClientBtn} onPress={handleDeleteClient}>
-              <Text style={styles.deleteClientBtnText}>Delete Client</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Boats Section */}
@@ -1288,6 +1283,15 @@ export default function ClientDetailScreen() {
                     <Text style={styles.modalSubmitText}>Save Changes</Text>
                   )}
                 </TouchableOpacity>
+
+                {canWrite && (
+                  <TouchableOpacity
+                    style={styles.deleteClientBtn}
+                    onPress={handleDeleteClient}
+                  >
+                    <Text style={styles.deleteClientBtnText}>Delete Client</Text>
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -1568,7 +1572,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   deleteClientBtn: {
-    marginTop: 18,
+    marginTop: 0,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.bad,
     borderRadius: 12,

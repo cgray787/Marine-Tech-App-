@@ -31,3 +31,16 @@ export function isOwner(profile: OwnerCandidate | null | undefined): boolean {
   if (authId && OWNER_AUTH_IDS.has(authId)) return true;
   return false;
 }
+
+/**
+ * Org-wide = sees every office + gets the office picker / "All Offices".
+ * Admin role grants cross-office reach (RLS admin_all_* bypass); the Owner
+ * allowlist is always org-wide regardless of role. Everyone else is bound to
+ * their single profiles.location_id by RLS. Today the only admins are Connor's
+ * three identities, so org-wide == Connor.
+ */
+export function isOrgWide(
+  profile: (OwnerCandidate & { role?: string | null }) | null | undefined
+): boolean {
+  return profile?.role === "admin" || isOwner(profile);
+}

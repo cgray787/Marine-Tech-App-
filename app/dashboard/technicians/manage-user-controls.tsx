@@ -19,14 +19,19 @@ const ROLE_OPTIONS = [
 export function ManageUserControls({
   profileId,
   currentRole,
+  currentLocationId,
+  locations,
   name,
 }: {
   profileId: string;
   currentRole: string;
+  currentLocationId: string | null;
+  locations: { id: string; name: string }[];
   name: string;
 }) {
   const router = useRouter();
   const [role, setRole] = useState(currentRole);
+  const [locationId, setLocationId] = useState<string>(currentLocationId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,6 +50,23 @@ export function ManageUserControls({
     }
     setRole(newRole);
     // Promoting to Admin removes the user from this list (techs & viewers only).
+    router.refresh();
+  }
+
+  async function changeLocation(newLoc: string) {
+    setBusy(true);
+    setError("");
+    const supabase = createClient();
+    const { error } = await supabase.rpc("admin_set_user_location", {
+      target_profile: profileId,
+      new_location: newLoc || null,
+    });
+    setBusy(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setLocationId(newLoc);
     router.refresh();
   }
 
@@ -84,6 +106,20 @@ export function ManageUserControls({
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
+          ))}
+        </select>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <label className="text-xs font-medium text-text-secondary">Office</label>
+        <select
+          value={locationId}
+          disabled={busy}
+          onChange={(e) => changeLocation(e.target.value)}
+          className="rounded-lg border border-border-line bg-secondary-bg px-2 py-1 text-xs text-text-primary focus:border-gold focus:outline-none disabled:opacity-50"
+        >
+          <option value="">No office</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
           ))}
         </select>
       </div>

@@ -114,8 +114,9 @@ function LoginForm() {
     // Hard navigation (not router.push) so the freshly-set Supabase auth
     // cookie travels with the next request — the Next.js client router
     // can race the cookie write on Cloudflare Workers and bounce back to
-    // /login with no session attached.
-    window.location.href = "/dashboard";
+    // /login with no session attached. Lands on the office picker, which
+    // self-redirects single-office staff straight to /dashboard.
+    window.location.href = "/dashboard/choose-office";
   }
 
   return (

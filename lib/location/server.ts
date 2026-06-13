@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { isOwner, type OwnerCandidate } from "@/lib/owner";
+import { isOrgWide, type OwnerCandidate } from "@/lib/owner";
 import { LOCATION_COOKIE, parseLocationValue } from "./constants";
 
 /**
@@ -21,6 +21,5 @@ export async function activeLocation(): Promise<string | null> {
 export async function locationFilterFor(
   profile: (OwnerCandidate & { role?: string | null }) | null | undefined
 ): Promise<string | null> {
-  const orgWide = profile?.role === "admin" || isOwner(profile);
-  return orgWide ? activeLocation() : null;
+  return isOrgWide(profile) ? activeLocation() : null;
 }

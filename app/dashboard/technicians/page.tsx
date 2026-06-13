@@ -2,6 +2,7 @@ import { requireOwner } from "@/lib/owner-guard";
 import { formatDate } from "@/lib/utils";
 import { InviteTechForm } from "./invite-tech-form";
 import { ManageUserControls } from "./manage-user-controls";
+import { CreateOfficeUserForm } from "./create-office-user-form";
 
 export default async function TechniciansPage() {
   // Owner gate — admins (like Darik) get redirected to /dashboard.
@@ -61,6 +62,9 @@ export default async function TechniciansPage() {
           </p>
         </div>
       </div>
+
+      {/* Create Office User (owner-only direct auth creation) */}
+      <CreateOfficeUserForm locations={locations ?? []} />
 
       {/* Invite Tech */}
       <InviteTechForm />
@@ -152,6 +156,8 @@ export default async function TechniciansPage() {
                 <ManageUserControls
                   profileId={tech.id}
                   currentRole={tech.role}
+                  currentLocationId={tech.location_id ?? null}
+                  locations={locations ?? []}
                   name={tech.full_name || tech.email || "this user"}
                 />
               </div>
