@@ -32,7 +32,7 @@ export async function createDraftWorkOrder(
 export const WO_FULL_SELECT = `
   id, wo_number, status, customer_id, boat_id, location_id, service_advisor,
   wo_date, default_margin_pct, taxes, cc_fee_pct, printed_notes, internal_notes,
-  approved_at, completed_at, invoiced_at,
+  approved_at, completed_at, invoiced_at, quickbooks_invoice_id, quickbooks_synced_at,
   customers:customer_id ( id, name, email, phone ),
   boats:boat_id ( id, name, make_model, year, hin ),
   profiles:service_advisor ( full_name ),

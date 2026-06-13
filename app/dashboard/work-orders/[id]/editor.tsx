@@ -13,6 +13,7 @@ import { JobSection } from "./job-section";
 import { JobSheet } from "./job-sheet";
 import { AddJobsDialog } from "./add-jobs-dialog";
 import { DownloadPdfButton } from "./download-pdf-button";
+import { QuickBooksButton } from "./quickbooks-button";
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,12 @@ export function WOEditor({
                 Print
               </Link>
               <DownloadPdfButton wo={wo} totals={totals} />
+              <QuickBooksButton
+                workOrderId={wo.id}
+                syncedInvoiceId={wo.quickbooks_invoice_id ?? null}
+                syncedAt={wo.quickbooks_synced_at ?? null}
+                canEdit={canEdit}
+              />
             </div>
           </div>
 

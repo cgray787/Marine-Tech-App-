@@ -49,6 +49,8 @@ export interface WorkOrderFull {
   wo_date: string; default_margin_pct: number; taxes: TaxEntry[];
   cc_fee_pct: number | null; printed_notes: string | null; internal_notes: string | null;
   approved_at: string | null; completed_at: string | null; invoiced_at: string | null;
+  quickbooks_invoice_id: string | null;
+  quickbooks_synced_at: string | null;
   customers?: { id: string; name: string; email: string | null; phone: string | null } | null;
   boats?: { id: string; name: string; make_model: string | null; year: number | null; hin: string | null } | null;
   profiles?: { full_name: string } | null;     // joined advisor
