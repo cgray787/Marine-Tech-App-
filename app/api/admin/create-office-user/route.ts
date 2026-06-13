@@ -32,6 +32,23 @@ export async function POST(req: Request) {
   }
 
   const admin = await createServiceClient();
+
+  // Reject up front if a profile already owns this email. Without this, an
+  // existing invited/legacy profile (created by InviteTechForm with no auth_id)
+  // would get silently hijacked by trigger 013's ON CONFLICT (email) upsert
+  // re-pointing its auth_id at the new auth user. Give a clear error instead.
+  const { data: existingProfile } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (existingProfile) {
+    return NextResponse.json(
+      { error: "a user with that email already exists" },
+      { status: 409 }
+    );
+  }
+
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,
