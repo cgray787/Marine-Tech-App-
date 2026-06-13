@@ -6,16 +6,20 @@ export async function createDraftWorkOrder(
   supabase: SupabaseClient,
   { profileId, customerId }: { profileId: string; customerId: string }
 ): Promise<{ id: string } | { error: string }> {
-  const [{ data: settings }, { data: me }] = await Promise.all([
+  const [{ data: settings }, { data: me }, { data: customer }] = await Promise.all([
     supabase.from("wo_settings").select("*").single(),
     supabase.from("profiles").select("id, org_id, location_id").eq("id", profileId).single(),
+    supabase.from("customers").select("location_id").eq("id", customerId).single(),
   ]);
   if (!me) return { error: "Could not load your profile." };
   const { data: created, error } = await supabase
     .from("work_orders")
     .insert({
       org_id: me.org_id,
-      location_id: me.location_id,
+      // The WO belongs to the customer's office, not the creator's — an
+      // org-wide admin (location_id NULL) creating a Seattle WO must still
+      // produce a WO that Seattle's manager can see.
+      location_id: customer?.location_id ?? me.location_id,
       customer_id: customerId,
       service_advisor: profileId,
       created_by: profileId,

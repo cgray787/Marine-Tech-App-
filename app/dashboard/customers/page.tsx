@@ -1,18 +1,21 @@
 import { requireAdmin } from "@/lib/admin";
+import { locationFilterFor } from "@/lib/location/server";
 import { CustomerList } from "./customer-list";
 
 export default async function CustomersPage() {
-  const { supabase } = await requireAdmin();
+  const { supabase, profile } = await requireAdmin();
+  const loc = await locationFilterFor(profile);
 
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("*")
-    .order("name");
+  let customersQuery = supabase.from("customers").select("*");
+  if (loc) customersQuery = customersQuery.eq("location_id", loc);
+  const { data: customers } = await customersQuery.order("name");
 
-  const { data: boats } = await supabase
+  // Boats follow their parent customer's office.
+  let boatsQuery = supabase
     .from("boats")
-    .select("*")
-    .order("name");
+    .select(loc ? "*, customers:customer_id!inner(location_id)" : "*");
+  if (loc) boatsQuery = boatsQuery.eq("customers.location_id", loc);
+  const { data: boats } = await boatsQuery.order("name");
 
   return (
     <div>
@@ -27,7 +30,7 @@ export default async function CustomersPage() {
 
       <CustomerList
         initialCustomers={customers || []}
-        initialBoats={boats || []}
+        initialBoats={(boats as unknown as Parameters<typeof CustomerList>[0]['initialBoats']) || []}
       />
     </div>
   );

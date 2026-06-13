@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
 import { isOwner } from "@/lib/owner";
+import { LocationSwitcher, type LocationOption } from "@/components/location-switcher";
 
 type Profile = {
   id: string;
@@ -19,6 +20,9 @@ type Profile = {
 type SidebarProps = {
   profile: Profile;
   pendingJobCount?: number;
+  locations?: LocationOption[];
+  activeLocationId?: string | null;
+  showLocationSwitcher?: boolean;
 };
 
 interface NavItem {
@@ -97,7 +101,13 @@ function NavIcon({ icon }: { icon: string }) {
   }
 }
 
-export function Sidebar({ profile, pendingJobCount = 0 }: SidebarProps) {
+export function Sidebar({
+  profile,
+  pendingJobCount = 0,
+  locations = [],
+  activeLocationId = null,
+  showLocationSwitcher = false,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -122,6 +132,11 @@ export function Sidebar({ profile, pendingJobCount = 0 }: SidebarProps) {
           </p>
         </div>
       </div>
+
+      {/* Office filter — org-wide users (admins + Owner) only. */}
+      {showLocationSwitcher && locations.length > 0 && (
+        <LocationSwitcher locations={locations} current={activeLocationId} />
+      )}
 
       {/* Navigation — ownerOnly entries get filtered out for non-owner users. */}
       <nav className="flex-1 space-y-1 px-3 py-4">
