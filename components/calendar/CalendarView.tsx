@@ -55,7 +55,9 @@ export function CalendarView({ jobs, view, date, onNavigate, onView, onSelectJob
         onSelectJob(event.resource as CalendarJob, e?.currentTarget as HTMLElement)
       }
       components={{
-        event: ({ event }) => <JobChip job={event.resource as CalendarJob} />,
+        event: ({ event }) => (
+          <JobChip job={event.resource as CalendarJob} compact={view === 'month'} />
+        ),
       }}
       style={{ height: 'calc(100vh - 280px)', minHeight: 600 }}
     />
