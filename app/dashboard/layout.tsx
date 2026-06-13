@@ -20,6 +20,16 @@ export default async function DashboardLayout({
     ? await supabase.from("locations").select("id, name").order("name")
     : { data: null };
 
+  let ownLocationName: string | null = null;
+  if (!orgWide && profile.location_id) {
+    const { data: ownLoc } = await supabase
+      .from("locations")
+      .select("name")
+      .eq("id", profile.location_id)
+      .single();
+    ownLocationName = ownLoc?.name ?? null;
+  }
+
   // Pending count for the sidebar badge — jobs with no schedule date and not completed.
   let pendingQuery = supabase
     .from("jobs")
@@ -43,6 +53,7 @@ export default async function DashboardLayout({
             locations={locations ?? []}
             activeLocationId={loc}
             showLocationSwitcher={orgWide}
+            ownLocationName={ownLocationName}
           />
         </div>
         <main className="flex-1 overflow-y-auto p-6 lg:p-8 print-main">

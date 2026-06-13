@@ -23,6 +23,7 @@ type SidebarProps = {
   locations?: LocationOption[];
   activeLocationId?: string | null;
   showLocationSwitcher?: boolean;
+  ownLocationName?: string | null;
 };
 
 interface NavItem {
@@ -107,6 +108,7 @@ export function Sidebar({
   locations = [],
   activeLocationId = null,
   showLocationSwitcher = false,
+  ownLocationName = null,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -133,10 +135,21 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Office filter — org-wide users (admins + Owner) only. */}
-      {showLocationSwitcher && locations.length > 0 && (
-        <LocationSwitcher locations={locations} current={activeLocationId} />
-      )}
+      {/* Office filter — org-wide users (admins + Owner) only; static badge for single-office staff. */}
+      {showLocationSwitcher ? (
+        locations.length > 0 ? (
+          <LocationSwitcher locations={locations} current={activeLocationId} />
+        ) : null
+      ) : ownLocationName ? (
+        <div className="border-b border-border-line px-4 py-3">
+          <span className="mb-1 block text-[10px] font-medium uppercase tracking-widest text-text-secondary">
+            Office
+          </span>
+          <span className="flex items-center gap-1.5 text-sm text-text-primary">
+            <span className="text-gold">⚓</span> {ownLocationName}
+          </span>
+        </div>
+      ) : null}
 
       {/* Navigation — ownerOnly entries get filtered out for non-owner users. */}
       <nav className="flex-1 space-y-1 px-3 py-4">
