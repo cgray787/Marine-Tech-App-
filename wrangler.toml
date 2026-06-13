@@ -18,6 +18,10 @@ binding = "ASSETS"
 
 [vars]
 NEXT_PUBLIC_SUPABASE_URL = "https://ikfcnqdrlvhvlyhiuphs.supabase.co"
+# QuickBooks Online (non-secret config; INTUIT_CLIENT_ID/SECRET live as wrangler secrets)
+QB_ENV = "production"
+NEXT_PUBLIC_QB_ENV = "production"
+QB_REDIRECT_URI = "https://marinetech.grayyachts.com/api/quickbooks/callback"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ"
 # Cloudflare Turnstile sitekey (public). Real key created 2026-06-05 in
 # dash.cloudflare.com → Turnstile → 'Marine Tech Login'. Hostnames:

@@ -99,7 +99,14 @@ export function QuickBooksButton({ workOrderId, syncedInvoiceId, syncedAt, canEd
           View in QuickBooks ↗
         </a>
         <button
-          onClick={handleExport}
+          onClick={() => {
+            if (
+              confirm(
+                "Re-sending creates a NEW invoice in QuickBooks and detaches this work order from the old one. The previous invoice stays in QuickBooks — delete it there if it's a duplicate. Continue?"
+              )
+            )
+              handleExport();
+          }}
           disabled={exporting}
           className="text-xs text-text-secondary hover:text-text-primary disabled:opacity-40"
         >
