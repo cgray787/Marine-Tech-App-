@@ -1,9 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import type { PriceLevel, JobTemplate, WOSettings } from "@/lib/work-orders/types";
 import { PriceLevelsCard } from "./price-levels-card";
 import { TemplatesCard } from "./templates-card";
 import { DefaultsCard } from "./defaults-card";
+import { QuickBooksCard } from "./quickbooks-card";
 
 type Props = {
   priceLevels: PriceLevel[];
@@ -25,6 +27,9 @@ export function SettingsClient({ priceLevels, jobTemplates, woSettings, orgId }:
         orgId={orgId}
       />
       <DefaultsCard woSettings={woSettings} orgId={orgId} />
+      <Suspense fallback={null}>
+        <QuickBooksCard />
+      </Suspense>
     </div>
   );
 }
