@@ -152,6 +152,8 @@ export default async function TechniciansPage() {
                 <ManageUserControls
                   profileId={tech.id}
                   currentRole={tech.role}
+                  currentLocationId={tech.location_id ?? null}
+                  locations={locations ?? []}
                   name={tech.full_name || tech.email || "this user"}
                 />
               </div>
