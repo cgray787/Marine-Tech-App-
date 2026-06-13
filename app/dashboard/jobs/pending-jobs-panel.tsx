@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
 import { ScheduleQuickPicker } from "@/components/calendar/ScheduleQuickPicker";
@@ -125,10 +126,14 @@ function PendingJobRow({
 
   return (
     <div className="flex items-center gap-4 px-6 py-3">
-      {/* Customer + boat */}
-      <div className="flex-1 min-w-0">
+      {/* Customer + boat + service chips — click anywhere here to open the job's detail page */}
+      <Link
+        href={`/dashboard/jobs/${job.id}`}
+        title="Open job details"
+        className="group -mx-2 flex-1 min-w-0 rounded-md px-2 py-1 transition-colors hover:bg-amber-500/10"
+      >
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-text-primary truncate">
+          <span className="text-sm font-semibold text-text-primary truncate group-hover:text-gold">
             {customerName}
           </span>
           <span className="text-text-secondary text-xs">·</span>
@@ -151,7 +156,7 @@ function PendingJobRow({
             ))}
           </div>
         )}
-      </div>
+      </Link>
 
       {/* Assigned tech */}
       {job.profiles?.full_name && (
