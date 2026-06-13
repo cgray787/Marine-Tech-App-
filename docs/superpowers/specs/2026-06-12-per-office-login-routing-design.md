@@ -17,8 +17,10 @@ The whole feature rides on infrastructure that already exists: the `mt-location`
 ## Goals
 
 - Owner, on every login, explicitly picks which office (or All Offices) they're working out of — on both the web dashboard and the mobile app.
-- Techs / managers / viewers auto-land in their one office, with a visible office badge, and **never** see the picker.
+- **Only the Owner (Connor) sees "All Offices."** Today the only accounts with cross-office reach are Connor's three identities. Everyone else is created with a single assigned office.
+- Techs / managers / viewers auto-land in their one office, with a visible office badge, and **never** see the picker or an All-Offices option.
 - Owner can add a person directly into an office (with a role) from the dashboard, and move people between offices, without touching SQL.
+- Owner retains a deliberate escape hatch: **Admin** stays an assignable role, so Connor *can* grant another person all-office access later if he chooses (his explicit decision). It is never the default for office staff.
 - Zero change to data isolation: offices remain walled off exactly as today (verified: a San Diego manager sees 0 of Seattle's 42 customers).
 
 ## Non-Goals
@@ -36,10 +38,12 @@ Everything branches on a single predicate, computed from the signed-in profile:
 orgWide(profile)  ==  profile.role === 'admin'  ||  isOwner(profile)
 ```
 
-- `orgWide === true`  → show the Office picker; apply the chosen office as a **client-side filter** (the `mt-location` cookie on web; a location context on mobile). This is exactly what `lib/location/server.ts#locationFilterFor()` already encodes.
-- `orgWide === false` → single office. RLS already scopes every row. Show a static office **badge**; ignore any location cookie.
+- `orgWide === true`  → show the Office picker **including "All Offices"**; apply the chosen office as a **client-side filter** (the `mt-location` cookie on web; a location context on mobile). This is exactly what `lib/location/server.ts#locationFilterFor()` already encodes.
+- `orgWide === false` → single office. RLS already scopes every row. Show a static office **badge**; ignore any location cookie; no picker, no All-Offices.
 
 This mirrors the existing `showLocationSwitcher={orgWide}` logic in `app/dashboard/layout.tsx` — we are extending it, not inventing it.
+
+**Who is org-wide:** the `admin` role is what grants cross-office reach (it bypasses location RLS via the `admin_all_*` policies), and `isOwner()` is the email/auth_id allowlist. **As of this design, the only `admin` accounts are Connor's three identities** (`connorgray@jeffbrownyachts.com`, `connorgray41@gmail.com`, and the Apple Sign-In alias `xv2hp9sc2j@privaterelay.appleid.com` — all promoted to `admin` with no single office). So "All Offices" is effectively Connor-only. **Admin remains an assignable role** (Connor's choice) — granting it is the deliberate, conscious way to give someone else all-office access. Normal office staff are always Manager / Edit / Read-only, bound to one office.
 
 ## Part 1 — Login → Office Routing
 
@@ -96,7 +100,7 @@ All owner-gated (sidebar filter + page redirect + SQL `is_owner()`), consistent 
   - Re-verify the caller is the Owner server-side (`requireOwner()`); never trust the client.
   - Use the **service-role** client (`SUPABASE_SERVICE_ROLE_KEY`) to `auth.admin.createUser({ email, password, email_confirm: true })`, then upsert the profile with `role`, `tier='shop'`, `org_id` (JBY), `location_id`, `status='active'`. This is the in-app equivalent of `mobile/scripts/add-user.mjs` + the promote step — exactly how `justin@` / `service@` were provisioned.
   - Returns the created login (email + the temp password the Owner entered) for the Owner to hand off.
-- **UI:** an owner-only "Add person to office" form on the Technicians page (extends/sits beside `invite-tech-form.tsx`): email, name, role (Manager / Edit / Read-only), office (locations dropdown), temp password. Posts to the route, then `router.refresh()`.
+- **UI:** an owner-only "Add person to office" form on the Technicians page (extends/sits beside `invite-tech-form.tsx`): email, name, role, office (locations dropdown), temp password. Posts to the route, then `router.refresh()`. Role options are **Manager / Edit / Read-only** (the office-staff default) plus **Admin** as a clearly-labeled "All offices" option; when Admin is chosen the office dropdown is disabled/ignored (admins are org-wide, `location_id = NULL`). The form defaults to a single-office role so all-office access is never granted by accident.
 - **CLI parity:** `mobile/scripts/add-office-user.mjs <email> <password> <office-name|uuid> <role>` — one-command create + promote, for headless/bulk use (wraps the same logic as the route).
 
 > The existing email-invite flow (`invite-tech-form.tsx` → `send-invite`) is left intact but is no longer the only path; the direct create flow avoids the invitee-footgun entirely because the office + role are set at creation.
@@ -142,8 +146,10 @@ Each phase ships independently; Phase 1 has no dependency on Phase 2.
 - **Migration verify (Supabase MCP):** impersonate (a) a non-owner admin calling `admin_set_user_location` → forbidden; (b) Owner reassigning a tech → `location_id` + `tier='shop'` updated; confirm cross-office isolation still holds after reassignment.
 - **Manual:** Owner login → chooser appears → pick San Diego → dashboard shows San Diego only; tech (`justin@` once demoted to tech for the test, or `sandiego.tech@`) login → no chooser, San Diego badge, sees only San Diego. Create a user into Sausalito from the form → that login lands in Sausalito.
 
-## Open Decisions (resolve during planning)
+## Resolved Decisions
 
-1. **Owner-picker every login vs. remember-last:** chosen = **every login** (Owner picked "pick-an-office screen first"). The cookie still remembers the last office as the pre-selected default.
+1. **Owner-picker every login vs. remember-last:** **every login** (Owner picked "pick-an-office screen first"). The cookie still remembers the last office as the pre-selected default.
 2. **"All Offices" representation:** continue using cleared cookie / `null` (existing convention in `parseLocationValue`). No new sentinel value.
 3. **Temp-password handoff** for create-user: Owner types the temp password in the form and reads it back from the success state (no email sent). Acceptable for now; revisit if a self-set-password invite is preferred later.
+4. **Who gets All Offices:** Owner/Admin only — and today that is exclusively Connor. **Admin stays an assignable role** (Connor's decision) as the deliberate way to grant another person all-office access; it is never the default for office staff.
+5. **Apple Sign-In identity:** ✅ already promoted to `admin` (org-wide, `location_id = NULL`) so all three of Connor's logins have true all-office visibility. (Applied 2026-06-12.)
