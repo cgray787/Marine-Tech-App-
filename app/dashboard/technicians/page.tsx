@@ -12,11 +12,15 @@ export default async function TechniciansPage() {
   // accounts — including Connor's pre-Owner ones) are hidden so the page
   // can't be used to demote another admin. The Owner allowlist is the real
   // ceiling above admin anyway (migration 026).
-  const { data: techs } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("role", ["manager", "tech", "viewer"])
-    .order("created_at", { ascending: false });
+  const [{ data: techs }, { data: locations }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .in("role", ["manager", "tech", "viewer"])
+      .order("created_at", { ascending: false }),
+    supabase.from("locations").select("id, name"),
+  ]);
+  const locationName = new Map((locations ?? []).map((l) => [l.id, l.name]));
 
   // Get job counts per tech
   const techIds = (techs || []).map((t) => t.id);
@@ -101,6 +105,24 @@ export default async function TechniciansPage() {
                     Phone: {tech.phone}
                   </p>
                 )}
+
+                {/* Office assignment — the migration-013 footgun makes new
+                    invitees individual + NULL location, which means they see
+                    no team data until promoted. Surface that loudly. */}
+                <p className="mb-3">
+                  {tech.location_id ? (
+                    <span className="rounded-full border border-border-line bg-white/5 px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                      {locationName.get(tech.location_id) ?? "Unknown office"}
+                    </span>
+                  ) : (
+                    <span
+                      className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-400"
+                      title="This user has no office assigned — they can't see any team data. Set their location via SQL or ask Claude to fix it."
+                    >
+                      ⚠ No office assigned
+                    </span>
+                  )}
+                </p>
 
                 <div className="grid grid-cols-3 gap-3 border-t border-border-line pt-4">
                   <div className="text-center">

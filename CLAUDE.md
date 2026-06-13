@@ -172,9 +172,11 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `030_marinas_insert_for_team.sql` — opens `marinas` INSERT to shop tier + admins (was admin-only) so Create Job's inline "+ Add new marina" works; viewers are blocked at the UI by `canWrite`.
 - `031_jobs_service_descriptions.sql` — adds `jobs.service_descriptions` JSONB (per-service-type descriptions keyed by `service_types` values, default `{}`), powering per-area notes on the Create Job form.
 - `032_viewer_readonly_enforcement.sql` — `profile_can_write()` helper + RESTRICTIVE write policies on every user-writable table so `viewer` is read-only at the DB layer.
-- `033_work_orders.sql` — Work Orders module: `price_levels`, `job_templates`, `wo_settings`, `work_orders` (+`work_order_number_seq` from 1001), `work_order_jobs`, `work_order_lines`, `work_order_payments`; `wo_can_edit()` helper (admin+manager writes only); seeds 15 templates + Seattle $175/hr price level. **Pre-Sausalito follow-up:** migration 034 must add location scoping to the four `wo_*_write` policies (role-only today; latent until a 2nd location opens).
+- `033_work_orders.sql` — Work Orders module: `price_levels`, `job_templates`, `wo_settings`, `work_orders` (+`work_order_number_seq` from 1001), `work_order_jobs`, `work_order_lines`, `work_order_payments`; `wo_can_edit()` helper (admin+manager writes only); seeds 15 templates + Seattle $175/hr price level. (Its pre-Sausalito follow-up was closed by migration 034.)
+- `034_wo_location_scoped_writes.sql` — location-scopes the four `wo_*_write` policies from 033: admins stay org-wide, managers can only write WOs (and their jobs/lines/payments) in their own office.
+- `035_gate_job_assignment_to_location.sql` — `job_assignee_location` BEFORE trigger on `jobs`: `assigned_to` must belong to the same location as the job's customer (admin assignees and location-less customers exempt). Covers every write path incl. mobile offline sync and raw REST.
 
-**Numbering collision footgun:** two files share the `026` prefix — `026_owner_only_user_management.sql` and `026_parts_order_email.sql` (pg_cron schedule + `parts-order-email` edge-function wiring). Both are applied; next new migration should be `032`. Migrations are applied via Supabase MCP (`mcp__supabase__apply_migration`), not the Supabase CLI.
+**Numbering collision footgun:** two files share the `026` prefix — `026_owner_only_user_management.sql` and `026_parts_order_email.sql` (pg_cron schedule + `parts-order-email` edge-function wiring). Both are applied. Always check `supabase/migrations/` for the highest prefix before numbering (036 is taken by in-flight QuickBooks work on `feat/wo-phase2`). Migrations are applied via Supabase MCP (`mcp__supabase__apply_migration`), not the Supabase CLI.
 
 ## Parts-to-Order (live since 2026-06-05)
 
@@ -226,7 +228,9 @@ The Technicians (Users & Access) page is **owner-gated at three layers**: sideba
 - `current_profile_location()` — the caller's `location_id`
 - `customer_in_my_location(uuid)` — whether a given customer's `location_id` matches the caller's
 
-**Beta state (2026-05-26):** Org "Jeff Brown Yachts" with 4 locations (Sausalito / San Diego / Seattle / Newport). Only Seattle is in active use; the others exist but are unpopulated. Each location has a `join_code` for future code-redemption signup. No web location switcher yet.
+**Office state (2026-06-12):** Org "Jeff Brown Yachts" with 4 locations (Sausalito / San Diego / Seattle / Newport). **Seattle, Sausalito, and San Diego are open** — Sausalito + San Diego each have a `manager` + `tech` account (`{office}.manager@jeffbrownyachts.com` / `{office}.tech@jeffbrownyachts.com`, shop tier, location-scoped). Newport exists but is unstaffed. Each location has a `join_code` for future code-redemption signup (mobile flow still unbuilt — gap 2 in the expansion runbook).
+
+**Owner office filter (web, since 2026-06-12):** org-wide users (admins + Owner) get an "Office" dropdown in the sidebar (`components/location-switcher.tsx`). It writes the `mt-location` cookie (`lib/location/{constants,server,client}.ts`) and filters Dashboard KPIs, Reports, Jobs (incl. the assignable-techs dropdown), Work Orders, Calendar (react-query keys include the location), Clients, and PDI Reports. Location-scoped users never see it and the cookie is ignored for them. The Technicians page shows each user's office chip and an amber "No office assigned" badge for the migration-013 NULL-location footgun.
 
 **Design + plan:**
 - `docs/superpowers/specs/2026-05-26-multi-location-orgs-design.md`
@@ -385,7 +389,7 @@ marine-tech-app/
 - **Promote SSO** — finish `feat/sso-apple-google` review, merge, submit v1.2 (build 36) to App Store.
 - **Reconcile `feat/mobile-job-edit`** — diff against `main`, salvage anything not already shipped, then close the branch.
 - **Playwright auth setup** — so the 3 scaffolded e2e tests can actually run.
-- **Sausalito / San Diego opening pre-reqs** (runbook: `docs/superpowers/specs/2026-06-07-multi-location-expansion.md`) — remaining gaps: gate `jobs.assigned_to` reassignment to same-location techs; owner location filter on web. (The reports/parts RLS audit gap was closed by migrations 028–029.)
+- **Multi-office follow-ups** (Sausalito + San Diego opened 2026-06-12; runbook: `docs/superpowers/specs/2026-06-07-multi-location-expansion.md`) — remaining: mobile join-code signup flow (gap 2; until then promote invitees via SQL), mirror the office filter onto the grayyachts.com `/portal/marine-tech` dashboard, seed Sausalito/San Diego price levels in `price_levels` (only Seattle's $175/hr exists).
 
 ## iOS App Store / EAS
 

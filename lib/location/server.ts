@@ -1,26 +1,26 @@
+import { cookies } from "next/headers";
+import { isOwner, type OwnerCandidate } from "@/lib/owner";
+import { LOCATION_COOKIE, parseLocationValue } from "./constants";
+
 /**
- * lib/location/server.ts
- *
- * Server-only location helpers for dashboard pages.
- * locationFilterFor returns the profile's location_id when the role is
- * location-scoped (manager / tech / viewer), or null for org-wide roles
- * (admin) so callers can skip the filter entirely.
+ * The owner/admin "viewing office" filter for /dashboard server components.
+ * null = all offices. Only meaningful for org-wide users (admins + the
+ * Owner) — managers/techs/viewers are already location-scoped by RLS, so
+ * callers must gate on role before applying it.
  */
-
-type Profile = {
-  role?: string | null;
-  location_id?: string | null;
-  [key: string]: unknown;
-};
+export async function activeLocation(): Promise<string | null> {
+  const store = await cookies();
+  return parseLocationValue(store.get(LOCATION_COOKIE)?.value);
+}
 
 /**
- * Returns the location_id to filter queries by, or null if the profile
- * has org-wide visibility (admin role).
+ * The location filter a /dashboard page should apply for this profile:
+ * the cookie value for org-wide users, always null for everyone else
+ * (RLS already scopes them — a stale cookie must not skew their counts).
  */
 export async function locationFilterFor(
-  profile: Profile | null | undefined
+  profile: (OwnerCandidate & { role?: string | null }) | null | undefined
 ): Promise<string | null> {
-  if (!profile) return null;
-  if (profile.role === "admin") return null;
-  return profile.location_id ?? null;
+  const orgWide = profile?.role === "admin" || isOwner(profile);
+  return orgWide ? activeLocation() : null;
 }

@@ -1,17 +1,26 @@
 import { requireAdmin } from "@/lib/admin";
+import { locationFilterFor } from "@/lib/location/server";
 import { formatDate, statusColor } from "@/lib/utils";
 import Link from "next/link";
 import { PdiStatusActions } from "./pdi-actions";
 
 export default async function PdiReportsPage() {
-  const { supabase } = await requireAdmin();
+  const { supabase, profile } = await requireAdmin();
+  const loc = await locationFilterFor(profile);
 
-  const { data: pdiReports } = await supabase
-    .from("pdi_reports")
-    .select(
-      "*, profiles:tech_id(full_name)"
-    )
-    .order("submitted_at", { ascending: false });
+  // PDI reports follow their customer's office — the filter rides an inner join.
+  // Two static select literals because supabase-js derives row types from them.
+  const pdiQuery = loc
+    ? supabase
+        .from("pdi_reports")
+        .select("*, profiles:tech_id(full_name), customers:customer_id!inner(location_id)")
+        .eq("customers.location_id", loc)
+        .order("submitted_at", { ascending: false })
+    : supabase
+        .from("pdi_reports")
+        .select("*, profiles:tech_id(full_name)")
+        .order("submitted_at", { ascending: false });
+  const { data: pdiReports } = await pdiQuery;
 
   return (
     <div>
