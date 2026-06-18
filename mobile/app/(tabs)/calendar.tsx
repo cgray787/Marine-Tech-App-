@@ -77,6 +77,7 @@ export default function CalendarScreen() {
         <WeeklyJobsPanel
           scheduledJobs={jobsQuery.data ?? []}
           unscheduledJobs={unscheduledQuery.data ?? []}
+          selectedDate={selectedDate}
           weekOf={parseISO(selectedDate)}
           onSelectJob={(j) => sheetRef.current?.present(j)}
           onScheduleJob={

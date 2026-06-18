@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
-import { startOfWeek, endOfWeek, isWithinInterval, format } from "date-fns";
+import { startOfWeek, endOfWeek, format, parseISO } from "date-fns";
 import type { CalendarJob } from "@/lib/calendar/types";
+import { jobsForDay, jobsForWeek, jobDays } from "@/lib/calendar/spans";
 import { techColor, statusStripeColor } from "@/lib/calendar/colors";
 import { formatTime } from "@/lib/calendar/format";
 import { colors } from "@/constants/Colors";
@@ -9,6 +10,8 @@ import { colors } from "@/constants/Colors";
 type Props = {
   scheduledJobs: CalendarJob[];
   unscheduledJobs: CalendarJob[];
+  /** The day tapped in the month grid (yyyy-MM-dd) — drives the top section. */
+  selectedDate: string;
   weekOf: Date;
   onSelectJob: (job: CalendarJob) => void;
   /** Omit for read-only roles — hides the Schedule button. */
@@ -18,29 +21,34 @@ type Props = {
 export function WeeklyJobsPanel({
   scheduledJobs,
   unscheduledJobs,
+  selectedDate,
   weekOf,
   onSelectJob,
   onScheduleJob,
 }: Props) {
   const weekStart = startOfWeek(weekOf);
   const weekEnd = endOfWeek(weekOf);
+  const weekStartDay = format(weekStart, "yyyy-MM-dd");
+  const weekEndDay = format(weekEnd, "yyyy-MM-dd");
 
-  const thisWeek = useMemo(
-    () =>
-      scheduledJobs
-        .filter(
-          (j) =>
-            j.scheduledStart &&
-            isWithinInterval(new Date(j.scheduledStart), {
-              start: weekStart,
-              end: weekEnd,
-            }),
-        )
-        .sort((a, b) => (a.scheduledStart ?? "").localeCompare(b.scheduledStart ?? "")),
-    [scheduledJobs, weekStart, weekEnd],
+  // ① the tapped day's jobs (including multi-day jobs spanning through it)
+  const dayJobs = useMemo(
+    () => jobsForDay(scheduledJobs, selectedDate),
+    [scheduledJobs, selectedDate],
   );
 
-  const total = thisWeek.length + unscheduledJobs.length;
+  // ② the rest of the week — distinct jobs whose span touches this week, minus
+  // anything already shown under the selected day (no ①/② duplicates).
+  const weekJobs = useMemo(
+    () =>
+      jobsForWeek(scheduledJobs, weekStartDay, weekEndDay).filter(
+        (j) => !jobDays(j).includes(selectedDate),
+      ),
+    [scheduledJobs, weekStartDay, weekEndDay, selectedDate],
+  );
+
+  const total = dayJobs.length + weekJobs.length + unscheduledJobs.length;
+  const selectedLabel = format(parseISO(selectedDate), "EEEE, MMM d");
 
   return (
     <View style={styles.container}>
@@ -49,7 +57,7 @@ export function WeeklyJobsPanel({
           Week of {format(weekStart, "MMM d")}
         </Text>
         <Text style={styles.headerSub}>
-          {thisWeek.length} scheduled · {unscheduledJobs.length} unscheduled
+          {dayJobs.length + weekJobs.length} scheduled · {unscheduledJobs.length} unscheduled
         </Text>
       </View>
 
@@ -59,10 +67,29 @@ export function WeeklyJobsPanel({
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-          {thisWeek.length > 0 && (
-            <SectionLabel title="Scheduled this week" count={thisWeek.length} accent="#4ade80" />
+          {/* ① Selected day */}
+          <SectionLabel title={selectedLabel} count={dayJobs.length} accent={colors.gold} />
+          {dayJobs.length === 0 ? (
+            <Text style={styles.dayEmpty}>Nothing scheduled for this day.</Text>
+          ) : (
+            dayJobs.map((j) => (
+              <JobRow
+                key={j.id}
+                job={j}
+                scheduled
+                dayIndex={j.dayIndex}
+                dayCount={j.dayCount}
+                onSelect={() => onSelectJob(j)}
+                onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
+              />
+            ))
           )}
-          {thisWeek.map((j) => (
+
+          {/* ② Rest of the week */}
+          {weekJobs.length > 0 && (
+            <SectionLabel title="Scheduled this week" count={weekJobs.length} accent="#4ade80" />
+          )}
+          {weekJobs.map((j) => (
             <JobRow
               key={j.id}
               job={j}
@@ -72,6 +99,7 @@ export function WeeklyJobsPanel({
             />
           ))}
 
+          {/* ③ Unscheduled */}
           {unscheduledJobs.length > 0 && (
             <SectionLabel
               title="Unscheduled — needs a time"
@@ -114,11 +142,15 @@ function SectionLabel({
 function JobRow({
   job,
   scheduled,
+  dayIndex,
+  dayCount,
   onSelect,
   onSchedule,
 }: {
   job: CalendarJob;
   scheduled: boolean;
+  dayIndex?: number;
+  dayCount?: number;
   onSelect: () => void;
   onSchedule?: () => void;
 }) {
@@ -145,6 +177,7 @@ function JobRow({
           <Text style={styles.metaText} numberOfLines={1}>
             {job.boat?.name ?? "No boat"}
             {location ? ` · 📍 ${location}` : ""}
+            {dayCount != null && dayCount > 1 ? ` · Day ${dayIndex} of ${dayCount}` : ""}
           </Text>
         </View>
 
@@ -198,6 +231,14 @@ const styles = StyleSheet.create({
   },
   empty: { padding: 24, alignItems: "center" },
   emptyText: { color: colors.textSecondary, fontSize: 13 },
+  dayEmpty: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontStyle: "italic",
+    marginHorizontal: 14,
+    marginTop: 2,
+    marginBottom: 4,
+  },
   sectionLabel: {
     flexDirection: "row",
     justifyContent: "space-between",

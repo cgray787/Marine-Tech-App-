@@ -2,6 +2,7 @@ import { Calendar, DateData } from 'react-native-calendars';
 import { useMemo } from 'react';
 import type { CalendarJob } from '@/lib/calendar/types';
 import { techColor } from '@/lib/calendar/colors';
+import { jobDays } from '@/lib/calendar/spans';
 
 type Props = {
   jobs: CalendarJob[];
@@ -14,11 +15,13 @@ export function MonthCalendar({ jobs, selectedDate, onSelectDate, onMonthChange 
   const markedDates = useMemo(() => {
     const map: Record<string, { dots: { color: string }[]; selected?: boolean }> = {};
     for (const j of jobs) {
-      if (!j.scheduledStart) continue;
-      const day = j.scheduledStart.slice(0, 10);
       const color = j.tech ? techColor(j.tech.id) : '#3b6cd6';
-      map[day] ??= { dots: [] };
-      if (map[day].dots.length < 3) map[day].dots.push({ color });
+      // Mark every day a job spans, not just its start — multi-day jobs show a
+      // marker on each covered day.
+      for (const day of jobDays(j)) {
+        map[day] ??= { dots: [] };
+        if (map[day].dots.length < 3) map[day].dots.push({ color });
+      }
     }
     if (selectedDate) {
       map[selectedDate] = { ...(map[selectedDate] ?? { dots: [] }), selected: true };
