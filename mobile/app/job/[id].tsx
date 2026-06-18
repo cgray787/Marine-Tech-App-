@@ -188,6 +188,19 @@ export default function JobDetailScreen() {
     });
   }
 
+  function handleBack() {
+    // The native auto-generated back button no-ops on this RN new-architecture +
+    // react-native-screens build (it renders but never fires goBack), so we drive
+    // navigation explicitly from a custom headerLeft instead — same mechanism as the
+    // working Edit/Delete header buttons.
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      // Deep-link / cold-start fallback: nothing to pop, land somewhere sensible.
+      router.replace("/(tabs)/jobs");
+    }
+  }
+
   function handleEdit() {
     if (!id) return;
     router.push({ pathname: "/(tabs)/service", params: { editJobId: id } });
@@ -364,40 +377,55 @@ export default function JobDetailScreen() {
 
   return (
     <>
-      {profile && profile.role !== "viewer" && (
-        <Stack.Screen
-          options={{
-            headerRight: () => (
-              <View style={styles.headerActions}>
-                <TouchableOpacity
-                  onPress={handleEdit}
-                  disabled={deleting}
-                  activeOpacity={0.7}
-                  style={styles.headerBtn}
-                  accessibilityLabel="Edit job"
-                >
-                  <Text style={styles.headerBtnText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleDelete}
-                  disabled={deleting}
-                  activeOpacity={0.7}
-                  style={styles.headerBtn}
-                  accessibilityLabel="Delete job"
-                >
-                  {deleting ? (
-                    <ActivityIndicator size="small" color={colors.bad} />
-                  ) : (
-                    <Text style={[styles.headerBtnText, styles.headerBtnTextDanger]}>
-                      Delete
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ),
-          }}
-        />
-      )}
+      <Stack.Screen
+        options={{
+          // Custom back control — the native auto back button is dead on this build,
+          // so we render our own (always present, incl. for viewers). Setting headerLeft
+          // replaces the native back button, so there's no duplicate.
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={handleBack}
+              activeOpacity={0.7}
+              style={styles.headerBackBtn}
+              accessibilityLabel="Back"
+            >
+              <Text style={styles.headerBackText}>{"‹"} Back</Text>
+            </TouchableOpacity>
+          ),
+          ...(profile && profile.role !== "viewer"
+            ? {
+                headerRight: () => (
+                  <View style={styles.headerActions}>
+                    <TouchableOpacity
+                      onPress={handleEdit}
+                      disabled={deleting}
+                      activeOpacity={0.7}
+                      style={styles.headerBtn}
+                      accessibilityLabel="Edit job"
+                    >
+                      <Text style={styles.headerBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleDelete}
+                      disabled={deleting}
+                      activeOpacity={0.7}
+                      style={styles.headerBtn}
+                      accessibilityLabel="Delete job"
+                    >
+                      {deleting ? (
+                        <ActivityIndicator size="small" color={colors.bad} />
+                      ) : (
+                        <Text style={[styles.headerBtnText, styles.headerBtnTextDanger]}>
+                          Delete
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ),
+              }
+            : {}),
+        }}
+      />
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Status Badge */}
       <View style={styles.statusRow}>
@@ -840,6 +868,16 @@ const styles = StyleSheet.create({
   },
   headerBtnTextDanger: {
     color: colors.bad,
+  },
+  headerBackBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginLeft: 4,
+  },
+  headerBackText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.gold,
   },
   statusText: {
     fontSize: 13,
