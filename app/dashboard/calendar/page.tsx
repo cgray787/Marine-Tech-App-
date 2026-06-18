@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, format } from 'date-fns';
 import {
-  CalendarView, CalendarToolbar, JobPopover, NewJobModal, UnscheduledTray, WeeklyJobsPanel,
+  CalendarView, CalendarToolbar, JobPopover, NewJobModal, UnscheduledTray, DayFocusPanel,
   ScheduleQuickPicker,
 } from '@/components/calendar';
 import { getJobsInRange, getUnscheduledJobs, updateJob } from '@/lib/calendar/queries';
@@ -24,6 +24,9 @@ export default function CalendarPage() {
 
   const [view, setView] = useState<ViewMode>('month');
   const [date, setDate] = useState(new Date());
+  // The day the operator clicked on the grid — drives the DayFocusPanel below.
+  // Defaults to today; clicking a cell/date number re-focuses it.
+  const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
   const [techId, setTechId] = useState<string | null>(null);
   const [popoverJob, setPopoverJob] = useState<CalendarJob | null>(null);
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
@@ -126,6 +129,8 @@ export default function CalendarPage() {
         onNavigate={setDate}
         onView={setView}
         onSelectJob={(job, anchor) => { setPopoverJob(job); setPopoverAnchor(anchor); }}
+        // Clicking any day cell/date number focuses the DayFocusPanel below.
+        onSelectDay={(day) => setSelectedDay(day)}
         onSelectSlot={
           canWrite
             ? (start) => { setNewJobStart(start); setNewJobOpen(true); }
@@ -133,10 +138,11 @@ export default function CalendarPage() {
         }
       />
 
-      <WeeklyJobsPanel
+      <DayFocusPanel
         scheduledJobs={jobs}
         unscheduledJobs={unscheduledQuery.data ?? []}
-        weekOf={date}
+        selectedDate={format(selectedDay, 'yyyy-MM-dd')}
+        weekOf={selectedDay}
         onSelectJob={(job, anchor) => { setPopoverJob(job); setPopoverAnchor(anchor); }}
         // Schedule button on each UNSCHEDULED row → open inline date/time picker.
         // (Previously this opened the read-only JobPopover with no save path.)
