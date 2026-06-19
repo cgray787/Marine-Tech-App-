@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { CalendarJob } from "@/lib/calendar/types";
+import { DatePopover } from "./DatePopover";
 
 // Centered modal-ish dialog with a date + start-time + duration picker. Save
 // writes scheduledStart and scheduledEnd via the provided callback so the
@@ -133,23 +134,21 @@ export function ScheduleQuickPicker({ job, initial, onCancel, onSave }: Props) {
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#8892A5]">
                 Start date
               </label>
-              <input
-                type="date"
+              <DatePopover
                 value={dateStr}
-                onChange={(e) => setDateStr(e.target.value)}
-                className="w-full rounded-lg border border-[#1a2236] bg-[#060a12] px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#C9A96E] focus:outline-none focus:ring-1 focus:ring-[#C9A96E]"
+                onChange={setDateStr}
+                ariaLabel="Start date"
               />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#8892A5]">
                 End date <span className="normal-case font-normal text-[#8892A5]">(optional)</span>
               </label>
-              <input
-                type="date"
+              <DatePopover
                 value={endDateStr}
+                onChange={setEndDateStr}
                 min={dateStr}
-                onChange={(e) => setEndDateStr(e.target.value)}
-                className="w-full rounded-lg border border-[#1a2236] bg-[#060a12] px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#C9A96E] focus:outline-none focus:ring-1 focus:ring-[#C9A96E]"
+                ariaLabel="End date"
               />
             </div>
           </div>
