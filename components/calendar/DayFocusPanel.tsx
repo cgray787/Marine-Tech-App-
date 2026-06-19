@@ -1,5 +1,6 @@
 'use client';
 import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { startOfWeek, endOfWeek, format, parseISO } from 'date-fns';
 import { Calendar, AlertCircle, ChevronRight } from 'lucide-react';
 import type { CalendarJob } from '@/lib/calendar/types';
@@ -31,6 +32,7 @@ export function DayFocusPanel({
   onSelectJob,
   onScheduleJob,
 }: Props) {
+  const router = useRouter();
   const weekStart = startOfWeek(weekOf);
   const weekEnd = endOfWeek(weekOf);
   const weekStartDay = format(weekStart, 'yyyy-MM-dd');
@@ -129,6 +131,8 @@ export function DayFocusPanel({
               scheduled={false}
               onSelect={(anchor) => onSelectJob(j, anchor)}
               onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
+              // No-client jobs: tap opens the job editor to assign a client.
+              onAssign={!j.customer ? () => router.push(`/dashboard/jobs/${j.id}`) : undefined}
             />
           ))}
         </Section>
@@ -175,6 +179,7 @@ function JobRow({
   dayCount,
   onSelect,
   onSchedule,
+  onAssign,
 }: {
   job: CalendarJob | DayJob;
   scheduled: boolean;
@@ -182,6 +187,8 @@ function JobRow({
   dayCount?: number;
   onSelect: (anchor: HTMLElement) => void;
   onSchedule?: () => void;
+  /** When set (no-client job), the row prompts to assign and opens the job editor on tap. */
+  onAssign?: () => void;
 }) {
   const tech = job.tech ? techColor(job.tech.id) : '#3b6cd6';
   const stripe = statusStripeColor(job.status);
@@ -199,7 +206,7 @@ function JobRow({
       <div className="w-1 shrink-0" style={{ background: stripe }} aria-hidden />
 
       <button
-        onClick={(e) => onSelect(e.currentTarget as HTMLElement)}
+        onClick={(e) => (onAssign ? onAssign() : onSelect(e.currentTarget as HTMLElement))}
         className="flex-1 px-3 py-3 text-left flex items-center gap-3 min-w-0"
       >
         <div className="flex-1 min-w-0">
@@ -209,7 +216,9 @@ function JobRow({
                 {formatTime(job.scheduledStart)}
               </span>
             )}
-            <span className="truncate">{job.customer?.name ?? 'Unassigned'}</span>
+            <span className="truncate">
+              {onAssign ? 'No client — tap to assign' : (job.customer?.name ?? 'Unassigned')}
+            </span>
           </div>
           <div className="text-xs text-[#8892A5] truncate">
             {job.boat?.name ?? 'No boat'}

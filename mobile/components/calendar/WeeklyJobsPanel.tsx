@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { useRouter } from "expo-router";
 import { startOfWeek, endOfWeek, format, parseISO } from "date-fns";
 import type { CalendarJob } from "@/lib/calendar/types";
 import { jobsForDay, jobsForWeek, jobDays } from "@/lib/calendar/spans";
@@ -26,6 +27,7 @@ export function WeeklyJobsPanel({
   onSelectJob,
   onScheduleJob,
 }: Props) {
+  const router = useRouter();
   const weekStart = startOfWeek(weekOf);
   const weekEnd = endOfWeek(weekOf);
   const weekStartDay = format(weekStart, "yyyy-MM-dd");
@@ -114,6 +116,16 @@ export function WeeklyJobsPanel({
               scheduled={false}
               onSelect={() => onSelectJob(j)}
               onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
+              // No-client jobs: tap opens the Service editor to assign a client.
+              onAssign={
+                !j.customer
+                  ? () =>
+                      router.push({
+                        pathname: "/(tabs)/service",
+                        params: { editJobId: j.id },
+                      })
+                  : undefined
+              }
             />
           ))}
         </ScrollView>
@@ -146,6 +158,7 @@ function JobRow({
   dayCount,
   onSelect,
   onSchedule,
+  onAssign,
 }: {
   job: CalendarJob;
   scheduled: boolean;
@@ -153,6 +166,8 @@ function JobRow({
   dayCount?: number;
   onSelect: () => void;
   onSchedule?: () => void;
+  /** When set (no-client job), the row prompts to assign and opens the Service editor on tap. */
+  onAssign?: () => void;
 }) {
   const tech = job.tech ? techColor(job.tech.id) : "#3b6cd6";
   const stripe = statusStripeColor(job.status);
@@ -164,14 +179,14 @@ function JobRow({
       <View style={[styles.sideTab, { backgroundColor: scheduled ? tech : "#1a2236" }]} />
       <View style={[styles.sideTab, { backgroundColor: stripe }]} />
 
-      <Pressable onPress={onSelect} style={styles.rowBody}>
+      <Pressable onPress={onAssign ?? onSelect} style={styles.rowBody}>
         <View style={styles.rowText}>
           <View style={styles.rowTitleLine}>
             {scheduled && job.scheduledStart && (
               <Text style={styles.timeText}>{formatTime(job.scheduledStart)}</Text>
             )}
             <Text style={styles.customerText} numberOfLines={1}>
-              {job.customer?.name ?? "Unassigned"}
+              {onAssign ? "No client — tap to assign" : (job.customer?.name ?? "Unassigned")}
             </Text>
           </View>
           <Text style={styles.metaText} numberOfLines={1}>

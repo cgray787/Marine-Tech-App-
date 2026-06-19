@@ -65,7 +65,11 @@ export async function getUnscheduledJobs(
   if (techId) q = q.eq('assigned_to', techId);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []).map(mapJobRowToCalendarJob);
+  // Push jobs with no linked client to the end. JS Array.sort is stable, so
+  // client-bearing jobs keep their existing created_at order.
+  return (data ?? [])
+    .map(mapJobRowToCalendarJob)
+    .sort((a, b) => (a.customer ? 0 : 1) - (b.customer ? 0 : 1));
 }
 
 export type CreateJobInput = {
