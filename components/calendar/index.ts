@@ -8,3 +8,4 @@ export { WeeklyJobsPanel } from './WeeklyJobsPanel';
 export { DayFocusPanel } from './DayFocusPanel';
 export { ScheduleQuickPicker } from './ScheduleQuickPicker';
 export { DatePopover } from './DatePopover';
+export { PerDayLocationEditor } from './PerDayLocationEditor';

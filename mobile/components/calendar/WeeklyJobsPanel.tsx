@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { startOfWeek, endOfWeek, format, parseISO } from "date-fns";
 import type { CalendarJob } from "@/lib/calendar/types";
-import { jobsForDay, jobsForWeek, jobDays } from "@/lib/calendar/spans";
+import { jobsForDay, jobsForWeek, jobDays, placeForDay } from "@/lib/calendar/spans";
 import { techColor, statusStripeColor } from "@/lib/calendar/colors";
 import { formatTime } from "@/lib/calendar/format";
 import { colors } from "@/constants/Colors";
@@ -79,6 +79,7 @@ export function WeeklyJobsPanel({
                 key={j.id}
                 job={j}
                 scheduled
+                day={selectedDate}
                 dayIndex={j.dayIndex}
                 dayCount={j.dayCount}
                 onSelect={() => onSelectJob(j)}
@@ -96,6 +97,8 @@ export function WeeklyJobsPanel({
               key={j.id}
               job={j}
               scheduled
+              // Multi-day jobs in the week list show their first day's place.
+              day={jobDays(j)[0] ?? selectedDate}
               onSelect={() => onSelectJob(j)}
               onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
             />
@@ -116,9 +119,10 @@ export function WeeklyJobsPanel({
               scheduled={false}
               onSelect={() => onSelectJob(j)}
               onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
-              // No-client jobs: tap opens the Service editor to assign a client.
+              // No-client SERVICE jobs: tap opens the Service editor to assign a
+              // client. Paperwork blocks have no client by design, so skip it.
               onAssign={
-                !j.customer
+                !j.customer && j.kind !== "paperwork"
                   ? () =>
                       router.push({
                         pathname: "/(tabs)/service",
@@ -154,6 +158,7 @@ function SectionLabel({
 function JobRow({
   job,
   scheduled,
+  day,
   dayIndex,
   dayCount,
   onSelect,
@@ -162,6 +167,8 @@ function JobRow({
 }: {
   job: CalendarJob;
   scheduled: boolean;
+  /** The day this row is shown under (yyyy-MM-dd) — drives placeForDay. */
+  day?: string;
   dayIndex?: number;
   dayCount?: number;
   onSelect: () => void;
@@ -169,9 +176,18 @@ function JobRow({
   /** When set (no-client job), the row prompts to assign and opens the Service editor on tap. */
   onAssign?: () => void;
 }) {
-  const tech = job.tech ? techColor(job.tech.id) : "#3b6cd6";
-  const stripe = statusStripeColor(job.status);
-  const location = job.locationOverride ?? job.marina?.name ?? null;
+  const isPaperwork = job.kind === "paperwork";
+  const tech = isPaperwork ? "#334155" : job.tech ? techColor(job.tech.id) : "#3b6cd6";
+  const stripe = isPaperwork ? "#C9A96E" : statusStripeColor(job.status);
+  const location = day
+    ? placeForDay(job, day)
+    : job.marina?.name ?? job.locationOverride ?? null;
+  const primaryLabel = isPaperwork
+    ? `📋 Paperwork${job.notes?.trim() ? ` — ${job.notes.trim()}` : ""}`
+    : onAssign
+      ? "No client — tap to assign"
+      : (job.customer?.name ?? "Unassigned");
+  const boatLabel = isPaperwork ? null : (job.boat?.name ?? "No boat");
 
   return (
     <View style={styles.row}>
@@ -186,12 +202,12 @@ function JobRow({
               <Text style={styles.timeText}>{formatTime(job.scheduledStart)}</Text>
             )}
             <Text style={styles.customerText} numberOfLines={1}>
-              {onAssign ? "No client — tap to assign" : (job.customer?.name ?? "Unassigned")}
+              {primaryLabel}
             </Text>
           </View>
           <Text style={styles.metaText} numberOfLines={1}>
-            {job.boat?.name ?? "No boat"}
-            {location ? ` · 📍 ${location}` : ""}
+            {boatLabel ?? ""}
+            {location ? `${boatLabel ? " · " : ""}📍 ${location}` : ""}
             {dayCount != null && dayCount > 1 ? ` · Day ${dayIndex} of ${dayCount}` : ""}
           </Text>
         </View>

@@ -14,6 +14,7 @@ type Props = {
 export function JobPopover({ job, anchor, onClose }: Props) {
   if (!job || !anchor) return null;
   const location = job.locationOverride ?? job.marina?.name ?? null;
+  const isPaperwork = job.kind === 'paperwork';
   return (
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
       <Popover.Anchor virtualRef={{ current: anchor }} />
@@ -27,10 +28,16 @@ export function JobPopover({ job, anchor, onClose }: Props) {
           <div className="text-xs text-[#C9A96E] uppercase tracking-wider mb-1">
             {formatTimeRange(job.scheduledStart, job.scheduledEnd)}
           </div>
-          <div className="text-lg font-semibold mb-2">{job.customer?.name ?? 'Unassigned customer'}</div>
-          <div className="text-sm text-[#8892A5] mb-3">
-            {job.boat?.name ?? 'No boat'}{job.boat?.makeModel ? ` · ${job.boat.makeModel}` : ''}
-          </div>
+          {isPaperwork ? (
+            <div className="text-lg font-semibold mb-2">📋 Paperwork</div>
+          ) : (
+            <>
+              <div className="text-lg font-semibold mb-2">{job.customer?.name ?? 'Unassigned customer'}</div>
+              <div className="text-sm text-[#8892A5] mb-3">
+                {job.boat?.name ?? 'No boat'}{job.boat?.makeModel ? ` · ${job.boat.makeModel}` : ''}
+              </div>
+            </>
+          )}
           {location && (
             <div className="text-sm text-white flex items-center gap-1.5 mb-2">
               <MapPin size={14} className="text-[#C9A96E]" /> {location}

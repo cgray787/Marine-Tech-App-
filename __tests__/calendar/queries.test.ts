@@ -5,12 +5,14 @@ describe('mapJobRowToCalendarJob', () => {
   it('maps a fully-populated row', () => {
     const row = {
       id: 'job-1',
+      kind: 'service',
       scheduled_start: '2026-04-27T17:00:00Z',
       scheduled_end: '2026-04-27T18:00:00Z',
       scheduled_end_date: '2026-04-28',
       status: 'new',
       notes: 'oil change',
       location_override: null,
+      day_locations: { '2026-04-27': 'Shilshole', '2026-04-28': 'Edmonds' },
       customer: { id: 'c1', name: 'J. Smith' },
       boat: { id: 'b1', name: 'Sea Ray 32', make_model: 'Sea Ray Sundancer' },
       marina: { id: 'm1', name: 'Shilshole Marina' },
@@ -18,17 +20,37 @@ describe('mapJobRowToCalendarJob', () => {
     };
     expect(mapJobRowToCalendarJob(row)).toEqual({
       id: 'job-1',
+      kind: 'service',
       scheduledStart: '2026-04-27T17:00:00Z',
       scheduledEnd: '2026-04-27T18:00:00Z',
       scheduledEndDate: '2026-04-28',
       status: 'new',
       notes: 'oil change',
       locationOverride: null,
+      dayLocations: { '2026-04-27': 'Shilshole', '2026-04-28': 'Edmonds' },
       customer: { id: 'c1', name: 'J. Smith' },
       boat: { id: 'b1', name: 'Sea Ray 32', makeModel: 'Sea Ray Sundancer' },
       marina: { id: 'm1', name: 'Shilshole Marina' },
       tech: { id: 't1', fullName: 'Mike Rivera' },
     });
+  });
+
+  it('defaults kind to service and dayLocations to {} when absent (paperwork mapping too)', () => {
+    const service = mapJobRowToCalendarJob({ id: 'j', status: 'new' });
+    expect(service.kind).toBe('service');
+    expect(service.dayLocations).toEqual({});
+
+    const paperwork = mapJobRowToCalendarJob({
+      id: 'p',
+      kind: 'paperwork',
+      status: 'new',
+      notes: 'Invoicing',
+      customer: null,
+      boat: null,
+    });
+    expect(paperwork.kind).toBe('paperwork');
+    expect(paperwork.customer).toBeNull();
+    expect(paperwork.notes).toBe('Invoicing');
   });
 
   it('handles null relations', () => {

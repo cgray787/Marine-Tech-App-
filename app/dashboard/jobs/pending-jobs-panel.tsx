@@ -36,12 +36,14 @@ export function PendingJobsPanel({ jobs }: Props) {
   function toCalendarJob(job: PendingJob): CalendarJob {
     return {
       id: job.id,
+      kind: "service",
       scheduledStart: null,
       scheduledEnd: null,
       scheduledEndDate: null,
       status: job.status as CalendarJob["status"],
       notes: job.notes ?? null,
       locationOverride: null,
+      dayLocations: {},
       customer: job.customers ? { id: job.customer_id!, name: job.customers.name } : null,
       boat: job.boats
         ? { id: "", name: job.boats.name, makeModel: job.boats.make_model ?? null }

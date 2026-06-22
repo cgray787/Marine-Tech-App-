@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startOfMonth, endOfMonth, format, parseISO } from "date-fns";
@@ -13,6 +13,7 @@ import {
   JobBottomSheetHandle,
 } from "@/components/calendar/JobBottomSheet";
 import { ScheduleSheet, ScheduleSheetHandle } from "@/components/ScheduleSheet";
+import { NewJobSheet, type NewJobSheetHandle } from "@/components/calendar/NewJobSheet";
 import { ViewToggle, type CalendarPanelMode } from "@/components/calendar/ViewToggle";
 import { HourGrid } from "@/components/calendar/HourGrid";
 import { useAuth } from "@/lib/auth-context";
@@ -33,6 +34,19 @@ export default function CalendarScreen() {
   const router = useRouter();
   const sheetRef = useRef<JobBottomSheetHandle>(null);
   const scheduleSheetRef = useRef<ScheduleSheetHandle>(null);
+  const newJobSheetRef = useRef<NewJobSheetHandle>(null);
+
+  // Open the create sheet seeded to 9am on the selected day.
+  function openNewJob() {
+    const d = parseISO(selectedDate);
+    d.setHours(9, 0, 0, 0);
+    newJobSheetRef.current?.present(d.toISOString());
+  }
+
+  function invalidateCalendar() {
+    queryClient.invalidateQueries({ queryKey: ["calendar-mobile"] });
+    queryClient.invalidateQueries({ queryKey: ["calendar-mobile-unscheduled"] });
+  }
 
   const range = useMemo(
     () => ({
@@ -89,6 +103,8 @@ export default function CalendarScreen() {
                     boatName: j.boat?.name ?? null,
                     currentScheduledStart: j.scheduledStart,
                     currentLocation: j.locationOverride ?? j.marina?.name ?? null,
+                    currentScheduledEndDate: j.scheduledEndDate,
+                    currentDayLocations: j.dayLocations,
                   })
               : undefined
           }
@@ -107,6 +123,8 @@ export default function CalendarScreen() {
                     boatName: j.boat?.name ?? null,
                     currentScheduledStart: j.scheduledStart,
                     currentLocation: j.locationOverride ?? j.marina?.name ?? null,
+                    currentScheduledEndDate: j.scheduledEndDate,
+                    currentDayLocations: j.dayLocations,
                   })
               : undefined
           }
@@ -123,14 +141,14 @@ export default function CalendarScreen() {
           }
         />
       )}
+      {canWrite && (
+        <Pressable style={styles.fab} onPress={openNewJob} testID="calendar-new-job-fab">
+          <Text style={styles.fabText}>＋ New</Text>
+        </Pressable>
+      )}
       <JobBottomSheet ref={sheetRef} />
-      <ScheduleSheet
-        ref={scheduleSheetRef}
-        onScheduled={() => {
-          queryClient.invalidateQueries({ queryKey: ["calendar-mobile"] });
-          queryClient.invalidateQueries({ queryKey: ["calendar-mobile-unscheduled"] });
-        }}
-      />
+      <ScheduleSheet ref={scheduleSheetRef} onScheduled={invalidateCalendar} />
+      <NewJobSheet ref={newJobSheetRef} onCreated={invalidateCalendar} />
     </View>
   );
 }
@@ -138,4 +156,19 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgPrimary },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  fab: {
+    position: "absolute",
+    right: 18,
+    bottom: 24,
+    backgroundColor: colors.gold,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  fabText: { color: colors.bgPrimary, fontWeight: "700", fontSize: 14 },
 });

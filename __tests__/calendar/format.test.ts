@@ -59,12 +59,14 @@ describe('formatTimeRange', () => {
 
 const makeJob = (overrides: Partial<CalendarJob> = {}): CalendarJob => ({
   id: 'j1',
+  kind: 'service',
   scheduledStart: '2026-03-04T10:00:00Z',
   scheduledEnd: '2026-03-04T11:00:00Z',
   scheduledEndDate: null,
   status: 'new',
   notes: null,
   locationOverride: null,
+  dayLocations: {},
   customer: null,
   boat: null,
   marina: null,

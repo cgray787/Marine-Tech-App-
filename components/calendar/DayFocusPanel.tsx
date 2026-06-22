@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { startOfWeek, endOfWeek, format, parseISO } from 'date-fns';
 import { Calendar, AlertCircle, ChevronRight } from 'lucide-react';
 import type { CalendarJob } from '@/lib/calendar/types';
-import { jobsForDay, jobsForWeek, jobDays, type DayJob } from '@/lib/calendar/spans';
+import { jobsForDay, jobsForWeek, jobDays, placeForDay, type DayJob } from '@/lib/calendar/spans';
 import { techColor, statusStripeColor } from '@/lib/calendar/colors';
 import { formatTime } from '@/lib/calendar/format';
 
@@ -91,6 +91,7 @@ export function DayFocusPanel({
               key={j.id}
               job={j}
               scheduled
+              day={selectedDate}
               dayIndex={j.dayIndex}
               dayCount={j.dayCount}
               onSelect={(anchor) => onSelectJob(j, anchor)}
@@ -111,6 +112,8 @@ export function DayFocusPanel({
               key={j.id}
               job={j}
               scheduled
+              // Multi-day jobs in the week list show their first day's place.
+              day={jobDays(j)[0] ?? selectedDate}
               onSelect={(anchor) => onSelectJob(j, anchor)}
               onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
             />
@@ -131,8 +134,13 @@ export function DayFocusPanel({
               scheduled={false}
               onSelect={(anchor) => onSelectJob(j, anchor)}
               onSchedule={onScheduleJob ? () => onScheduleJob(j) : undefined}
-              // No-client jobs: tap opens the job editor to assign a client.
-              onAssign={!j.customer ? () => router.push(`/dashboard/jobs/${j.id}`) : undefined}
+              // No-client SERVICE jobs: tap opens the job editor to assign a
+              // client. Paperwork blocks have no client by design, so skip it.
+              onAssign={
+                !j.customer && j.kind !== 'paperwork'
+                  ? () => router.push(`/dashboard/jobs/${j.id}`)
+                  : undefined
+              }
             />
           ))}
         </Section>
@@ -175,6 +183,7 @@ function Section({
 function JobRow({
   job,
   scheduled,
+  day,
   dayIndex,
   dayCount,
   onSelect,
@@ -183,6 +192,8 @@ function JobRow({
 }: {
   job: CalendarJob | DayJob;
   scheduled: boolean;
+  /** The day this row is being shown under (yyyy-MM-dd) — drives placeForDay. */
+  day?: string;
   dayIndex?: number;
   dayCount?: number;
   onSelect: (anchor: HTMLElement) => void;
@@ -190,10 +201,19 @@ function JobRow({
   /** When set (no-client job), the row prompts to assign and opens the job editor on tap. */
   onAssign?: () => void;
 }) {
-  const tech = job.tech ? techColor(job.tech.id) : '#3b6cd6';
-  const stripe = statusStripeColor(job.status);
-  const location = job.locationOverride ?? job.marina?.name ?? null;
+  const isPaperwork = job.kind === 'paperwork';
+  const tech = isPaperwork ? '#334155' : job.tech ? techColor(job.tech.id) : '#3b6cd6';
+  const stripe = isPaperwork ? '#C9A96E' : statusStripeColor(job.status);
+  // Per-day place for the day this row is shown under; falls back to the job's
+  // single marina / free-text override.
+  const location = day ? placeForDay(job, day) : job.marina?.name ?? job.locationOverride ?? null;
   const multiDay = dayCount != null && dayCount > 1;
+  const primaryLabel = isPaperwork
+    ? `📋 Paperwork${job.notes?.trim() ? ` — ${job.notes.trim()}` : ''}`
+    : onAssign
+      ? 'No client — tap to assign'
+      : (job.customer?.name ?? 'Unassigned');
+  const secondaryBoat = isPaperwork ? null : (job.boat?.name ?? 'No boat');
 
   return (
     <li className="flex items-stretch hover:bg-white/5 transition-colors">
@@ -216,13 +236,11 @@ function JobRow({
                 {formatTime(job.scheduledStart)}
               </span>
             )}
-            <span className="truncate">
-              {onAssign ? 'No client — tap to assign' : (job.customer?.name ?? 'Unassigned')}
-            </span>
+            <span className="truncate">{primaryLabel}</span>
           </div>
           <div className="text-xs text-[#8892A5] truncate">
-            {job.boat?.name ?? 'No boat'}
-            {location ? ` · 📍 ${location}` : ''}
+            {secondaryBoat ? secondaryBoat : ''}
+            {location ? `${secondaryBoat ? ' · ' : ''}📍 ${location}` : ''}
             {multiDay ? ` · Day ${dayIndex} of ${dayCount}` : ''}
           </div>
         </div>

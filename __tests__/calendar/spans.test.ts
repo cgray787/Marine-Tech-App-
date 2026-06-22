@@ -1,16 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { jobDays, jobsForDay, jobsForWeek } from '@/lib/calendar/spans';
+import { jobDays, jobsForDay, jobsForWeek, placeForDay } from '@/lib/calendar/spans';
 import type { CalendarJob } from '@/lib/calendar/types';
 
 function job(overrides: Partial<CalendarJob>): CalendarJob {
   return {
     id: 'job',
+    kind: 'service',
     scheduledStart: null,
     scheduledEnd: null,
     scheduledEndDate: null,
     status: 'new',
     notes: null,
     locationOverride: null,
+    dayLocations: {},
     customer: null,
     boat: null,
     marina: null,
@@ -135,5 +137,36 @@ describe('jobsForWeek', () => {
     const late = job({ id: 'late', scheduledStart: '2026-06-19T09:00:00Z' });
     const early = job({ id: 'early', scheduledStart: '2026-06-15T09:00:00Z' });
     expect(jobsForWeek([late, early], start, end).map((j) => j.id)).toEqual(['early', 'late']);
+  });
+});
+
+describe('placeForDay', () => {
+  it('per-day override wins over marina and locationOverride', () => {
+    const j = job({
+      dayLocations: { '2026-06-18': 'Edmonds', '2026-06-19': 'Shilshole' },
+      marina: { id: 'm', name: 'Default Marina' },
+      locationOverride: 'Lake WA',
+    });
+    expect(placeForDay(j, '2026-06-18')).toBe('Edmonds');
+    expect(placeForDay(j, '2026-06-19')).toBe('Shilshole');
+  });
+
+  it('falls back to marina name when the day has no override', () => {
+    const j = job({
+      dayLocations: { '2026-06-18': 'Edmonds' },
+      marina: { id: 'm', name: 'Default Marina' },
+      locationOverride: 'Lake WA',
+    });
+    expect(placeForDay(j, '2026-06-20')).toBe('Default Marina');
+  });
+
+  it('falls back to locationOverride when no day override and no marina', () => {
+    const j = job({ dayLocations: {}, marina: null, locationOverride: 'Lake WA' });
+    expect(placeForDay(j, '2026-06-20')).toBe('Lake WA');
+  });
+
+  it('returns null when nothing is known', () => {
+    const j = job({ dayLocations: {}, marina: null, locationOverride: null });
+    expect(placeForDay(j, '2026-06-20')).toBeNull();
   });
 });

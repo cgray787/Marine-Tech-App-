@@ -4,12 +4,14 @@ import type { CalendarJob } from "@/lib/calendar/types";
 
 const baseJob: CalendarJob = {
   id: "j",
+  kind: "service",
   scheduledStart: null,
   scheduledEnd: null,
   scheduledEndDate: null,
   status: "new",
   notes: null,
   locationOverride: null,
+  dayLocations: {},
   customer: null,
   boat: null,
   marina: null,

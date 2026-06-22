@@ -8,6 +8,7 @@ import {
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   Pressable,
   Platform,
@@ -21,11 +22,18 @@ import { addHours, parseISO, format as fmtDate } from "date-fns";
 import { formatTime } from "@/lib/calendar/format";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import type { JobKind } from "@/lib/calendar/types";
 import {
   getCustomersForLocation,
   getBoatsForCustomer,
   createJob,
 } from "@/lib/calendar/queries";
+import { PerDayLocationEditor } from "./PerDayLocationEditor";
+
+// 'YYYY-MM-DD' day part of a local Date.
+function dayString(d: Date): string {
+  return fmtDate(d, "yyyy-MM-dd");
+}
 
 const DURATIONS_HOURS: { label: string; hours: number }[] = [
   { label: "30m", hours: 0.5 },
@@ -49,14 +57,23 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
     const sheetRef = useRef<BottomSheet>(null);
     const snapPoints = useMemo(() => ["50%", "90%"], []);
 
+    const [kind, setKind] = useState<JobKind>("service");
     const [startIso, setStartIso] = useState<string | null>(null);
     const [durationHours, setDurationHours] = useState<number>(1);
     const [showTimePicker, setShowTimePicker] = useState(false);
+    // Multi-day end date (yyyy-MM-dd), "" = single-day.
+    const [endDay, setEndDay] = useState<string>("");
+    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+    const [dayLocations, setDayLocations] = useState<Record<string, string>>({});
+    // Paperwork title/note.
+    const [paperworkNote, setPaperworkNote] = useState("");
 
     const [customerId, setCustomerId] = useState<string | null>(null);
     const [boatId, setBoatId] = useState<string | null>(null);
     const [showCustomerPicker, setShowCustomerPicker] = useState(false);
     const [showBoatPicker, setShowBoatPicker] = useState(false);
+
+    const isPaperwork = kind === "paperwork";
 
     const customersQuery = useQuery({
       queryKey: ["picker-customers"],
@@ -75,17 +92,29 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
 
     const createMutation = useMutation({
       mutationFn: async () => {
-        if (!startIso || !customerId || !effectiveBoatId) {
+        if (!startIso) throw new Error("Missing start time");
+        if (isPaperwork) {
+          if (!paperworkNote.trim()) throw new Error("Add a title for the paperwork block");
+        } else if (!customerId || !effectiveBoatId) {
           throw new Error("Missing required fields");
         }
         const start = parseISO(startIso);
-        const end   = addHours(start, durationHours);
+        const startDay = dayString(start);
+        const isMultiDay = !!endDay && endDay > startDay;
+        // Multi-day jobs end at 5pm on the last day; single-day = start + duration.
+        const end = isMultiDay
+          ? new Date(`${endDay}T17:00:00`)
+          : addHours(start, durationHours);
         return createJob(supabase, {
-          customerId,
-          boatId: effectiveBoatId,
+          kind,
+          customerId: isPaperwork ? null : customerId,
+          boatId: isPaperwork ? null : effectiveBoatId,
           assignedTo: profile?.id ?? null,
           scheduledStart: start.toISOString(),
           scheduledEnd: end.toISOString(),
+          scheduledEndDate: isMultiDay ? endDay : null,
+          dayLocations: isMultiDay ? dayLocations : {},
+          notes: isPaperwork ? paperworkNote.trim() : null,
         });
       },
       onSuccess: () => {
@@ -105,15 +134,22 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
       boatId ?? (boatsQuery.data?.length === 1 ? boatsQuery.data[0].id : null);
 
     const canSubmit =
-      !!(startIso && customerId && effectiveBoatId) && !createMutation.isPending;
+      !!startIso &&
+      (isPaperwork ? !!paperworkNote.trim() : !!(customerId && effectiveBoatId)) &&
+      !createMutation.isPending;
 
     const selectedCustomer = customersQuery.data?.find((c) => c.id === customerId) ?? null;
     const selectedBoat     = boatsQuery.data?.find((b) => b.id === effectiveBoatId) ?? null;
 
     useImperativeHandle(ref, () => ({
       present: (initial) => {
+        setKind("service");
         setStartIso(initial);
         setDurationHours(1);
+        setEndDay("");
+        setShowEndDatePicker(false);
+        setDayLocations({});
+        setPaperworkNote("");
         setCustomerId(null);
         setBoatId(null);
         setShowCustomerPicker(false);
@@ -124,6 +160,8 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
     }));
 
     const startDate  = startIso ? parseISO(startIso) : null;
+    const startDay   = startDate ? dayString(startDate) : "";
+    const isMultiDay = !!endDay && endDay > startDay;
     const endDate    = startDate ? addHours(startDate, durationHours) : null;
     const crossesMidnight = (h: number): boolean => {
       if (!startDate) return false;
@@ -141,7 +179,28 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
         handleIndicatorStyle={{ backgroundColor: "#8892A5" }}
       >
         <BottomSheetScrollView contentContainerStyle={styles.body}>
-          <Text style={styles.heading}>Schedule a job</Text>
+          <Text style={styles.heading}>
+            {isPaperwork ? "New paperwork block" : "Schedule a job"}
+          </Text>
+
+          {/* Service | Paperwork segmented toggle */}
+          <View style={styles.segmented}>
+            {(["service", "paperwork"] as JobKind[]).map((k) => {
+              const selected = kind === k;
+              return (
+                <Pressable
+                  key={k}
+                  onPress={() => setKind(k)}
+                  style={[styles.segment, selected && styles.segmentSelected]}
+                  testID={`new-job-kind-${k}`}
+                >
+                  <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                    {k === "service" ? "Service" : "📋 Paperwork"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           {/* Schedule row */}
           <Text style={styles.label}>WHEN</Text>
@@ -190,89 +249,140 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
               );
             })}
           </View>
-          {endDate && (
+          {endDate && !isMultiDay && (
             <Text style={styles.subhint}>
               Ends at {formatTime(endDate)}
             </Text>
           )}
 
-          {/* Customer picker */}
-          <Text style={styles.label}>CUSTOMER</Text>
-          <Pressable
-            onPress={() => setShowCustomerPicker((v) => !v)}
-            style={styles.pickerRow}
-            testID="new-job-customer"
-          >
-            <Text style={styles.pickerValue}>
-              {selectedCustomer ? selectedCustomer.name : "Tap to choose"}
-            </Text>
-            <Text style={styles.pickerChevron}>{showCustomerPicker ? "▴" : "▾"}</Text>
-          </Pressable>
-          {showCustomerPicker && (
-            <View style={styles.pickerList}>
-              {customersQuery.isLoading && (
-                <ActivityIndicator color="#C9A96E" style={{ padding: 12 }} />
-              )}
-              {customersQuery.data?.map((c) => (
+          {/* Multi-day toggle */}
+          <View style={{ marginTop: 12 }}>
+            {isMultiDay ? (
+              <View style={styles.endDateBadge}>
+                <Text style={styles.endDateBadgeText}>
+                  Multi-day through {fmtDate(parseISO(endDay), "MMM d")}
+                </Text>
                 <Pressable
-                  key={c.id}
-                  onPress={() => {
-                    setCustomerId(c.id);
-                    setBoatId(null);   // clear any prior boat (was a useEffect)
-                    setShowCustomerPicker(false);
-                  }}
-                  style={styles.pickerItem}
-                  testID={`customer-${c.id}`}
+                  onPress={() => { setEndDay(""); setDayLocations({}); }}
+                  style={styles.endDateClear}
+                  testID="new-job-clear-enddate"
                 >
-                  <Text style={styles.pickerItemText}>{c.name}</Text>
+                  <Text style={styles.endDateClearText}>✕</Text>
                 </Pressable>
-              ))}
-              {customersQuery.data?.length === 0 && (
-                <Text style={styles.pickerEmpty}>No customers in your location yet</Text>
-              )}
-            </View>
-          )}
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => setShowEndDatePicker(true)}
+                style={styles.endDateToggle}
+                testID="new-job-add-enddate"
+              >
+                <Text style={styles.endDateToggleText}>+ Add end date (multi-day)</Text>
+              </Pressable>
+            )}
+          </View>
 
-          {/* Boat picker */}
-          <Text style={styles.label}>BOAT</Text>
-          <Pressable
-            onPress={() => customerId && setShowBoatPicker((v) => !v)}
-            style={[styles.pickerRow, !customerId && styles.pickerRowDisabled]}
-            testID="new-job-boat"
-          >
-            <Text style={styles.pickerValue}>
-              {selectedBoat
-                ? `${selectedBoat.name}${selectedBoat.makeModel ? ` · ${selectedBoat.makeModel}` : ""}`
-                : customerId
-                  ? "Tap to choose"
-                  : "Pick a customer first"}
-            </Text>
-            <Text style={styles.pickerChevron}>{showBoatPicker ? "▴" : "▾"}</Text>
-          </Pressable>
-          {showBoatPicker && customerId && (
-            <View style={styles.pickerList}>
-              {boatsQuery.isLoading && (
-                <ActivityIndicator color="#C9A96E" style={{ padding: 12 }} />
+          {/* Per-day place editor (multi-day, service or paperwork) */}
+          <PerDayLocationEditor
+            startDay={startDay}
+            endDay={endDay}
+            value={dayLocations}
+            onChange={setDayLocations}
+          />
+
+          {isPaperwork ? (
+            /* Paperwork title / note */
+            <>
+              <Text style={styles.label}>TITLE / NOTE</Text>
+              <TextInput
+                style={styles.noteInput}
+                placeholder="e.g. Month-end invoicing"
+                placeholderTextColor="#8892A5"
+                value={paperworkNote}
+                onChangeText={setPaperworkNote}
+                testID="new-job-paperwork-note"
+              />
+            </>
+          ) : (
+            <>
+              {/* Customer picker */}
+              <Text style={styles.label}>CUSTOMER</Text>
+              <Pressable
+                onPress={() => setShowCustomerPicker((v) => !v)}
+                style={styles.pickerRow}
+                testID="new-job-customer"
+              >
+                <Text style={styles.pickerValue}>
+                  {selectedCustomer ? selectedCustomer.name : "Tap to choose"}
+                </Text>
+                <Text style={styles.pickerChevron}>{showCustomerPicker ? "▴" : "▾"}</Text>
+              </Pressable>
+              {showCustomerPicker && (
+                <View style={styles.pickerList}>
+                  {customersQuery.isLoading && (
+                    <ActivityIndicator color="#C9A96E" style={{ padding: 12 }} />
+                  )}
+                  {customersQuery.data?.map((c) => (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => {
+                        setCustomerId(c.id);
+                        setBoatId(null);   // clear any prior boat (was a useEffect)
+                        setShowCustomerPicker(false);
+                      }}
+                      style={styles.pickerItem}
+                      testID={`customer-${c.id}`}
+                    >
+                      <Text style={styles.pickerItemText}>{c.name}</Text>
+                    </Pressable>
+                  ))}
+                  {customersQuery.data?.length === 0 && (
+                    <Text style={styles.pickerEmpty}>No customers in your location yet</Text>
+                  )}
+                </View>
               )}
-              {boatsQuery.data?.map((b) => (
-                <Pressable
-                  key={b.id}
-                  onPress={() => {
-                    setBoatId(b.id);
-                    setShowBoatPicker(false);
-                  }}
-                  style={styles.pickerItem}
-                  testID={`boat-${b.id}`}
-                >
-                  <Text style={styles.pickerItemText}>
-                    {b.name}{b.makeModel ? ` · ${b.makeModel}` : ""}
-                  </Text>
-                </Pressable>
-              ))}
-              {boatsQuery.data?.length === 0 && (
-                <Text style={styles.pickerEmpty}>No boats on this customer</Text>
+
+              {/* Boat picker */}
+              <Text style={styles.label}>BOAT</Text>
+              <Pressable
+                onPress={() => customerId && setShowBoatPicker((v) => !v)}
+                style={[styles.pickerRow, !customerId && styles.pickerRowDisabled]}
+                testID="new-job-boat"
+              >
+                <Text style={styles.pickerValue}>
+                  {selectedBoat
+                    ? `${selectedBoat.name}${selectedBoat.makeModel ? ` · ${selectedBoat.makeModel}` : ""}`
+                    : customerId
+                      ? "Tap to choose"
+                      : "Pick a customer first"}
+                </Text>
+                <Text style={styles.pickerChevron}>{showBoatPicker ? "▴" : "▾"}</Text>
+              </Pressable>
+              {showBoatPicker && customerId && (
+                <View style={styles.pickerList}>
+                  {boatsQuery.isLoading && (
+                    <ActivityIndicator color="#C9A96E" style={{ padding: 12 }} />
+                  )}
+                  {boatsQuery.data?.map((b) => (
+                    <Pressable
+                      key={b.id}
+                      onPress={() => {
+                        setBoatId(b.id);
+                        setShowBoatPicker(false);
+                      }}
+                      style={styles.pickerItem}
+                      testID={`boat-${b.id}`}
+                    >
+                      <Text style={styles.pickerItemText}>
+                        {b.name}{b.makeModel ? ` · ${b.makeModel}` : ""}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  {boatsQuery.data?.length === 0 && (
+                    <Text style={styles.pickerEmpty}>No boats on this customer</Text>
+                  )}
+                </View>
               )}
-            </View>
+            </>
           )}
 
         </BottomSheetScrollView>
@@ -312,6 +422,24 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
             }}
           />
         )}
+
+        {showEndDatePicker && startDate && (
+          <DateTimePicker
+            value={endDay ? parseISO(endDay) : addHours(startDate, 24)}
+            mode="date"
+            minimumDate={startDate}
+            display={Platform.OS === "ios" ? "inline" : "default"}
+            themeVariant="dark"
+            onChange={(_event, selected) => {
+              setShowEndDatePicker(Platform.OS === "ios" ? false : false);
+              if (selected) {
+                const day = dayString(selected);
+                // Only treat as multi-day if strictly after the start day.
+                setEndDay(day > dayString(startDate) ? day : "");
+              }
+            }}
+          />
+        )}
       </BottomSheet>
     );
   },
@@ -321,7 +449,60 @@ NewJobSheet.displayName = "NewJobSheet";
 
 const styles = StyleSheet.create({
   body: { padding: 20, paddingBottom: 80 },
-  heading: { color: "#f1f5f9", fontSize: 18, fontWeight: "600", marginBottom: 16 },
+  heading: { color: "#f1f5f9", fontSize: 18, fontWeight: "600", marginBottom: 12 },
+  segmented: {
+    flexDirection: "row",
+    backgroundColor: "#060a12",
+    borderWidth: 1,
+    borderColor: "#1a2236",
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 12,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 6,
+  },
+  segmentSelected: { backgroundColor: "#C9A96E" },
+  segmentText: { color: "#8892A5", fontSize: 13, fontWeight: "600" },
+  segmentTextSelected: { color: "#060a12", fontWeight: "700" },
+  noteInput: {
+    backgroundColor: "#060a12",
+    borderWidth: 1,
+    borderColor: "#1a2236",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#f1f5f9",
+    marginTop: 4,
+  },
+  endDateToggle: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1a2236",
+    alignSelf: "flex-start",
+  },
+  endDateToggleText: { color: "#8892A5", fontSize: 12 },
+  endDateBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(201,169,110,0.25)",
+    backgroundColor: "rgba(201,169,110,0.15)",
+    alignSelf: "flex-start",
+  },
+  endDateBadgeText: { color: "#C9A96E", fontSize: 12, fontWeight: "600" },
+  endDateClear: { paddingHorizontal: 4 },
+  endDateClearText: { color: "#8892A5", fontSize: 12 },
   label: {
     color: "#8892A5",
     fontSize: 11,

@@ -33,24 +33,36 @@ export const JobBottomSheet = forwardRef<JobBottomSheetHandle, JobBottomSheetPro
     >
       <BottomSheetView style={styles.body}>
         {job && (
-          <>
-            <Text style={styles.time}>{formatTimeRange(job.scheduledStart, job.scheduledEnd)}</Text>
-            <Text style={styles.customer}>{job.customer?.name ?? 'Customer'}</Text>
-            <Text style={styles.boat}>
-              {job.boat?.name ?? 'Boat'}{job.boat?.makeModel ? ` · ${job.boat.makeModel}` : ''}
-            </Text>
-            {(job.locationOverride || job.marina?.name) && (
-              <Text style={styles.location}>📍 {job.locationOverride ?? job.marina?.name}</Text>
-            )}
-            {job.tech && <Text style={styles.tech}>🔧 {job.tech.fullName}</Text>}
-            {job.notes && <Text style={styles.notes}>{job.notes}</Text>}
-            <Pressable
-              onPress={() => { sheetRef.current?.close(); router.push(`/job/${job.id}`); }}
-              style={styles.openBtn}
-            >
-              <Text style={styles.openBtnText}>Open job →</Text>
-            </Pressable>
-          </>
+          job.kind === 'paperwork' ? (
+            <>
+              <Text style={styles.time}>{formatTimeRange(job.scheduledStart, job.scheduledEnd)}</Text>
+              <Text style={styles.customer}>📋 Paperwork</Text>
+              {job.notes && <Text style={styles.boat}>{job.notes}</Text>}
+              {(job.locationOverride || job.marina?.name) && (
+                <Text style={styles.location}>📍 {job.locationOverride ?? job.marina?.name}</Text>
+              )}
+              {job.tech && <Text style={styles.tech}>🔧 {job.tech.fullName}</Text>}
+            </>
+          ) : (
+            <>
+              <Text style={styles.time}>{formatTimeRange(job.scheduledStart, job.scheduledEnd)}</Text>
+              <Text style={styles.customer}>{job.customer?.name ?? 'Customer'}</Text>
+              <Text style={styles.boat}>
+                {job.boat?.name ?? 'Boat'}{job.boat?.makeModel ? ` · ${job.boat.makeModel}` : ''}
+              </Text>
+              {(job.locationOverride || job.marina?.name) && (
+                <Text style={styles.location}>📍 {job.locationOverride ?? job.marina?.name}</Text>
+              )}
+              {job.tech && <Text style={styles.tech}>🔧 {job.tech.fullName}</Text>}
+              {job.notes && <Text style={styles.notes}>{job.notes}</Text>}
+              <Pressable
+                onPress={() => { sheetRef.current?.close(); router.push(`/job/${job.id}`); }}
+                style={styles.openBtn}
+              >
+                <Text style={styles.openBtnText}>Open job →</Text>
+              </Pressable>
+            </>
+          )
         )}
       </BottomSheetView>
     </BottomSheet>

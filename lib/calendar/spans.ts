@@ -34,6 +34,18 @@ export function jobDays(
   return days;
 }
 
+/**
+ * The place a job is at on a given day (yyyy-MM-dd). For multi-day jobs the
+ * per-day `day_locations` override wins; otherwise it falls back to the job's
+ * single marina, then its free-text location override. Returns null if unknown.
+ */
+export function placeForDay(
+  job: Pick<CalendarJob, 'dayLocations' | 'marina' | 'locationOverride'>,
+  day: string,
+): string | null {
+  return job.dayLocations?.[day] ?? job.marina?.name ?? job.locationOverride ?? null;
+}
+
 export type DayJob = CalendarJob & { dayIndex: number; dayCount: number };
 
 /**

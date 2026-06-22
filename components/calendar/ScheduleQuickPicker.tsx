@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { CalendarJob } from "@/lib/calendar/types";
 import { DatePopover } from "./DatePopover";
+import { PerDayLocationEditor } from "./PerDayLocationEditor";
 
 // Centered modal-ish dialog with a date + start-time + duration picker. Save
 // writes scheduledStart and scheduledEnd via the provided callback so the
@@ -15,10 +16,12 @@ interface Props {
   onCancel: () => void;
   // scheduledEndDate is the date-only string for the multi-day end (mirrors
   // jobs.scheduled_end_date so the portal calendar can render the span).
+  // dayLocations is the per-day place map for multi-day jobs (day_locations).
   onSave: (input: {
     scheduledStart: string;
     scheduledEnd: string;
     scheduledEndDate?: string;
+    dayLocations?: Record<string, string>;
   }) => Promise<void>;
 }
 
@@ -58,8 +61,15 @@ export function ScheduleQuickPicker({ job, initial, onCancel, onSave }: Props) {
   const [dateStr, setDateStr] = useState(() => dateInputValue(seed));
   const [timeStr, setTimeStr] = useState(() => timeInputValue(seed));
   const [hours, setHours] = useState<number>(DEFAULT_DURATION_HOURS);
-  // Optional end date for multi-day jobs. Empty = single-day.
-  const [endDateStr, setEndDateStr] = useState("");
+  // Optional end date for multi-day jobs. Empty = single-day. Seed from the
+  // job's existing multi-day end so re-opening keeps the span.
+  const [endDateStr, setEndDateStr] = useState(
+    () => job.scheduledEndDate ?? "",
+  );
+  // Per-day place map (day_locations), seeded from the job.
+  const [dayLocations, setDayLocations] = useState<Record<string, string>>(
+    () => job.dayLocations ?? {},
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -108,6 +118,8 @@ export function ScheduleQuickPicker({ job, initial, onCancel, onSave }: Props) {
         scheduledStart: start.toISOString(),
         scheduledEnd: end.toISOString(),
         ...(scheduledEndDate ? { scheduledEndDate } : {}),
+        // Only persist per-day places for a multi-day span; otherwise clear them.
+        dayLocations: isMultiDay ? dayLocations : {},
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -187,6 +199,14 @@ export function ScheduleQuickPicker({ job, initial, onCancel, onSave }: Props) {
             <p className="text-xs text-[#8892A5]">
               Multi-day job — ends {endDateStr} at 5:00 PM.
             </p>
+          )}
+          {isMultiDay && (
+            <PerDayLocationEditor
+              startDay={dateStr}
+              endDay={endDateStr}
+              value={dayLocations}
+              onChange={setDayLocations}
+            />
           )}
         </div>
 

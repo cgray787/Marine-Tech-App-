@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import type { CalendarJob } from "@/lib/calendar/types";
 import { techColor, statusStripeColor } from "@/lib/calendar/colors";
 import { dayOfN } from "@/lib/calendar/format";
+import { placeForDay } from "@/lib/calendar/spans";
 
 type Props = {
   jobs: CalendarJob[];
@@ -16,14 +17,19 @@ export function AllDayStrip({ jobs, selectedDate, onSelectJob, onScheduleJob }: 
   return (
     <View style={styles.container} testID="all-day-strip">
       {jobs.map((j) => {
-        const bg = j.tech ? techColor(j.tech.id) : "#3b6cd6";
-        const stripe = statusStripeColor(j.status);
+        const isPaperwork = j.kind === "paperwork";
+        const bg = isPaperwork ? "#334155" : j.tech ? techColor(j.tech.id) : "#3b6cd6";
+        const stripe = isPaperwork ? "#C9A96E" : statusStripeColor(j.status);
         const { day, total } = dayOfN(
           selectedDate,
           j.scheduledStart!,
           j.scheduledEndDate!,
         );
-        const subtitle = j.boat?.name ?? "Boat";
+        // Per-day place for the spanned day in view.
+        const place = placeForDay(j, selectedDate);
+        const title = isPaperwork
+          ? `📋 Paperwork${j.notes?.trim() ? ` — ${j.notes.trim()}` : ""}${place ? ` · 📍 ${place}` : ""}`
+          : `🛠 ${j.customer?.name ?? "Customer"} · ${j.boat?.name ?? "Boat"}${place ? ` · 📍 ${place}` : ""}`;
         return (
           <Pressable
             key={j.id}
@@ -34,7 +40,7 @@ export function AllDayStrip({ jobs, selectedDate, onSelectJob, onScheduleJob }: 
             testID={`all-day-chip-${j.id}`}
           >
             <Text style={styles.title} numberOfLines={1}>
-              🛠 {j.customer?.name ?? "Customer"} · {subtitle}
+              {title}
             </Text>
             <Text style={styles.badge}>DAY {day}/{total}</Text>
           </Pressable>

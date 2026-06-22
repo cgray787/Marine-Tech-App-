@@ -151,11 +151,13 @@ function JobLane({
   onPress: () => void;
   onLongPress?: () => void;
 }) {
-  const bg     = job.tech ? techColor(job.tech.id) : "#3b6cd6";
-  const stripe = statusStripeColor(job.status);
+  const isPaperwork = job.kind === "paperwork";
+  const bg     = isPaperwork ? "#334155" : job.tech ? techColor(job.tech.id) : "#3b6cd6";
+  const stripe = isPaperwork ? "#C9A96E" : statusStripeColor(job.status);
   const range  = formatTimeRange(job.scheduledStart, job.scheduledEnd);
-  const cust   = job.customer?.name ?? "Customer";
-  const boat   = job.boat?.name ?? "Boat";
+  const label  = isPaperwork
+    ? `📋 Paperwork${job.notes?.trim() ? ` — ${job.notes.trim()}` : ""}`
+    : `${job.customer?.name ?? "Customer"} · ${job.boat?.name ?? "Boat"}`;
   return (
     <Pressable
       onPress={onPress}
@@ -165,7 +167,7 @@ function JobLane({
       testID={`hour-grid-chip-${job.id}`}
     >
       <Text style={styles.laneText} numberOfLines={1}>
-        {range} · {cust} · {boat}
+        {range} · {label}
       </Text>
     </Pressable>
   );

@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CalendarJob, JobStatus } from './types';
+import type { CalendarJob, JobKind, JobStatus } from './types';
 
 const SELECT = `
-  id, scheduled_start, scheduled_end, scheduled_end_date, status, notes, location_override,
+  id, kind, scheduled_start, scheduled_end, scheduled_end_date, status, notes, location_override, day_locations,
   customer:customers(id, name),
   boat:boats(id, name, make_model),
   marina:marinas(id, name),
@@ -24,12 +24,15 @@ export function mapJobRowToCalendarJob(row: any): CalendarJob {
   const techRaw = unwrap<{ id: string; full_name: string }>(row.tech);
   return {
     id: row.id,
+    kind: (row.kind ?? 'service') as JobKind,
     scheduledStart: row.scheduled_start ?? null,
     scheduledEnd: row.scheduled_end ?? null,
     scheduledEndDate: row.scheduled_end_date ?? null,
     status: row.status as JobStatus,
     notes: row.notes ?? null,
     locationOverride: row.location_override ?? null,
+    dayLocations:
+      row.day_locations && typeof row.day_locations === 'object' ? row.day_locations : {},
     customer: customer ? { id: customer.id, name: customer.name } : null,
     boat: boatRaw
       ? { id: boatRaw.id, name: boatRaw.name, makeModel: boatRaw.make_model ?? null }
@@ -73,13 +76,19 @@ export async function getUnscheduledJobs(
 }
 
 export type CreateJobInput = {
-  customerId: string;
-  boatId: string;
+  // Paperwork blocks have no client/boat, so both are nullable.
+  customerId: string | null;
+  boatId: string | null;
+  kind?: JobKind;
   marinaId?: string | null;
   locationOverride?: string | null;
   assignedTo?: string | null;
   scheduledStart?: string | null;
   scheduledEnd?: string | null;
+  // Date-only string (YYYY-MM-DD) for a multi-day end.
+  scheduledEndDate?: string | null;
+  // Per-day place overrides for multi-day jobs: { "YYYY-MM-DD": "<place>" }.
+  dayLocations?: Record<string, string> | null;
   serviceTypes?: string[];
   notes?: string | null;
 };
@@ -88,12 +97,15 @@ export async function createJob(supabase: SupabaseClient, input: CreateJobInput)
   const payload = {
     customer_id: input.customerId,
     boat_id: input.boatId,
+    kind: input.kind ?? 'service',
     marina_id: input.marinaId ?? null,
     location_override: input.locationOverride ?? null,
     assigned_to: input.assignedTo ?? null,
     scheduled_start: input.scheduledStart ?? null,
     scheduled_end: input.scheduledEnd ?? null,
     scheduled_date: input.scheduledStart ? input.scheduledStart.slice(0, 10) : null,
+    scheduled_end_date: input.scheduledEndDate ?? null,
+    day_locations: input.dayLocations ?? {},
     service_types: input.serviceTypes ?? [],
     notes: input.notes ?? null,
     status: 'new' as JobStatus,
@@ -110,6 +122,7 @@ export async function updateJob(supabase: SupabaseClient, input: UpdateJobInput)
   const payload: Record<string, unknown> = {};
   if ('customerId' in rest) payload.customer_id = rest.customerId;
   if ('boatId' in rest) payload.boat_id = rest.boatId;
+  if ('kind' in rest) payload.kind = rest.kind;
   if ('marinaId' in rest) payload.marina_id = rest.marinaId;
   if ('locationOverride' in rest) payload.location_override = rest.locationOverride;
   if ('assignedTo' in rest) payload.assigned_to = rest.assignedTo;
@@ -118,6 +131,8 @@ export async function updateJob(supabase: SupabaseClient, input: UpdateJobInput)
     payload.scheduled_date = rest.scheduledStart ? rest.scheduledStart.slice(0, 10) : null;
   }
   if ('scheduledEnd' in rest) payload.scheduled_end = rest.scheduledEnd;
+  if ('scheduledEndDate' in rest) payload.scheduled_end_date = rest.scheduledEndDate;
+  if ('dayLocations' in rest) payload.day_locations = rest.dayLocations ?? {};
   if ('serviceTypes' in rest) payload.service_types = rest.serviceTypes;
   if ('notes' in rest) payload.notes = rest.notes;
 

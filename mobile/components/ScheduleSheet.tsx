@@ -14,6 +14,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Calendar, DateData } from "react-native-calendars";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/constants/Colors";
+import { PerDayLocationEditor } from "@/components/calendar/PerDayLocationEditor";
 
 export type ScheduleSheetHandle = {
   present: (job: {
@@ -22,6 +23,8 @@ export type ScheduleSheetHandle = {
     boatName: string | null;
     currentScheduledStart: string | null;
     currentLocation?: string | null;
+    currentScheduledEndDate?: string | null;
+    currentDayLocations?: Record<string, string> | null;
   }) => void;
   dismiss: () => void;
 };
@@ -47,6 +50,8 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
     // Whether the calendar/picker is currently selecting the end date.
     const [pickingEnd, setPickingEnd] = useState(false);
     const [location, setLocation] = useState("");
+    // Per-day place map (day_locations) for multi-day jobs.
+    const [dayLocations, setDayLocations] = useState<Record<string, string>>({});
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [saving, setSaving] = useState(false);
     const snapPoints = useMemo(() => ["90%"], []);
@@ -70,7 +75,14 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
               return d;
             })();
         setPickedDate(initial);
-        setEndDate(null);
+        // Seed the existing multi-day end (5pm local) so re-opening keeps it.
+        if (j.currentScheduledEndDate) {
+          const ed = new Date(`${j.currentScheduledEndDate}T17:00:00`);
+          setEndDate(Number.isNaN(ed.getTime()) ? null : ed);
+        } else {
+          setEndDate(null);
+        }
+        setDayLocations(j.currentDayLocations ?? {});
         setPickingEnd(false);
         setLocation(j.currentLocation ?? "");
         setMode("calendar");
@@ -118,6 +130,8 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
           scheduled_date: startDateOnly,
           scheduled_end_date: endDateOnly,
           location_override: location.trim() || null,
+          // Per-day places only apply to a multi-day span; clear otherwise.
+          day_locations: isMultiDay ? dayLocations : {},
         })
         .eq("id", job.id);
       setSaving(false);
@@ -279,6 +293,16 @@ export const ScheduleSheet = forwardRef<ScheduleSheetHandle, Props>(
                   onChangeText={setLocation}
                 />
               </View>
+
+              {/* Per-day places for multi-day jobs */}
+              {isMultiDay && endDate && (
+                <PerDayLocationEditor
+                  startDay={dateToString(pickedDate)}
+                  endDay={dateToString(endDate)}
+                  value={dayLocations}
+                  onChange={setDayLocations}
+                />
+              )}
 
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>
