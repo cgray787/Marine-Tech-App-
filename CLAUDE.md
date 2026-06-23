@@ -175,6 +175,10 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `033_work_orders.sql` — Work Orders module: `price_levels`, `job_templates`, `wo_settings`, `work_orders` (+`work_order_number_seq` from 1001), `work_order_jobs`, `work_order_lines`, `work_order_payments`; `wo_can_edit()` helper (admin+manager writes only); seeds 15 templates + Seattle $175/hr price level. (Its pre-Sausalito follow-up was closed by migration 034.)
 - `034_wo_location_scoped_writes.sql` — location-scopes the four `wo_*_write` policies from 033: admins stay org-wide, managers can only write WOs (and their jobs/lines/payments) in their own office.
 - `035_gate_job_assignment_to_location.sql` — `job_assignee_location` BEFORE trigger on `jobs`: `assigned_to` must belong to the same location as the job's customer (admin assignees and location-less customers exempt). Covers every write path incl. mobile offline sync and raw REST.
+- `036_quickbooks.sql` — `qb_connections` (QuickBooks OAuth tokens; RLS deny-all / service-role only) for Work Orders → QuickBooks invoice export.
+- `037_admin_set_user_location.sql` — owner/admin RPC to set a user's `location_id`.
+- `038_locations_read_policy.sql` — `locations` SELECT policy (fixes the empty office picker).
+- `039_paperwork_perday_location.sql` — `jobs.kind` ('service'|'paperwork'), `jobs.day_locations` (jsonb per-day place for multi-day jobs), `jobs.location_id` (+ `set_paperwork_location` trigger deriving it from the assigned tech for clientless paperwork); `paperwork_*` RLS (read/insert/update/delete) gated on `kind='paperwork'`, assignee-location scoped. Powers schedulable Paperwork blocks + per-day multi-day locations.
 
 **Numbering collision footgun:** two files share the `026` prefix — `026_owner_only_user_management.sql` and `026_parts_order_email.sql` (pg_cron schedule + `parts-order-email` edge-function wiring). Both are applied. Always check `supabase/migrations/` for the highest prefix before numbering (036 is taken by in-flight QuickBooks work on `feat/wo-phase2`). Migrations are applied via Supabase MCP (`mcp__supabase__apply_migration`), not the Supabase CLI.
 
@@ -354,6 +358,17 @@ marine-tech-app/
   - Realtime polling fallback for offline disconnect
   - Migration to drop the legacy `scheduled_date` column once all reads have switched
   - Playwright auth setup so the 3 scaffolded e2e tests can actually run
+
+## Scheduling / Calendar — 2026-06 updates (shipped to `main`, deployed all surfaces)
+
+- **Day-focused panel** — tap a day → that day's jobs on top, then "Scheduled this week", then "Unscheduled — needs a time". Mobile `WeeklyJobsPanel` (3-section); web admin + portal get a `DayFocusPanel` below the grid. Shared pure helper `lib/calendar/spans.ts` (`jobDays`/`jobsForDay`/`jobsForWeek`/`placeForDay`), mirrored in mobile + portal.
+- **Multi-day spanning** — jobs render on every day they span (month markers per covered day, "Day N of M" tags; web shows spanning bars).
+- **Per-day locations** — a multi-day job can have a different place per day via `jobs.day_locations` (jsonb `{YYYY-MM-DD: place}`); `placeForDay(job, day)` resolves it; `PerDayLocationEditor` (web + mobile) / portal `PerDayLocations` island write it.
+- **Paperwork blocks** — schedulable `kind='paperwork'` calendar items (no client/boat, title/note, multi-day capable). Service|Paperwork toggle in the scheduler (mobile NewJobSheet via a "+ New" FAB on the Calendar tab; admin `NewJobModal`); portal renders + edits them (no portal create flow). Backend = migration 039.
+- **Unscheduled UX** — real clients first; clientless jobs read "No client — tap to assign" (tap → job editor) and sort last.
+- **Mini-calendar popover** — month-grid date picker on the web Schedule pickers' Start/End date fields (admin `components/calendar/DatePopover.tsx`; portal `src/components/portal/DateFieldWithCalendar.tsx`).
+- **Mobile Job Details back arrow fix** — the native auto back button no-ops on RN 0.81 new-arch + react-native-screens; replaced with a custom `headerLeft` in `mobile/app/job/[id].tsx` (all roles).
+- **Specs:** `docs/superpowers/specs/2026-06-18-scheduling-redesign-design.md`, `docs/superpowers/specs/2026-06-22-paperwork-perday-location-design.md`.
 
 ## Checklist Categories & Items
 
