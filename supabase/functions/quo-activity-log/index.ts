@@ -36,6 +36,13 @@ import {
   serviceThreadGuard,
   taskSubtype,
 } from "./quo.ts";
+import {
+  anyRedacted,
+  type Brand,
+  classifyBrand,
+  grayYachtsSummary,
+  redactItems,
+} from "./brand-filter.ts";
 
 // Non-sensitive config (overridable via env). Mirrors salesforce-sync.
 const SF_CLIENT_ID = Deno.env.get("SF_CLIENT_ID") ?? "PlatformCLI";
@@ -72,6 +79,10 @@ interface ClientResult {
   skipped?: string;
   action?: "created" | "updated";
   digest?: string; // populated on dryRun (or on matched write)
+  // JBY-only filter outcome (see brand-filter.ts): the conversation's brand and
+  // how the filter treated it before writing to Salesforce.
+  brand?: Brand;
+  filter?: "full" | "redacted" | "summary-only";
 }
 
 async function getAccessToken(refreshToken: string): Promise<{ accessToken: string; instanceUrl: string }> {
@@ -273,8 +284,21 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // 5. Build digest.
-      const digest = buildDigest(items, { name: match.account.Name, timeZone: TIMEZONE });
+      // 5. Build digest, then apply the Jeff Brown Yachts-only filter. Salesforce
+      //    is JBY's CRM — Gray Yachts info never goes in. A Gray Yachts thread is
+      //    reduced to a contentless counts summary; any stray Gray Yachts mention
+      //    in a JBY/unknown thread is redacted out of the digest.
+      const brand = classifyBrand(items);
+      result.brand = brand;
+      let digest: string;
+      if (brand === "gray_yachts") {
+        digest = grayYachtsSummary(items);
+        result.filter = "summary-only";
+      } else {
+        const redacted = redactItems(items);
+        digest = buildDigest(redacted, { name: match.account.Name, timeZone: TIMEZONE });
+        result.filter = anyRedacted(items, redacted) ? "redacted" : "full";
+      }
       result.digest = digest;
 
       // 6. Idempotent Task write (skipped on dryRun).
@@ -308,6 +332,8 @@ Deno.serve(async (req) => {
         skipped: results.filter((r) => r.skipped).length,
         created: results.filter((r) => r.action === "created").length,
         updated: results.filter((r) => r.action === "updated").length,
+        grayYachtsSummarized: results.filter((r) => r.filter === "summary-only").length,
+        redacted: results.filter((r) => r.filter === "redacted").length,
       },
       clients: results,
     };
