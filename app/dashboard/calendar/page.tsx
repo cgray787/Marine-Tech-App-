@@ -61,7 +61,10 @@ export default function CalendarPage() {
       let q = supabase
         .from('profiles')
         .select('id, full_name')
-        .eq('role', 'tech')
+        // Managers do floor work too, so they're assignable as techs here (matches
+        // the Jobs page + job detail). Only active staff appear in the picker.
+        .in('role', ['tech', 'manager'])
+        .eq('status', 'active')
         .order('full_name');
       if (locationId) q = q.eq('location_id', locationId);
       const { data, error } = await q;
@@ -202,6 +205,15 @@ export default function CalendarPage() {
         boats={lookupsQuery.data?.boats ?? []}
         marinas={lookupsQuery.data?.marinas ?? []}
         techs={techsQuery.data ?? []}
+        onCreated={(job) => {
+          // A future-dated job lands on a month the operator may not be viewing.
+          // Navigate the grid (and day focus) to the new job so it's visible.
+          if (job.scheduledStart) {
+            const d = new Date(job.scheduledStart);
+            setDate(d);
+            setSelectedDay(d);
+          }
+        }}
         onClose={() => setNewJobOpen(false)}
       />
 

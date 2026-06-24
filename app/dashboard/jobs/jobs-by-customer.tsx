@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Calendar, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Calendar, AlertCircle, Search } from 'lucide-react';
 import { JobStatusActions } from './job-actions';
 import { formatDate, statusColor } from '@/lib/utils';
 import { formatTime } from '@/lib/calendar/format';
@@ -50,6 +50,14 @@ export function JobsByCustomer({ customers, jobs }: Props) {
   );
   const [expanded, setExpanded] = useState<Set<string>>(defaultExpanded);
 
+  // Client search — filters the grouped list by customer name. While a query is
+  // active, matching clients are force-expanded so their jobs are visible.
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const visibleCustomers = q
+    ? customersWithJobs.filter((c) => c.name.toLowerCase().includes(q))
+    : customersWithJobs;
+
   const toggle = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -67,12 +75,34 @@ export function JobsByCustomer({ customers, jobs }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-border-line bg-card-bg overflow-hidden">
-      {customersWithJobs.map((customer) => {
+    <div className="space-y-3">
+      <div className="relative">
+        <Search
+          size={16}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
+          aria-hidden
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search clients…"
+          aria-label="Search clients"
+          className="w-full rounded-xl border border-border-line bg-card-bg py-2.5 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-secondary focus:border-gold focus:outline-none"
+        />
+      </div>
+
+      <div className="rounded-xl border border-border-line bg-card-bg overflow-hidden">
+      {visibleCustomers.length === 0 && (
+        <div className="px-6 py-10 text-center text-sm text-text-secondary">
+          No clients match “{query.trim()}”.
+        </div>
+      )}
+      {visibleCustomers.map((customer) => {
         const customerJobs = grouped.byCust.get(customer.id) ?? [];
         const scheduled = customerJobs.filter((j) => j.scheduled_start).length;
         const unscheduled = customerJobs.length - scheduled;
-        const isOpen = expanded.has(customer.id);
+        const isOpen = q ? true : expanded.has(customer.id);
 
         return (
           <div
@@ -213,7 +243,7 @@ export function JobsByCustomer({ customers, jobs }: Props) {
         );
       })}
 
-      {grouped.orphans.length > 0 && (
+      {!q && grouped.orphans.length > 0 && (
         <div className="border-t border-border-line bg-secondary-bg/30 px-6 py-4">
           <div className="text-xs uppercase tracking-wider text-text-secondary mb-2">
             Jobs without a customer ({grouped.orphans.length})
@@ -230,6 +260,7 @@ export function JobsByCustomer({ customers, jobs }: Props) {
           </ul>
         </div>
       )}
+      </div>
     </div>
   );
 }

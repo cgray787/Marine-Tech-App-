@@ -6,7 +6,7 @@ import { X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createJob } from '@/lib/calendar/queries';
 import { createClient } from '@/lib/supabase/client';
-import type { JobKind } from '@/lib/calendar/types';
+import type { CalendarJob, JobKind } from '@/lib/calendar/types';
 import { PerDayLocationEditor } from './PerDayLocationEditor';
 import './modal-input.css';
 
@@ -17,6 +17,8 @@ type Props = {
   boats: { id: string; name: string; customerId: string }[];
   marinas: { id: string; name: string }[];
   techs: { id: string; fullName: string }[];
+  /** Called with the created job so the calendar can jump to its month. */
+  onCreated?: (job: CalendarJob) => void;
   onClose: () => void;
 };
 
@@ -25,7 +27,7 @@ function dayString(d: Date): string {
   return format(d, 'yyyy-MM-dd');
 }
 
-export function NewJobModal({ open, defaultStart, customers, boats, marinas, techs, onClose }: Props) {
+export function NewJobModal({ open, defaultStart, customers, boats, marinas, techs, onCreated, onClose }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
 
@@ -85,8 +87,11 @@ export function NewJobModal({ open, defaultStart, customers, boats, marinas, tec
         dayLocations: isMultiDay ? dayLocations : {},
         notes: notes || null,
       }),
-    onSuccess: () => {
+    onSuccess: (job) => {
       queryClient.invalidateQueries({ queryKey: ['calendar'] });
+      // Jump the calendar to the new job's month so a future-dated job is
+      // immediately visible instead of silently landing on an unseen month.
+      onCreated?.(job);
       onClose();
     },
     onError: (e: any) => setError(e?.message ?? 'Failed to create job'),
