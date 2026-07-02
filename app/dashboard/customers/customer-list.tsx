@@ -49,9 +49,14 @@ type Boat = {
 export function CustomerList({
   initialCustomers,
   initialBoats,
+  activeLocationId,
 }: {
   initialCustomers: Customer[];
   initialBoats: Boat[];
+  // The owner/admin Office filter in effect (null = All offices / office-bound
+  // user). New clients are created into this office so they don't vanish from
+  // the filtered views (migration 042 lets org-wide admins set it explicitly).
+  activeLocationId: string | null;
 }) {
   const router = useRouter();
   const canWrite = useCanWrite();
@@ -102,13 +107,17 @@ export function CustomerList({
       address: customerAddress || null,
       notes: customerNotes || null,
     };
-    // Edit path — update the existing row. Otherwise insert. org_id/location_id
-    // are assigned server-side from the caller's profile by the
-    // set_customer_tenant BEFORE INSERT trigger (migration 023) on create,
-    // and stay put on update.
+    // Edit path — update the existing row. Otherwise insert. org_id is always
+    // assigned server-side from the caller's profile (set_customer_tenant,
+    // migrations 023 + 042). location_id: office-bound staff are forced to
+    // their own office; org-wide admins get the active Office filter passed
+    // here so the new client lands in the office they're looking at.
     const { error: writeError } = editingCustomerId
       ? await supabase.from("customers").update(payload).eq("id", editingCustomerId)
-      : await supabase.from("customers").insert(payload);
+      : await supabase.from("customers").insert({
+          ...payload,
+          ...(activeLocationId ? { location_id: activeLocationId } : {}),
+        });
 
     if (writeError) {
       setError(writeError.message);
