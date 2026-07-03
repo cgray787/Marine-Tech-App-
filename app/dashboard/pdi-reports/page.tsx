@@ -133,6 +133,7 @@ export default async function PdiReportsPage() {
                         <div className="flex items-center justify-end gap-2">
                           <Link
                             href={`/dashboard/pdi-reports/${pdi.id}`}
+                            prefetch={false}
                             className="rounded-lg border border-border-line px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-gold/30 hover:text-gold"
                           >
                             View

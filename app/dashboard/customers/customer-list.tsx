@@ -487,6 +487,7 @@ export function CustomerList({
                     <div>
                       <Link
                         href={`/dashboard/customers/${customer.id}`}
+                        prefetch={false}
                         onClick={(e) => e.stopPropagation()}
                         className="font-medium text-text-primary hover:text-gold transition-colors"
                       >

@@ -183,6 +183,7 @@ export default async function DashboardPage() {
                   <Link
                     key={report.id}
                     href={`/dashboard/reports/${report.id}`}
+                    prefetch={false}
                     className="flex items-center justify-between px-6 py-4 transition-colors hover:bg-white/5"
                   >
                     <div>
