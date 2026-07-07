@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { startOfWeek, endOfWeek, isWithinInterval, format } from 'date-fns';
 import { Calendar, AlertCircle, ChevronRight } from 'lucide-react';
 import type { CalendarJob } from '@/lib/calendar/types';
-import { techColor, statusStripeColor } from '@/lib/calendar/colors';
+import { clientColor, statusStripeColor } from '@/lib/calendar/colors';
 import { formatTime } from '@/lib/calendar/format';
 
 type Props = {
@@ -151,7 +151,7 @@ function JobRow({
   onSelect: (anchor: HTMLElement) => void;
   onSchedule?: () => void;
 }) {
-  const tech = job.tech ? techColor(job.tech.id) : '#3b6cd6';
+  const fill = clientColor(job.customer?.id);
   const stripe = statusStripeColor(job.status);
   const location = job.locationOverride ?? job.marina?.name ?? null;
 
@@ -160,7 +160,7 @@ function JobRow({
       {/* Side indicator tab — full-height left band */}
       <div
         className="w-1 shrink-0"
-        style={{ background: scheduled ? tech : '#1a2236' }}
+        style={{ background: scheduled ? fill : '#1a2236' }}
         aria-hidden
       />
       <div className="w-1 shrink-0" style={{ background: stripe }} aria-hidden />

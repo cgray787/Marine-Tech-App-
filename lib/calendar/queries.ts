@@ -56,6 +56,17 @@ export function mapJobRowToCalendarJob(row: any): CalendarJob {
   };
 }
 
+/**
+ * PostgREST `.or()` clause selecting paperwork for an office filter: paperwork
+ * carries its own `jobs.location_id` (set from the assigned tech by the
+ * set_paperwork_location trigger). We include `location_id IS NULL` so an
+ * unassigned / office-less paperwork block shows under every office instead of
+ * silently vanishing.
+ */
+function paperworkLocationOr(locationId: string): string {
+  return `location_id.eq.${locationId},location_id.is.null`;
+}
+
 export async function getJobsInRange(
   supabase: SupabaseClient,
   startUtc: string,
@@ -63,17 +74,43 @@ export async function getJobsInRange(
   techId?: string,
   locationId?: string,
 ): Promise<CalendarJob[]> {
-  let q = supabase
-    .from('jobs')
-    .select(calendarSelect(!!locationId))
-    .gte('scheduled_start', startUtc)
-    .lte('scheduled_start', endUtc)
-    .order('scheduled_start');
-  if (techId) q = q.eq('assigned_to', techId);
-  if (locationId) q = q.eq('customer.location_id', locationId);
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data ?? []).map(mapJobRowToCalendarJob);
+  // Range + optional tech filter, applied to whichever select we run.
+  const withScope = <T>(q: T): T => {
+    let qq = (q as any)
+      .gte('scheduled_start', startUtc)
+      .lte('scheduled_start', endUtc)
+      .order('scheduled_start');
+    if (techId) qq = qq.eq('assigned_to', techId);
+    return qq;
+  };
+
+  if (!locationId) {
+    // No office filter: a single plain (LEFT-join) query already includes
+    // clientless paperwork blocks.
+    const { data, error } = await withScope(supabase.from('jobs').select(SELECT));
+    if (error) throw error;
+    return (data ?? []).map(mapJobRowToCalendarJob);
+  }
+
+  // Office filter active. Service jobs follow their customer's office via an
+  // INNER join on the embedded customer — but that inner join drops clientless
+  // paperwork blocks (customer_id IS NULL). Fetch paperwork separately by its
+  // own jobs.location_id and merge, so scheduled paperwork isn't hidden by the
+  // office filter.
+  const [service, paperwork] = await Promise.all([
+    withScope(supabase.from('jobs').select(calendarSelect(true))).eq(
+      'customer.location_id',
+      locationId,
+    ),
+    withScope(supabase.from('jobs').select(SELECT))
+      .eq('kind', 'paperwork')
+      .or(paperworkLocationOr(locationId)),
+  ]);
+  if (service.error) throw service.error;
+  if (paperwork.error) throw paperwork.error;
+  return [...(service.data ?? []), ...(paperwork.data ?? [])]
+    .map(mapJobRowToCalendarJob)
+    .sort((a, b) => (a.scheduledStart ?? '').localeCompare(b.scheduledStart ?? ''));
 }
 
 export async function getUnscheduledJobs(
@@ -81,20 +118,39 @@ export async function getUnscheduledJobs(
   techId?: string,
   locationId?: string,
 ): Promise<CalendarJob[]> {
-  let q = supabase
-    .from('jobs')
-    .select(calendarSelect(!!locationId))
-    .is('scheduled_start', null)
-    .order('created_at');
-  if (techId) q = q.eq('assigned_to', techId);
-  if (locationId) q = q.eq('customer.location_id', locationId);
-  const { data, error } = await q;
-  if (error) throw error;
+  const withScope = <T>(q: T): T => {
+    let qq = (q as any).is('scheduled_start', null).order('created_at');
+    if (techId) qq = qq.eq('assigned_to', techId);
+    return qq;
+  };
+
   // Push jobs with no linked client to the end. JS Array.sort is stable, so
   // client-bearing jobs keep their existing created_at order.
-  return (data ?? [])
-    .map(mapJobRowToCalendarJob)
-    .sort((a, b) => (a.customer ? 0 : 1) - (b.customer ? 0 : 1));
+  const clientsFirst = (jobs: CalendarJob[]) =>
+    jobs.sort((a, b) => (a.customer ? 0 : 1) - (b.customer ? 0 : 1));
+
+  if (!locationId) {
+    const { data, error } = await withScope(supabase.from('jobs').select(SELECT));
+    if (error) throw error;
+    return clientsFirst((data ?? []).map(mapJobRowToCalendarJob));
+  }
+
+  // Same office-filter split as getJobsInRange: paperwork has no customer to
+  // scope through, so fetch it by jobs.location_id and merge.
+  const [service, paperwork] = await Promise.all([
+    withScope(supabase.from('jobs').select(calendarSelect(true))).eq(
+      'customer.location_id',
+      locationId,
+    ),
+    withScope(supabase.from('jobs').select(SELECT))
+      .eq('kind', 'paperwork')
+      .or(paperworkLocationOr(locationId)),
+  ]);
+  if (service.error) throw service.error;
+  if (paperwork.error) throw paperwork.error;
+  return clientsFirst(
+    [...(service.data ?? []), ...(paperwork.data ?? [])].map(mapJobRowToCalendarJob),
+  );
 }
 
 export type CreateJobInput = {
