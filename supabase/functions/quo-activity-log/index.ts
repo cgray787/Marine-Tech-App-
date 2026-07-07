@@ -43,6 +43,11 @@ import {
   grayYachtsSummary,
   redactItems,
 } from "./brand-filter.ts";
+import {
+  buildDoNotReport,
+  isExcludedByName,
+  isExcludedByPhone,
+} from "./do-not-report.ts";
 
 // Non-sensitive config (overridable via env). Mirrors salesforce-sync.
 const SF_CLIENT_ID = Deno.env.get("SF_CLIENT_ID") ?? "PlatformCLI";
@@ -233,11 +238,41 @@ Deno.serve(async (req) => {
       if (!byKey.has(k)) byKey.set(k, p);
     }
 
+    // Load the private do-not-report list. Anyone on it is skipped entirely — a
+    // private contact's Quo texts/calls are never matched to or written into
+    // Salesforce. Fail CLOSED: if the list can't be read, abort the whole run
+    // rather than risk logging someone who is meant to stay private.
+    const { data: dnrRows, error: dnrError } = await supabase
+      .from("quo_do_not_report")
+      .select("phone_last10, name")
+      .eq("active", true);
+    if (dnrError) {
+      console.error("quo-activity-log: failed to load do-not-report list:", dnrError.message);
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "do-not-report list unavailable; aborting run to protect private contacts",
+          date,
+          dryRun,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    const doNotReport = buildDoNotReport(dnrRows ?? []);
+
     // SF auth once.
     const { accessToken, instanceUrl } = await getAccessToken(secrets.sf_refresh_token);
 
     for (const [key, phone] of byKey) {
       const result: ClientResult = { phone, itemCount: 0 };
+
+      // 0. Private do-not-report guard (by phone). Skip BEFORE pulling any Quo
+      //    activity, so a private contact's texts/calls never even leave Quo.
+      if (isExcludedByPhone(doNotReport, phone)) {
+        result.skipped = "do-not-report (private)";
+        results.push(result);
+        continue;
+      }
 
       // 2. Pull this client's texts + calls for the window.
       const [messages, calls] = await Promise.all([
@@ -275,6 +310,14 @@ Deno.serve(async (req) => {
         continue;
       }
       result.matchedAccount = { id: match.account.Id, name: match.account.Name };
+
+      // Private do-not-report guard (by matched account name) — a secondary net
+      // for entries added by name without a resolved phone. Still before any write.
+      if (isExcludedByName(doNotReport, match.account.Name)) {
+        result.skipped = "do-not-report (private)";
+        results.push(result);
+        continue;
+      }
 
       // 4. Service-thread guard.
       const guard = serviceThreadGuard(items);
@@ -330,6 +373,7 @@ Deno.serve(async (req) => {
         clients: results.length,
         matched: results.filter((r) => r.matchedAccount).length,
         skipped: results.filter((r) => r.skipped).length,
+        excludedPrivate: results.filter((r) => r.skipped === "do-not-report (private)").length,
         created: results.filter((r) => r.action === "created").length,
         updated: results.filter((r) => r.action === "updated").length,
         grayYachtsSummarized: results.filter((r) => r.filter === "summary-only").length,
