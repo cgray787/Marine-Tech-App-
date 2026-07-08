@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Calendar, AlertCircle, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, Calendar, AlertCircle } from 'lucide-react';
 import { JobStatusActions } from './job-actions';
 import { formatDate, statusColor } from '@/lib/utils';
 import { formatTime } from '@/lib/calendar/format';
@@ -24,9 +24,13 @@ type Customer = { id: string; name: string };
 type Props = {
   customers: Customer[];
   jobs: Job[];
+  /** Whether the page-level search is active — force-expands matches + tweaks the empty message. */
+  searchActive?: boolean;
+  /** Trimmed search text, used only for the "no matches" message. */
+  query?: string;
 };
 
-export function JobsByCustomer({ customers, jobs }: Props) {
+export function JobsByCustomer({ customers, jobs, searchActive = false, query = '' }: Props) {
   const grouped = useMemo(() => {
     const byCust: Map<string, Job[]> = new Map();
     const orphans: Job[] = [];
@@ -50,13 +54,10 @@ export function JobsByCustomer({ customers, jobs }: Props) {
   );
   const [expanded, setExpanded] = useState<Set<string>>(defaultExpanded);
 
-  // Client search — filters the grouped list by customer name. While a query is
-  // active, matching clients are force-expanded so their jobs are visible.
-  const [query, setQuery] = useState('');
-  const q = query.trim().toLowerCase();
-  const visibleCustomers = q
-    ? customersWithJobs.filter((c) => c.name.toLowerCase().includes(q))
-    : customersWithJobs;
+  // The page-level search (JobsWorkspace) already filtered `jobs`, so every
+  // client and orphan job still present is a match — render them all and
+  // force clients open while a search is active.
+  const visibleCustomers = customersWithJobs;
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -69,40 +70,20 @@ export function JobsByCustomer({ customers, jobs }: Props) {
   if (jobs.length === 0) {
     return (
       <div className="rounded-xl border border-border-line bg-card-bg px-6 py-12 text-center text-sm text-text-secondary">
-        No jobs yet — use the form above to create one.
+        {searchActive
+          ? `No clients or jobs match “${query}”.`
+          : 'No jobs yet — use the form above to create one.'}
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <div className="relative">
-        <Search
-          size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
-          aria-hidden
-        />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search clients…"
-          aria-label="Search clients"
-          className="w-full rounded-xl border border-border-line bg-card-bg py-2.5 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-secondary focus:border-gold focus:outline-none"
-        />
-      </div>
-
-      <div className="rounded-xl border border-border-line bg-card-bg overflow-hidden">
-      {visibleCustomers.length === 0 && (
-        <div className="px-6 py-10 text-center text-sm text-text-secondary">
-          No clients match “{query.trim()}”.
-        </div>
-      )}
+    <div className="rounded-xl border border-border-line bg-card-bg overflow-hidden">
       {visibleCustomers.map((customer) => {
         const customerJobs = grouped.byCust.get(customer.id) ?? [];
         const scheduled = customerJobs.filter((j) => j.scheduled_start).length;
         const unscheduled = customerJobs.length - scheduled;
-        const isOpen = q ? true : expanded.has(customer.id);
+        const isOpen = searchActive ? true : expanded.has(customer.id);
 
         return (
           <div
@@ -243,7 +224,7 @@ export function JobsByCustomer({ customers, jobs }: Props) {
         );
       })}
 
-      {!q && grouped.orphans.length > 0 && (
+      {grouped.orphans.length > 0 && (
         <div className="border-t border-border-line bg-secondary-bg/30 px-6 py-4">
           <div className="text-xs uppercase tracking-wider text-text-secondary mb-2">
             Jobs without a customer ({grouped.orphans.length})
@@ -260,7 +241,6 @@ export function JobsByCustomer({ customers, jobs }: Props) {
           </ul>
         </div>
       )}
-      </div>
     </div>
   );
 }

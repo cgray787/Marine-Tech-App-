@@ -23,9 +23,11 @@ type PendingJob = {
 
 interface Props {
   jobs: PendingJob[];
+  /** Whether the page search is active — switches the empty message to "no matches". */
+  searchActive?: boolean;
 }
 
-export function PendingJobsPanel({ jobs }: Props) {
+export function PendingJobsPanel({ jobs, searchActive = false }: Props) {
   const canWrite = useCanWrite();
   const queryClient = useQueryClient();
   const supabase = createClient();
@@ -73,7 +75,9 @@ export function PendingJobsPanel({ jobs }: Props) {
 
         {jobs.length === 0 ? (
           <div className="px-6 py-8 text-center text-sm text-amber-300/60">
-            No pending jobs — every job has a schedule.
+            {searchActive
+              ? "No pending jobs match your search."
+              : "No pending jobs — every job has a schedule."}
           </div>
         ) : (
           <div className="divide-y divide-amber-500/10">
