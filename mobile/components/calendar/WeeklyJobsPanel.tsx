@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { startOfWeek, endOfWeek, format, parseISO } from "date-fns";
 import type { CalendarJob } from "@/lib/calendar/types";
 import { jobsForDay, jobsForWeek, jobDays, placeForDay } from "@/lib/calendar/spans";
-import { clientColor, statusStripeColor } from "@/lib/calendar/colors";
+import { clientColor, jobStripeColor } from "@/lib/calendar/colors";
 import { formatTime } from "@/lib/calendar/format";
 import { colors } from "@/constants/Colors";
 
@@ -178,7 +178,7 @@ function JobRow({
 }) {
   const isPaperwork = job.kind === "paperwork";
   const fill = isPaperwork ? "#334155" : clientColor(job.customer?.id);
-  const stripe = isPaperwork ? "#C9A96E" : statusStripeColor(job.status);
+  const stripe = isPaperwork ? "#C9A96E" : jobStripeColor(job.id);
   const location = day
     ? placeForDay(job, day)
     : job.marina?.name ?? job.locationOverride ?? null;

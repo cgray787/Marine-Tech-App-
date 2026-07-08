@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { format } from "date-fns";
 import type { CalendarJob } from "@/lib/calendar/types";
-import { clientColor, statusStripeColor } from "@/lib/calendar/colors";
+import { clientColor, jobStripeColor } from "@/lib/calendar/colors";
 import {
   isMultiDay,
   bucketJobsByHour,
@@ -153,7 +153,7 @@ function JobLane({
 }) {
   const isPaperwork = job.kind === "paperwork";
   const bg     = isPaperwork ? "#334155" : clientColor(job.customer?.id);
-  const stripe = isPaperwork ? "#C9A96E" : statusStripeColor(job.status);
+  const stripe = isPaperwork ? "#C9A96E" : jobStripeColor(job.id);
   const range  = formatTimeRange(job.scheduledStart, job.scheduledEnd);
   const label  = isPaperwork
     ? `📋 Paperwork${job.notes?.trim() ? ` — ${job.notes.trim()}` : ""}`

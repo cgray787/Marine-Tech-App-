@@ -43,6 +43,29 @@ export function clientColor(clientId: string | null | undefined): string {
   return CLIENT_PALETTE[h % CLIENT_PALETTE.length];
 }
 
+// Each job gets its own left-stripe color (hashed from its id) so individual
+// jobs are visually distinct on the calendar — even several jobs for the same
+// client (which share a fill color). Wider palette than the 5 client fills so
+// the stripe reads as its own accent, not a repeat of the fill.
+export const JOB_STRIPE_PALETTE = [
+  '#f43f5e', // rose
+  '#4ade80', // green
+  '#facc15', // amber
+  '#38bdf8', // sky
+  '#c084fc', // violet
+  '#fb923c', // orange
+  '#2dd4bf', // turquoise
+  '#f472b6', // pink
+] as const;
+
+export function jobStripeColor(jobId: string): string {
+  let h = 0;
+  for (let i = 0; i < jobId.length; i++) {
+    h = (h * 31 + jobId.charCodeAt(i)) >>> 0;
+  }
+  return JOB_STRIPE_PALETTE[h % JOB_STRIPE_PALETTE.length];
+}
+
 const STATUS_STRIPE: Record<JobStatus, string> = {
   new: '#4ade80',
   in_progress: '#f59e0b',

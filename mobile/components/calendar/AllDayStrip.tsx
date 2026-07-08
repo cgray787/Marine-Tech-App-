@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import type { CalendarJob } from "@/lib/calendar/types";
-import { clientColor, statusStripeColor } from "@/lib/calendar/colors";
+import { clientColor, jobStripeColor } from "@/lib/calendar/colors";
 import { dayOfN } from "@/lib/calendar/format";
 import { placeForDay } from "@/lib/calendar/spans";
 
@@ -19,7 +19,7 @@ export function AllDayStrip({ jobs, selectedDate, onSelectJob, onScheduleJob }: 
       {jobs.map((j) => {
         const isPaperwork = j.kind === "paperwork";
         const bg = isPaperwork ? "#334155" : clientColor(j.customer?.id);
-        const stripe = isPaperwork ? "#C9A96E" : statusStripeColor(j.status);
+        const stripe = isPaperwork ? "#C9A96E" : jobStripeColor(j.id);
         const { day, total } = dayOfN(
           selectedDate,
           j.scheduledStart!,

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { startOfWeek, endOfWeek, isWithinInterval, format } from 'date-fns';
 import { Calendar, AlertCircle, ChevronRight } from 'lucide-react';
 import type { CalendarJob } from '@/lib/calendar/types';
-import { clientColor, statusStripeColor } from '@/lib/calendar/colors';
+import { clientColor, jobStripeColor } from '@/lib/calendar/colors';
 import { formatTime } from '@/lib/calendar/format';
 
 type Props = {
@@ -152,7 +152,7 @@ function JobRow({
   onSchedule?: () => void;
 }) {
   const fill = clientColor(job.customer?.id);
-  const stripe = statusStripeColor(job.status);
+  const stripe = jobStripeColor(job.id);
   const location = job.locationOverride ?? job.marina?.name ?? null;
 
   return (

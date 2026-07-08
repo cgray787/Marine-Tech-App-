@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   techColor,
   clientColor,
+  jobStripeColor,
   statusStripeColor,
   TECH_PALETTE,
   CLIENT_PALETTE,
+  JOB_STRIPE_PALETTE,
 } from '@/lib/calendar/colors';
 
 describe('techColor', () => {
@@ -51,6 +53,27 @@ describe('clientColor', () => {
     expect(clientColor('')).toBe(fallback);
     expect(CLIENT_PALETTE).not.toContain(fallback);
     expect(fallback).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+});
+
+describe('jobStripeColor', () => {
+  it('returns a hex from the stripe palette', () => {
+    expect(JOB_STRIPE_PALETTE).toContain(jobStripeColor('job-abc-123'));
+  });
+
+  it('is deterministic for the same job id', () => {
+    expect(jobStripeColor('job-abc')).toBe(jobStripeColor('job-abc'));
+  });
+
+  it('spreads job ids across most of the palette so jobs look distinct', () => {
+    const ids = Array.from({ length: 60 }, (_, i) => `job-${i}-${Math.random()}`);
+    const colors = new Set(ids.map((id) => jobStripeColor(id)));
+    expect(colors.size).toBeGreaterThanOrEqual(6);
+  });
+
+  it('handles empty string without throwing', () => {
+    expect(() => jobStripeColor('')).not.toThrow();
+    expect(JOB_STRIPE_PALETTE).toContain(jobStripeColor(''));
   });
 });
 
