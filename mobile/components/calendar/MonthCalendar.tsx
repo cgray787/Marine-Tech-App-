@@ -1,7 +1,7 @@
 import { Calendar, DateData } from 'react-native-calendars';
 import { useMemo } from 'react';
 import type { CalendarJob } from '@/lib/calendar/types';
-import { techColor } from '@/lib/calendar/colors';
+import { clientColor } from '@/lib/calendar/colors';
 import { jobDays } from '@/lib/calendar/spans';
 
 type Props = {
@@ -17,7 +17,7 @@ export function MonthCalendar({ jobs, selectedDate, onSelectDate, onMonthChange 
     for (const j of jobs) {
       // Paperwork blocks read distinct from tech-colored service jobs.
       const color =
-        j.kind === 'paperwork' ? '#C9A96E' : j.tech ? techColor(j.tech.id) : '#3b6cd6';
+        j.kind === 'paperwork' ? '#C9A96E' : clientColor(j.customer?.id);
       // Mark every day a job spans, not just its start — multi-day jobs show a
       // marker on each covered day.
       for (const day of jobDays(j)) {

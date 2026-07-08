@@ -19,6 +19,53 @@ export function techColor(techId: string): string {
   return TECH_PALETTE[h % TECH_PALETTE.length];
 }
 
+// Calendar job bars are colored by CLIENT (not tech) so an operator can tell
+// different customers apart at a glance instead of every bar being one color.
+// Five distinct, white-text-legible hues on the dark theme; the client id is
+// hashed so each client gets a stable color across days and views.
+export const CLIENT_PALETTE = [
+  '#3b6cd6', // blue
+  '#14b8a6', // teal
+  '#a855f7', // purple
+  '#f97316', // orange
+  '#ec4899', // pink
+] as const;
+
+// Neutral slate for service jobs with no linked client ("Unassigned customer").
+const CLIENTLESS_FALLBACK = '#64748b';
+
+export function clientColor(clientId: string | null | undefined): string {
+  if (!clientId) return CLIENTLESS_FALLBACK;
+  let h = 0;
+  for (let i = 0; i < clientId.length; i++) {
+    h = (h * 31 + clientId.charCodeAt(i)) >>> 0;
+  }
+  return CLIENT_PALETTE[h % CLIENT_PALETTE.length];
+}
+
+// Each job gets its own left-stripe color (hashed from its id) so individual
+// jobs are visually distinct on the calendar — even several jobs for the same
+// client (which share a fill color). Wider palette than the 5 client fills so
+// the stripe reads as its own accent, not a repeat of the fill.
+export const JOB_STRIPE_PALETTE = [
+  '#f43f5e', // rose
+  '#4ade80', // green
+  '#facc15', // amber
+  '#38bdf8', // sky
+  '#c084fc', // violet
+  '#fb923c', // orange
+  '#2dd4bf', // turquoise
+  '#f472b6', // pink
+] as const;
+
+export function jobStripeColor(jobId: string): string {
+  let h = 0;
+  for (let i = 0; i < jobId.length; i++) {
+    h = (h * 31 + jobId.charCodeAt(i)) >>> 0;
+  }
+  return JOB_STRIPE_PALETTE[h % JOB_STRIPE_PALETTE.length];
+}
+
 const STATUS_STRIPE: Record<JobStatus, string> = {
   new: '#4ade80',
   in_progress: '#f59e0b',

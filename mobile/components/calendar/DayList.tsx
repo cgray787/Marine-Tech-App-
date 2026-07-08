@@ -1,6 +1,6 @@
 import { FlatList, Pressable, Text, View, StyleSheet } from 'react-native';
 import type { CalendarJob } from '@/lib/calendar/types';
-import { techColor, statusStripeColor } from '@/lib/calendar/colors';
+import { clientColor, jobStripeColor } from '@/lib/calendar/colors';
 import { formatTime } from '@/lib/calendar/format';
 
 type Props = {
@@ -18,8 +18,8 @@ export function DayList({ jobs, onSelect }: Props) {
       keyExtractor={(j) => j.id}
       contentContainerStyle={{ padding: 12, gap: 8 }}
       renderItem={({ item: j }) => {
-        const bg = j.tech ? techColor(j.tech.id) : '#3b6cd6';
-        const stripe = statusStripeColor(j.status);
+        const bg = clientColor(j.customer?.id);
+        const stripe = jobStripeColor(j.id);
         const loc = j.locationOverride ?? j.marina?.name ?? null;
         return (
           <Pressable

@@ -1,7 +1,7 @@
 'use client';
 import { MapPin } from 'lucide-react';
 import type { CalendarJob } from '@/lib/calendar/types';
-import { techColor, statusStripeColor } from '@/lib/calendar/colors';
+import { clientColor, jobStripeColor } from '@/lib/calendar/colors';
 import { formatTime } from '@/lib/calendar/format';
 
 // Distinct slate fill for paperwork blocks so they read differently from the
@@ -11,8 +11,10 @@ const PAPERWORK_ACCENT = '#C9A96E';
 
 export function JobChip({ job, compact = false }: { job: CalendarJob; compact?: boolean }) {
   const isPaperwork = job.kind === 'paperwork';
-  const bg = isPaperwork ? PAPERWORK_BG : job.tech ? techColor(job.tech.id) : '#3b6cd6';
-  const stripe = isPaperwork ? PAPERWORK_ACCENT : statusStripeColor(job.status);
+  // Color the bar by CLIENT so different customers are easy to tell apart.
+  const bg = isPaperwork ? PAPERWORK_BG : clientColor(job.customer?.id);
+  // Per-job stripe color so each job reads distinctly (paperwork keeps gold).
+  const stripe = isPaperwork ? PAPERWORK_ACCENT : jobStripeColor(job.id);
   const location = job.locationOverride ?? job.marina?.name ?? null;
   const customerShort = job.customer ? shortName(job.customer.name) : 'Unassigned customer';
   const boatLabel = job.boat?.name ?? 'No boat';

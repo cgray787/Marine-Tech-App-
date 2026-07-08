@@ -9,7 +9,6 @@ import {
 import { getJobsInRange, getUnscheduledJobs, updateJob } from '@/lib/calendar/queries';
 import { subscribeToJobs, unsubscribe } from '@/lib/calendar/realtime';
 import { createClient } from '@/lib/supabase/client';
-import { techColor, statusStripeColor } from '@/lib/calendar/colors';
 import { useCanWrite } from '@/lib/role-context';
 import { useLocationFilter } from '@/lib/location/client';
 import type { CalendarJob, CalendarView as ViewMode } from '@/lib/calendar/types';
@@ -153,25 +152,11 @@ export default function CalendarPage() {
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[#8892A5]">
-        <span className="text-[#C9A96E] uppercase tracking-wider">Techs:</span>
-        {(techsQuery.data ?? []).map((t) => (
-          <span key={t.id} className="flex items-center gap-1.5">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: techColor(t.id) }} />
-            {t.fullName}
-          </span>
-        ))}
-        <span className="ml-4 text-[#C9A96E] uppercase tracking-wider">Status:</span>
+        <span className="text-[#C9A96E] uppercase tracking-wider">Colors:</span>
+        <span>Bar fill = client · left stripe = per-job (each job its own color)</span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-[3px] h-2.5" style={{ background: statusStripeColor('new') }} />
-          New
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-[3px] h-2.5" style={{ background: statusStripeColor('in_progress') }} />
-          In progress
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-[3px] h-2.5" style={{ background: statusStripeColor('completed') }} />
-          Completed
+          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: '#334155' }} />
+          📋 Paperwork
         </span>
       </div>
 

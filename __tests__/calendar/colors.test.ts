@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { techColor, statusStripeColor, TECH_PALETTE } from '@/lib/calendar/colors';
+import {
+  techColor,
+  clientColor,
+  jobStripeColor,
+  statusStripeColor,
+  TECH_PALETTE,
+  CLIENT_PALETTE,
+  JOB_STRIPE_PALETTE,
+} from '@/lib/calendar/colors';
 
 describe('techColor', () => {
   it('returns a hex from the palette', () => {
@@ -20,6 +28,52 @@ describe('techColor', () => {
   it('handles empty string without throwing', () => {
     expect(() => techColor('')).not.toThrow();
     expect(TECH_PALETTE).toContain(techColor(''));
+  });
+});
+
+describe('clientColor', () => {
+  it('returns a hex from the client palette for a real id', () => {
+    expect(CLIENT_PALETTE).toContain(clientColor('client-abc-123'));
+  });
+
+  it('is deterministic for the same client id', () => {
+    expect(clientColor('client-abc')).toBe(clientColor('client-abc'));
+  });
+
+  it('spreads a set of ids across most of the 5-color palette', () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `client-${i}-${Math.random()}`);
+    const colors = new Set(ids.map((id) => clientColor(id)));
+    // Deterministic hash over 50 ids should touch nearly all 5 buckets.
+    expect(colors.size).toBeGreaterThanOrEqual(4);
+  });
+
+  it('falls back to a neutral color (outside the palette) when there is no client', () => {
+    const fallback = clientColor(null);
+    expect(clientColor(undefined)).toBe(fallback);
+    expect(clientColor('')).toBe(fallback);
+    expect(CLIENT_PALETTE).not.toContain(fallback);
+    expect(fallback).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+});
+
+describe('jobStripeColor', () => {
+  it('returns a hex from the stripe palette', () => {
+    expect(JOB_STRIPE_PALETTE).toContain(jobStripeColor('job-abc-123'));
+  });
+
+  it('is deterministic for the same job id', () => {
+    expect(jobStripeColor('job-abc')).toBe(jobStripeColor('job-abc'));
+  });
+
+  it('spreads job ids across most of the palette so jobs look distinct', () => {
+    const ids = Array.from({ length: 60 }, (_, i) => `job-${i}-${Math.random()}`);
+    const colors = new Set(ids.map((id) => jobStripeColor(id)));
+    expect(colors.size).toBeGreaterThanOrEqual(6);
+  });
+
+  it('handles empty string without throwing', () => {
+    expect(() => jobStripeColor('')).not.toThrow();
+    expect(JOB_STRIPE_PALETTE).toContain(jobStripeColor(''));
   });
 });
 

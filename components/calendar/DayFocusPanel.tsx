@@ -5,7 +5,7 @@ import { startOfWeek, endOfWeek, format, parseISO } from 'date-fns';
 import { Calendar, AlertCircle, ChevronRight } from 'lucide-react';
 import type { CalendarJob } from '@/lib/calendar/types';
 import { jobsForDay, jobsForWeek, jobDays, placeForDay, type DayJob } from '@/lib/calendar/spans';
-import { techColor, statusStripeColor } from '@/lib/calendar/colors';
+import { clientColor, jobStripeColor } from '@/lib/calendar/colors';
 import { formatTime } from '@/lib/calendar/format';
 
 type Props = {
@@ -202,8 +202,9 @@ function JobRow({
   onAssign?: () => void;
 }) {
   const isPaperwork = job.kind === 'paperwork';
-  const tech = isPaperwork ? '#334155' : job.tech ? techColor(job.tech.id) : '#3b6cd6';
-  const stripe = isPaperwork ? '#C9A96E' : statusStripeColor(job.status);
+  // Fill by CLIENT; stripe is a per-job color (paperwork keeps its slate/gold).
+  const fill = isPaperwork ? '#334155' : clientColor(job.customer?.id);
+  const stripe = isPaperwork ? '#C9A96E' : jobStripeColor(job.id);
   // Per-day place for the day this row is shown under; falls back to the job's
   // single marina / free-text override.
   const location = day ? placeForDay(job, day) : job.marina?.name ?? job.locationOverride ?? null;
@@ -217,10 +218,10 @@ function JobRow({
 
   return (
     <li className="flex items-stretch hover:bg-white/5 transition-colors">
-      {/* Side indicator tabs — full-height left bands (tech color + status stripe). */}
+      {/* Side indicator tabs — full-height left bands (client color + per-job stripe). */}
       <div
         className="w-1 shrink-0"
-        style={{ background: scheduled ? tech : '#1a2236' }}
+        style={{ background: scheduled ? fill : '#1a2236' }}
         aria-hidden
       />
       <div className="w-1 shrink-0" style={{ background: stripe }} aria-hidden />
