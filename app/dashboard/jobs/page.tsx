@@ -1,8 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { locationFilterFor } from "@/lib/location/server";
 import { CreateJobForm } from "./create-job-form";
-import { JobsByCustomer } from "./jobs-by-customer";
-import { PendingJobsPanel } from "./pending-jobs-panel";
+import { JobsWorkspace } from "./jobs-workspace";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 export default async function JobsPage() {
@@ -87,23 +86,20 @@ export default async function JobsPage() {
         </div>
       </div>
 
-      {/* Create Job Form */}
-      <CreateJobForm
+      {/* Top search bar → Create Job form → pending panel → grouped-by-customer
+          list. One search filters both lists by client, boat, tech, status, service. */}
+      <JobsWorkspace
         customers={customers || []}
-        boats={(boats as unknown as Parameters<typeof CreateJobForm>[0]['boats']) || []}
-        techs={techs || []}
-        marinas={marinas || []}
-      />
-
-      {/* Pending Jobs panel — jobs with no schedule date at all */}
-      <PendingJobsPanel
-        jobs={(pendingJobs as unknown as Parameters<typeof PendingJobsPanel>[0]['jobs']) || []}
-      />
-
-      {/* Jobs grouped by customer */}
-      <JobsByCustomer
-        customers={customers || []}
-        jobs={(jobs as unknown as Parameters<typeof JobsByCustomer>[0]['jobs']) || []}
+        jobs={(jobs as unknown as Parameters<typeof JobsWorkspace>[0]['jobs']) || []}
+        pendingJobs={
+          (pendingJobs as unknown as Parameters<typeof JobsWorkspace>[0]['pendingJobs']) || []
+        }
+        createJob={{
+          customers: customers || [],
+          boats: (boats as unknown as Parameters<typeof CreateJobForm>[0]['boats']) || [],
+          techs: techs || [],
+          marinas: marinas || [],
+        }}
       />
     </div>
   );
