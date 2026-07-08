@@ -86,22 +86,20 @@ export default async function JobsPage() {
         </div>
       </div>
 
-      {/* Create Job Form */}
-      <CreateJobForm
-        customers={customers || []}
-        boats={(boats as unknown as Parameters<typeof CreateJobForm>[0]['boats']) || []}
-        techs={techs || []}
-        marinas={marinas || []}
-      />
-
-      {/* Top search bar + pending panel + grouped-by-customer list.
-          One search filters both lists by client, boat, tech, status, service. */}
+      {/* Top search bar → Create Job form → pending panel → grouped-by-customer
+          list. One search filters both lists by client, boat, tech, status, service. */}
       <JobsWorkspace
         customers={customers || []}
         jobs={(jobs as unknown as Parameters<typeof JobsWorkspace>[0]['jobs']) || []}
         pendingJobs={
           (pendingJobs as unknown as Parameters<typeof JobsWorkspace>[0]['pendingJobs']) || []
         }
+        createJob={{
+          customers: customers || [],
+          boats: (boats as unknown as Parameters<typeof CreateJobForm>[0]['boats']) || [],
+          techs: techs || [],
+          marinas: marinas || [],
+        }}
       />
     </div>
   );

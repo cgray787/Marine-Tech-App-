@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
+import { CreateJobForm } from './create-job-form';
 import { PendingJobsPanel } from './pending-jobs-panel';
 import { JobsByCustomer } from './jobs-by-customer';
 import { jobMatchesQuery } from './job-search';
@@ -11,6 +12,8 @@ type Props = {
   customers: Customer[];
   jobs: Parameters<typeof JobsByCustomer>[0]['jobs'];
   pendingJobs: Parameters<typeof PendingJobsPanel>[0]['jobs'];
+  /** Props forwarded to the Create Job form (rendered below the search bar). */
+  createJob: Parameters<typeof CreateJobForm>[0];
 };
 
 /**
@@ -19,7 +22,7 @@ type Props = {
  * (client name, boat, tech, status, service type). Replaces the old
  * client-name-only search that lived inside JobsByCustomer.
  */
-export function JobsWorkspace({ customers, jobs, pendingJobs }: Props) {
+export function JobsWorkspace({ customers, jobs, pendingJobs, createJob }: Props) {
   const [query, setQuery] = useState('');
   const active = query.trim().length > 0;
 
@@ -59,6 +62,8 @@ export function JobsWorkspace({ customers, jobs, pendingJobs }: Props) {
           </button>
         )}
       </div>
+
+      <CreateJobForm {...createJob} />
 
       <PendingJobsPanel jobs={filteredPending} searchActive={active} />
 
