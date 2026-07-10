@@ -31,6 +31,7 @@ export default async function CustomersPage() {
       <CustomerList
         initialCustomers={customers || []}
         initialBoats={(boats as unknown as Parameters<typeof CustomerList>[0]['initialBoats']) || []}
+        activeLocationId={loc ?? null}
       />
     </div>
   );
