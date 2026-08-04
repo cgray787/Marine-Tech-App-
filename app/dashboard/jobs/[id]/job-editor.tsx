@@ -26,17 +26,9 @@ export interface JobEditorInitial {
   assigned_to: string | null;
 }
 
-const SERVICE_TYPE_OPTIONS = [
-  "Engine Service",
-  "Electrical",
-  "Hull & Bottom",
-  "Safety Inspection",
-  "Navigation Systems",
-  "General Maintenance",
-  "Winterization",
-  "Spring Commissioning",
-  "Sea Trial",
-];
+// Was a second copy of this list. Two copies is how they drift — adding the two
+// campaign types would have meant editing both — so it now lives in one place.
+import { SERVICE_TYPE_OPTIONS } from "@/lib/campaigns/constants";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "new", label: "New" },

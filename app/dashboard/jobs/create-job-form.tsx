@@ -4,23 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useCanWrite } from "@/lib/role-context";
+import {
+  SERVICE_TYPE_OPTIONS,
+  manufacturerForServiceType,
+} from "@/lib/campaigns/constants";
+import type { DraftCampaign } from "@/lib/campaigns/types";
+import { attachCampaignsToJob } from "@/lib/campaigns/queries";
+import { CampaignDrawer } from "@/components/campaigns/CampaignDrawer";
 
 type Customer = { id: string; name: string };
 type Boat = { id: string; name: string; customer_id: string; make_model: string };
 type Tech = { id: string; full_name: string; email: string };
 type Marina = { id: string; name: string };
-
-const SERVICE_TYPE_OPTIONS = [
-  "Engine Service",
-  "Electrical",
-  "Hull & Bottom",
-  "Safety Inspection",
-  "Navigation Systems",
-  "General Maintenance",
-  "Winterization",
-  "Spring Commissioning",
-  "Sea Trial",
-];
 
 export function CreateJobForm({
   customers,
@@ -58,6 +53,8 @@ export function CreateJobForm({
   const [marinaError, setMarinaError] = useState("");
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
   const [serviceDescriptions, setServiceDescriptions] = useState<Record<string, string>>({});
+  // Campaigns staged per manufacturer until the job row exists and can be linked.
+  const [campaignDrafts, setCampaignDrafts] = useState<Record<string, DraftCampaign[]>>({});
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledEndDate, setScheduledEndDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -82,6 +79,16 @@ export function CreateJobForm({
       }
       return prev;
     });
+    // Un-checking a campaign type discards anything staged under it, so a job can
+    // never be created carrying campaigns whose checkbox is off.
+    const mfg = manufacturerForServiceType(type);
+    if (mfg && serviceTypes.includes(type)) {
+      setCampaignDrafts((prev) => {
+        const next = { ...prev };
+        delete next[mfg];
+        return next;
+      });
+    }
   }
 
   function setServiceDescription(type: string, desc: string) {
@@ -159,7 +166,7 @@ export function CreateJobForm({
     }
 
     const supabase = createClient();
-    const { error: insertError } = await supabase.from("jobs").insert({
+    const { data: created, error: insertError } = await supabase.from("jobs").insert({
       customer_id: customerId || null,
       boat_id: boatId || null,
       assigned_to: techId || null,
@@ -172,12 +179,35 @@ export function CreateJobForm({
       scheduled_end_date: endDateCol,
       notes: notes || null,
       status: "new",
-    });
+    }).select("id").single();
 
     if (insertError) {
       setError(insertError.message);
       setLoading(false);
       return;
+    }
+
+    // Link staged campaigns now that the job has an id. Deliberately not fatal:
+    // the job itself is saved, so a campaign_log failure surfaces as a warning
+    // rather than losing the whole entry and making the user retype it.
+    const allDrafts = Object.values(campaignDrafts).flat();
+    if (created?.id && allDrafts.length > 0) {
+      try {
+        await attachCampaignsToJob({
+          jobId: created.id,
+          boatId: boatId || null,
+          customerId: customerId || null,
+          drafts: allDrafts,
+        });
+      } catch (e) {
+        setError(
+          `Job created, but the campaigns could not be attached: ${
+            e instanceof Error ? e.message : "unknown error"
+          }. Add them from the job page.`
+        );
+        setLoading(false);
+        return;
+      }
     }
 
     // Reset form
@@ -187,6 +217,7 @@ export function CreateJobForm({
     setMarinaId("");
     setServiceTypes([]);
     setServiceDescriptions({});
+    setCampaignDrafts({});
     setScheduledDate("");
     setScheduledEndDate("");
     setNotes("");
@@ -399,6 +430,7 @@ export function CreateJobForm({
               <div className="space-y-2">
                 {SERVICE_TYPE_OPTIONS.map((type) => {
                   const on = serviceTypes.includes(type);
+                  const mfg = manufacturerForServiceType(type);
                   return (
                     <div key={type}>
                       <button
@@ -421,7 +453,16 @@ export function CreateJobForm({
                         </span>
                         {type}
                       </button>
-                      {on && (
+                      {on && mfg && (
+                        <CampaignDrawer
+                          manufacturer={mfg}
+                          drafts={campaignDrafts[mfg] ?? []}
+                          onChange={(next) =>
+                            setCampaignDrafts((prev) => ({ ...prev, [mfg]: next }))
+                          }
+                        />
+                      )}
+                      {on && !mfg && (
                         <textarea
                           rows={2}
                           value={serviceDescriptions[type] ?? ""}
