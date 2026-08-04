@@ -37,7 +37,12 @@ export interface ServiceCampaign {
   active: boolean;
 }
 
-export type CampaignStatus = "open" | "completed" | "not_applicable";
+/**
+ * `voided` is how a mistaken attachment is withdrawn. Deleting a log row is
+ * impossible by design — no RLS delete policy and a trigger that refuses DELETE —
+ * so the record stays visible, marked withdrawn, with a reason.
+ */
+export type CampaignStatus = "open" | "completed" | "not_applicable" | "voided";
 
 /**
  * A permanent record of one campaign against one boat. Snapshot fields are frozen
@@ -72,6 +77,9 @@ export interface CampaignLogEntry {
   claim_status: string | null;
   completed_at: string | null;
   completed_by: string | null;
+  voided_at: string | null;
+  voided_by: string | null;
+  voided_reason: string | null;
   backfilled: boolean;
   created_at: string;
 }

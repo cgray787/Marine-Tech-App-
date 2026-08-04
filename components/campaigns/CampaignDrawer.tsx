@@ -30,7 +30,13 @@ export function CampaignDrawer({
 }: {
   manufacturer: Manufacturer;
   drafts: DraftCampaign[];
-  onChange: (next: DraftCampaign[]) => void;
+  /**
+   * Takes an updater, not a value. Computing the next array from the `drafts`
+   * prop would read whatever was captured at render — so two edits landing in the
+   * same batch (type a finding, tab straight to hours) would see the same stale
+   * array and the first edit would be lost.
+   */
+  onChange: (update: (prev: DraftCampaign[]) => DraftCampaign[]) => void;
 }) {
   const [catalog, setCatalog] = useState<ServiceCampaign[] | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -53,21 +59,32 @@ export function CampaignDrawer({
   const totals = hoursSummary(drafts);
 
   function add(c: ServiceCampaign) {
-    onChange([
-      ...drafts,
-      { campaign: c, conditions_found: "", actual_hours: "", engine_hours: "", photo_count: 0 },
-    ]);
+    onChange((prev) =>
+      // Guard against a double-click adding the same campaign twice — the database
+      // would reject the duplicate, but only after the job had already been created.
+      prev.some((d) => d.campaign.id === c.id)
+        ? prev
+        : [
+            ...prev,
+            { campaign: c, conditions_found: "", actual_hours: "", engine_hours: "", photo_count: 0 },
+          ]
+    );
     setPickerOpen(false);
     setExpanded((prev) => new Set(prev).add(c.id));
   }
 
   function remove(id: string) {
-    onChange(drafts.filter((d) => d.campaign.id !== id));
+    onChange((prev) => prev.filter((d) => d.campaign.id !== id));
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   }
 
   function patch(id: string, field: keyof DraftCampaign, value: string | number) {
-    onChange(
-      drafts.map((d) => (d.campaign.id === id ? { ...d, [field]: value } : d))
+    onChange((prev) =>
+      prev.map((d) => (d.campaign.id === id ? { ...d, [field]: value } : d))
     );
   }
 

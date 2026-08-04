@@ -9,6 +9,26 @@ import { createClient } from "@/lib/supabase/client";
 // sitekey by setting NEXT_PUBLIC_TURNSTILE_SITEKEY in wrangler.toml [vars].
 const TEST_SITEKEY = "1x00000000000000000000AA";
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]);
+
+/**
+ * Which sitekey to render with.
+ *
+ * A real Turnstile sitekey is bound to its registered domains, so on localhost it
+ * fails with error 110200 and the widget never issues a token — leaving SIGN IN
+ * permanently disabled. Anyone running `npm run dev` with a populated .env.local
+ * therefore could not log in at all, which is also why the scaffolded Playwright
+ * e2e tests were never able to authenticate.
+ *
+ * On a local host we always use Cloudflare's always-passes test key. This cannot
+ * weaken production: the check is on the actual hostname the page is served from,
+ * and the server still verifies the token via /api/verify-turnstile.
+ */
+export function resolveSitekey(hostname: string, envKey?: string): string {
+  if (LOCAL_HOSTS.has(hostname)) return TEST_SITEKEY;
+  return envKey || TEST_SITEKEY;
+}
+
 // Tell TS about the global injected by the Turnstile script.
 declare global {
   interface Window {
@@ -42,7 +62,15 @@ function LoginForm() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const sitekey = process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY || TEST_SITEKEY;
+  // Lazy initializer rather than an effect: the widget can mount before an effect
+  // runs, and rendering it with the wrong key is the exact failure being fixed.
+  // Safe for hydration because the sitekey is never written into markup — it is
+  // only passed to turnstile.render().
+  const [sitekey] = useState(() =>
+    typeof window === "undefined"
+      ? TEST_SITEKEY
+      : resolveSitekey(window.location.hostname, process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY)
+  );
 
   // Render the widget once the Turnstile script has loaded.
   function renderTurnstile() {

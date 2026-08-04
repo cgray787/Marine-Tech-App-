@@ -457,8 +457,11 @@ export function CreateJobForm({
                         <CampaignDrawer
                           manufacturer={mfg}
                           drafts={campaignDrafts[mfg] ?? []}
-                          onChange={(next) =>
-                            setCampaignDrafts((prev) => ({ ...prev, [mfg]: next }))
+                          onChange={(update) =>
+                            setCampaignDrafts((prev) => ({
+                              ...prev,
+                              [mfg]: update(prev[mfg] ?? []),
+                            }))
                           }
                         />
                       )}

@@ -12,7 +12,7 @@ const LOG_COLS =
   "id, campaign_id, boat_id, customer_id, job_id, manufacturer, campaign_code, campaign_title, " +
   "campaign_revision, instructions_snapshot, compensated_hours, boat_name, boat_hin, engine_serial, " +
   "customer_name, status, conditions_found, actual_hours, engine_hours, claim_number, claim_status, " +
-  "completed_at, completed_by, backfilled, created_at";
+  "completed_at, completed_by, voided_at, voided_by, voided_reason, backfilled, created_at";
 
 /** Active campaigns for one manufacturer, newest first. Feeds the Create Job picker. */
 export async function getCampaigns(manufacturer: Manufacturer): Promise<ServiceCampaign[]> {
@@ -160,6 +160,28 @@ export async function updateCampaignEntry(
 ): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.from("campaign_log").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Withdraw a campaign attached in error. This is the app's "delete": the row is
+ * never removed — the database refuses DELETE outright — it is marked voided with
+ * a reason and stays visible in the history, greyed out.
+ *
+ * Voiding also frees the campaign to be attached to that boat again, because the
+ * one-live-row-per-boat unique index excludes voided rows. Without that, a single
+ * mis-click would block the pairing permanently.
+ */
+export async function voidCampaignEntry(id: string, reason: string): Promise<void> {
+  const trimmed = reason.trim();
+  if (!trimmed) {
+    throw new Error("A reason is required to withdraw a campaign entry.");
+  }
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("campaign_log")
+    .update({ status: "voided", voided_reason: trimmed })
+    .eq("id", id);
   if (error) throw error;
 }
 

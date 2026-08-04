@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { canAccessDashboard } from "@/lib/roles";
 
 /**
  * Admin OR viewer required. Use for any /dashboard server component that
@@ -23,8 +24,8 @@ export async function requireAdmin() {
     .eq("auth_id", user.id)
     .single();
 
-  const allowedRoles = ["admin", "manager", "tech", "viewer"];
-  if (!profile || !allowedRoles.includes(profile.role)) {
+  // Shared with lib/supabase/middleware.ts — see lib/roles.ts for why.
+  if (!profile || !canAccessDashboard(profile.role)) {
     redirect("/login?error=unauthorized");
   }
 

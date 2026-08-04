@@ -132,6 +132,41 @@ export function hoursSummary(
   return { compensated, actual, variance: round2(actual - compensated) };
 }
 
+/**
+ * Whether an entry still counts as work. Voided entries are withdrawn mistakes and
+ * must be excluded from every count, total and outstanding list — but never hidden
+ * outright, because the whole point of the record is that nothing disappears.
+ */
+export function isLive(entry: { status: string }): boolean {
+  return entry.status !== "voided";
+}
+
+/** How a log entry reads in a history list. */
+export function statusLabel(entry: {
+  status: string;
+  backfilled?: boolean;
+  voided_reason?: string | null;
+}): string {
+  switch (entry.status) {
+    case "voided":
+      return entry.voided_reason ? `Withdrawn — ${entry.voided_reason}` : "Withdrawn";
+    case "completed":
+      return entry.backfilled ? "Completed (recorded later)" : "Completed";
+    case "not_applicable":
+      return "Not applicable";
+    default:
+      return "Open";
+  }
+}
+
+/**
+ * Outstanding campaigns for a boat: open, not voided. Used for the "campaigns to
+ * do" count on the job and boat screens.
+ */
+export function outstanding<T extends { status: string }>(entries: T[]): T[] {
+  return entries.filter((e) => e.status === "open");
+}
+
 function toNum(v: unknown): number {
   const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
   return Number.isFinite(n) ? n : 0;

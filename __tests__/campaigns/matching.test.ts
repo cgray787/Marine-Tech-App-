@@ -11,6 +11,9 @@ import {
   canComplete,
   hoursSummary,
   round2,
+  isLive,
+  statusLabel,
+  outstanding,
 } from "@/lib/campaigns/matching";
 import {
   SERVICE_TYPE_OPTIONS,
@@ -261,6 +264,43 @@ describe("round2 holds where the EPSILON trick fails", () => {
   it("coerces non-finite input to zero", () => {
     expect(round2(NaN)).toBe(0);
     expect(round2(Infinity)).toBe(0);
+  });
+});
+
+describe("voided entries — the app's 'delete'", () => {
+  it("treats a voided entry as not live", () => {
+    expect(isLive({ status: "voided" })).toBe(false);
+    expect(isLive({ status: "open" })).toBe(true);
+    expect(isLive({ status: "completed" })).toBe(true);
+    expect(isLive({ status: "not_applicable" })).toBe(true);
+  });
+
+  it("excludes voided and completed from the outstanding list", () => {
+    const rows = [
+      { id: "1", status: "open" },
+      { id: "2", status: "voided" },
+      { id: "3", status: "completed" },
+      { id: "4", status: "open" },
+    ];
+    expect(outstanding(rows).map((r) => r.id)).toEqual(["1", "4"]);
+  });
+
+  it("shows the withdrawal reason, because a bare 'Withdrawn' explains nothing", () => {
+    expect(
+      statusLabel({ status: "voided", voided_reason: "attached to the wrong boat" })
+    ).toBe("Withdrawn — attached to the wrong boat");
+    expect(statusLabel({ status: "voided" })).toBe("Withdrawn");
+  });
+
+  it("distinguishes a backfilled record from one captured live", () => {
+    expect(statusLabel({ status: "completed", backfilled: true }))
+      .toBe("Completed (recorded later)");
+    expect(statusLabel({ status: "completed", backfilled: false })).toBe("Completed");
+  });
+
+  it("labels the remaining states", () => {
+    expect(statusLabel({ status: "open" })).toBe("Open");
+    expect(statusLabel({ status: "not_applicable" })).toBe("Not applicable");
   });
 });
 
