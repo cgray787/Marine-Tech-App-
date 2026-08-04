@@ -30,9 +30,31 @@ export interface WOTotals {
   jobSubtotals: number[];
 }
 
+/**
+ * Round to cents.
+ *
+ * The previous implementation nudged by `Number.EPSILON` before rounding — a
+ * common trick to rescue values like 1.005 that float storage places a hair below
+ * the half-cent. It works there, but EPSILON is a fixed 2.22e-16 while the gap it
+ * must bridge grows with magnitude, so the guard silently stopped helping as
+ * amounts got larger: round2(10.075) gave 10.07 and round2(4.015) gave 4.01,
+ * while round2(1.005) correctly gave 1.01. Half-cent ties therefore resolved
+ * differently depending on how big the number was, which is not a property
+ * billing code should have.
+ *
+ * Scaling to integer hundredths with a relative epsilon fixes it at every
+ * magnitude. Ties round away from zero, matching how an invoice is expected to
+ * round.
+ */
 export const round2 = (n: number) => {
   const x = Number(n);
-  return Math.round((x + Number.EPSILON) * 100) / 100;
+  if (!Number.isFinite(x)) return 0;
+  const scaled = x * 100;
+  // Relative nudge: proportional to the value, so it keeps working as x grows.
+  const nudge = Math.abs(scaled) * Number.EPSILON * 4;
+  return (
+    Math.round(scaled + (x >= 0 ? nudge : -nudge)) / 100
+  );
 };
 
 export function laborForJob(j: TotalsJob): number {

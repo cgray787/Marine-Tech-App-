@@ -90,7 +90,7 @@ HOW TO TEST AS A NEW USER:
 
 DEMO ACCOUNT (optional, includes seeded data):
 demoAccountName: appreview@grayyachts.com
-demoAccountPassword: ReviewMarine2026!
+demoAccountPassword: <set APP_REVIEW_PASSWORD>
 This account is a 'shop' tier user with one seeded customer ("Demo Customer (App Review)") and boat ("Sea Trial") and an assigned job for tomorrow at 9 AM, so reviewers can immediately see populated data without going through the new-user flow.
 
 CAMERA / PHOTO LIBRARY: Used to photograph boat conditions, HIN plates, and engine hours during inspections, and to attach existing photos to reports.
@@ -109,7 +109,7 @@ await api(`/v1/appStoreReviewDetails/${reviewDetailId}`, {
         contactPhone: "+1 206 555 0100",
         contactEmail: "connorgray41@gmail.com",
         demoAccountName: "appreview@grayyachts.com",
-        demoAccountPassword: "ReviewMarine2026!",
+        demoAccountPassword: process.env.APP_REVIEW_PASSWORD ?? "",
         demoAccountRequired: false, // anyone can sign up — demo is optional
         notes: newNotes,
       },

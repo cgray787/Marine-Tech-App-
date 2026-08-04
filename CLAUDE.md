@@ -413,7 +413,8 @@ marine-tech-app/
 - **ASC App ID:** `6762853683` · **App name (ASC):** `JBY-Marine Tech` (in-app display name remains `Marine Tech`)
 - **ASC API key:** `2B5Z869244` (Issuer `f3b47a16-d70b-4ef4-bc3b-e30fed4d2766`); `.p8` lives at `mobile/.secrets/AuthKey_2B5Z869244.p8` (gitignored)
 - **EAS:** owner `cgrayy`, slug `marine-tech`, project `5e70f74a-b7b2-49e0-a65f-4e40d2527fb0`
-- **Live:** v1.0 and v1.1.0 both `READY_FOR_SALE` (v1.1.0 approved after the 2026-05-26 submission). v1.2.0 / build 36 bumped on `feat/sso-apple-google`, not yet submitted.
+- **Live:** v1.0, v1.1.0 and **v1.2.0** are all shipped. v1.2.0 (Apple + Google SSO) went live **2026-06-12** — verified against the public storefront 2026-07-29.
+- ⚠️ **All App Store Connect API calls currently return `403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`.** An Apple agreement has lapsed; no new version can be submitted until the Account Holder signs it at appstoreconnect.apple.com → Business. The app itself remains downloadable.
 - **EAS Update:** wired with `runtimeVersion = appVersion` (build 24+ can receive OTA; build 23 cannot). OTA only applies when the installed build's runtime matches exactly — publish to both runtimes if two versions are live (run from `mobile/`, no `--runtime-version` flag).
 
 **Autonomous App Store update flow** (uses ASC API end-to-end):
@@ -434,7 +435,7 @@ marine-tech-app/
 - `asc-add-tester.mjs` — TestFlight invite
 
 **Reviewer / demo credentials** (for Apple App Review):
-- Email: `appreview@grayyachts.com` / Password: `ReviewMarine2026!`
+- Email: `appreview@grayyachts.com` / Password: **not stored here** — set `APP_REVIEW_PASSWORD` in your shell; the value belongs only in App Store Connect's review notes. (It was previously committed in four tracked files; rotate it.)
 - Seeded as a real `tech` Supabase user with a "Demo Customer (App Review)" customer + "Sea Trial" boat + assigned job
 - Privacy + Support pages live at `https://grayyachts.com/marine-tech/privacy` and `/support` (deployed from the `grayyachts.com` repo)
 

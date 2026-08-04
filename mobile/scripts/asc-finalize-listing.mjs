@@ -36,7 +36,9 @@ const REVIEW_DETAILS = {
   contactPhone: "+1 206 555 0100", // placeholder — update in ASC with real number
   contactEmail: "connorgray41@gmail.com",
   demoAccountName: "appreview@grayyachts.com",
-  demoAccountPassword: "ReviewMarine2026!",
+  // Read from the environment — a working password for a live tech account has
+  // no business in source control. Export APP_REVIEW_PASSWORD before running.
+  demoAccountPassword: process.env.APP_REVIEW_PASSWORD ?? "",
   demoAccountRequired: true,
   notes: REVIEW_NOTES,
 };
