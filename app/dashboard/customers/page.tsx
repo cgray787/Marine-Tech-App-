@@ -8,14 +8,19 @@ export default async function CustomersPage() {
 
   let customersQuery = supabase.from("customers").select("*");
   if (loc) customersQuery = customersQuery.eq("location_id", loc);
-  const { data: customers } = await customersQuery.order("name");
 
   // Boats follow their parent customer's office.
   let boatsQuery = supabase
     .from("boats")
     .select(loc ? "*, customers:customer_id!inner(location_id)" : "*");
   if (loc) boatsQuery = boatsQuery.eq("customers.location_id", loc);
-  const { data: boats } = await boatsQuery.order("name");
+
+  // Fetch both in parallel — these are independent, so awaiting them
+  // sequentially was two serial round-trips for no reason.
+  const [{ data: customers }, { data: boats }] = await Promise.all([
+    customersQuery.order("name"),
+    boatsQuery.order("name"),
+  ]);
 
   return (
     <div>

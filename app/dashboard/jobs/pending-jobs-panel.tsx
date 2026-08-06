@@ -135,6 +135,7 @@ function PendingJobRow({
       {/* Customer + boat + service chips — click anywhere here to open the job's detail page */}
       <Link
         href={`/dashboard/jobs/${job.id}`}
+        prefetch={false}
         title="Open job details"
         className="group -mx-2 flex-1 min-w-0 rounded-md px-2 py-1 transition-colors hover:bg-amber-500/10"
       >
