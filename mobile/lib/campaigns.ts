@@ -1,4 +1,9 @@
 import { supabase } from "@/lib/supabase";
+import {
+  savePendingCampaignPhoto,
+  savePendingCampaignUpdate,
+  getPendingCampaignPhotos,
+} from "@/lib/offline-db";
 
 // Service campaigns on the field app. Mirrors lib/campaigns on the web — the two
 // surfaces read and write the same campaign_log and report_photos rows, so an
@@ -65,17 +70,34 @@ export async function getCampaignPhotos(
   return out;
 }
 
-/** Save the tech's findings and hours. */
+/**
+ * Save the tech's findings and hours.
+ *
+ * Queues to SQLite when offline rather than failing. Marinas routinely have no
+ * signal — that is why the offline subsystem exists — and losing a finding the
+ * tech just typed at the boat is the one outcome worth designing against.
+ */
 export async function saveCampaignWork(
   entryId: string,
   patch: {
     conditions_found?: string | null;
     actual_hours?: number | null;
     engine_hours?: number | null;
+  },
+  isOnline = true
+): Promise<{ queued: boolean }> {
+  if (!isOnline) {
+    await savePendingCampaignUpdate(entryId, patch);
+    return { queued: true };
   }
-): Promise<void> {
   const { error } = await supabase.from("campaign_log").update(patch).eq("id", entryId);
-  if (error) throw error;
+  if (error) {
+    // Online by the device's reckoning but the write still failed — queue it
+    // rather than discarding what was typed.
+    await savePendingCampaignUpdate(entryId, patch);
+    return { queued: true };
+  }
+  return { queued: false };
 }
 
 /**
@@ -87,8 +109,17 @@ export async function saveCampaignWork(
 export async function uploadCampaignPhoto(
   entryId: string,
   localUri: string,
-  caption?: string
-): Promise<CampaignPhoto> {
+  caption?: string,
+  isOnline = true
+): Promise<{ photo: CampaignPhoto | null; queued: boolean }> {
+  // Offline: keep the file on the device and queue the upload. The tech still
+  // sees their shot immediately (the component renders the local uri), and the
+  // completion gate counts it, so a dead-spot never blocks finishing the work.
+  if (!isOnline) {
+    await savePendingCampaignPhoto(entryId, localUri, caption);
+    return { photo: null, queued: true };
+  }
+
   const fileName = `campaigns/${entryId}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2, 8)}.jpg`;
@@ -96,37 +127,53 @@ export async function uploadCampaignPhoto(
   const response = await fetch(localUri);
   const arrayBuffer = await response.arrayBuffer();
 
-  const { error: uploadError } = await supabase.storage
-    .from("report-photos")
-    .upload(fileName, arrayBuffer, { contentType: "image/jpeg" });
-  if (uploadError) throw uploadError;
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from("report-photos")
+      .upload(fileName, arrayBuffer, { contentType: "image/jpeg" });
+    if (uploadError) throw uploadError;
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("report-photos").getPublicUrl(fileName);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("report-photos").getPublicUrl(fileName);
 
-  const { data, error } = await supabase
-    .from("report_photos")
-    .insert({
-      campaign_log_id: entryId,
-      photo_url: publicUrl,
-      category: "campaign",
-      caption: caption ?? null,
-    })
-    .select("id, campaign_log_id, photo_url")
-    .single();
-  if (error) throw error;
-  return data as unknown as CampaignPhoto;
+    const { data, error } = await supabase
+      .from("report_photos")
+      .insert({
+        campaign_log_id: entryId,
+        photo_url: publicUrl,
+        category: "campaign",
+        caption: caption ?? null,
+      })
+      .select("id, campaign_log_id, photo_url")
+      .single();
+    if (error) throw error;
+    return { photo: data as unknown as CampaignPhoto, queued: false };
+  } catch {
+    // Signal dropped mid-upload. Queue rather than making the tech reshoot.
+    await savePendingCampaignPhoto(entryId, localUri, caption);
+    return { photo: null, queued: true };
+  }
 }
 
-/** Mark a campaign done. Requires a written finding and at least one photo —
- *  the two things whose absence gets a warranty claim rejected. */
+/**
+ * Mark a campaign done. Requires a written finding and at least one photo — the
+ * two things whose absence gets a warranty claim rejected.
+ *
+ * `completed_by` is deliberately NOT sent: the database trigger stamps it from
+ * the authenticated user, so it cannot be forgotten by a client or spoofed.
+ */
 export async function completeCampaign(entryId: string): Promise<void> {
   const { error } = await supabase
     .from("campaign_log")
     .update({ status: "completed", completed_at: new Date().toISOString() })
     .eq("id", entryId);
   if (error) throw error;
+}
+
+/** Photos still queued locally for an entry, shown alongside uploaded ones. */
+export async function pendingPhotoUris(entryId: string): Promise<string[]> {
+  return getPendingCampaignPhotos(entryId);
 }
 
 export function completionBlocker(e: {

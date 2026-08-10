@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { colors } from "@/constants/Colors";
+import { useOffline } from "@/lib/offline-context";
 import {
   getJobCampaigns,
   getCampaignPhotos,
@@ -18,6 +19,7 @@ import {
   uploadCampaignPhoto,
   completeCampaign,
   completionBlocker,
+  pendingPhotoUris,
   num,
   MARK,
   type CampaignEntry,
@@ -34,12 +36,16 @@ import {
  * portal read, so a photo taken at the boat shows up for the office immediately.
  */
 export function JobCampaigns({ jobId }: { jobId: string }) {
+  const { isOnline } = useOffline();
   const [entries, setEntries] = useState<CampaignEntry[] | null>(null);
   const [photos, setPhotos] = useState<Record<string, CampaignPhoto[]>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, { notes: string; hours: string }>>({});
+  // Photos shot offline and still queued. Rendered next to uploaded ones so the
+  // tech sees their own shot immediately and the completion gate counts it.
+  const [queued, setQueued] = useState<Record<string, string[]>>({});
 
   const load = useCallback(async () => {
     try {
@@ -47,6 +53,14 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
       setEntries(rows);
       setLoadFailed(false);
       setPhotos(await getCampaignPhotos(rows.map((r) => r.id)));
+      // Anything still waiting in the offline queue, so a tech's own shot never
+      // disappears from view just because it has not uploaded yet.
+      const pend: Record<string, string[]> = {};
+      for (const r of rows) {
+        const uris = await pendingPhotoUris(r.id);
+        if (uris.length) pend[r.id] = uris;
+      }
+      setQueued(pend);
       setDrafts((prev) => {
         const next = { ...prev };
         for (const r of rows) {
@@ -84,12 +98,23 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
     const result = await ImagePicker.launchCameraAsync({ quality: 0.6 });
     if (result.canceled || !result.assets?.[0]?.uri) return;
 
+    const uri = result.assets[0].uri;
     setBusy(entry.id);
     try {
-      const shot = await uploadCampaignPhoto(entry.id, result.assets[0].uri);
-      setPhotos((prev) => ({ ...prev, [entry.id]: [...(prev[entry.id] ?? []), shot] }));
-    } catch {
-      Alert.alert("Upload failed", "The photo could not be uploaded. Check your signal and try again.");
+      const { photo, queued: wasQueued } = await uploadCampaignPhoto(
+        entry.id,
+        uri,
+        undefined,
+        isOnline
+      );
+      if (photo) {
+        setPhotos((prev) => ({ ...prev, [entry.id]: [...(prev[entry.id] ?? []), photo] }));
+      }
+      if (wasQueued) {
+        // Show the local file straight away. The tech has done their part; the
+        // upload is the app's problem, not theirs.
+        setQueued((prev) => ({ ...prev, [entry.id]: [...(prev[entry.id] ?? []), uri] }));
+      }
     } finally {
       setBusy(null);
     }
@@ -100,13 +125,17 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
     if (!d) return;
     setBusy(entry.id);
     try {
-      await saveCampaignWork(entry.id, {
-        conditions_found: d.notes.trim() || null,
-        actual_hours: d.hours.trim() ? Number(d.hours) : null,
-      });
-      await load();
-    } catch {
-      Alert.alert("Could not save", "Your findings were not saved. Check your signal and try again.");
+      const { queued: wasQueued } = await saveCampaignWork(
+        entry.id,
+        {
+          conditions_found: d.notes.trim() || null,
+          actual_hours: d.hours.trim() ? Number(d.hours) : null,
+        },
+        isOnline
+      );
+      // Only refetch when the write actually landed — reloading after a queued
+      // write would overwrite the tech's text with the stale server copy.
+      if (!wasQueued) await load();
     } finally {
       setBusy(null);
     }
@@ -115,10 +144,21 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
   async function markDone(entry: CampaignEntry) {
     setBusy(entry.id);
     try {
-      await saveCampaignWork(entry.id, {
-        conditions_found: drafts[entry.id]?.notes.trim() || null,
-        actual_hours: drafts[entry.id]?.hours.trim() ? Number(drafts[entry.id].hours) : null,
-      });
+      await saveCampaignWork(
+        entry.id,
+        {
+          conditions_found: drafts[entry.id]?.notes.trim() || null,
+          actual_hours: drafts[entry.id]?.hours.trim() ? Number(drafts[entry.id].hours) : null,
+        },
+        isOnline
+      );
+      if (!isOnline) {
+        Alert.alert(
+          "Saved on this device",
+          "Your findings and photos are stored and will upload automatically once you have signal. Marking complete needs a connection, so do that when you're back in range."
+        );
+        return;
+      }
       await completeCampaign(entry.id);
       await load();
     } catch {
@@ -170,8 +210,14 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
 
       {entries.map((e) => {
         const shots = photos[e.id] ?? [];
+        const pending = queued[e.id] ?? [];
         const d = drafts[e.id] ?? { notes: "", hours: "" };
-        const blocker = completionBlocker({ conditions_found: d.notes, photoCount: shots.length });
+        // A queued photo counts: the tech took it, and holding the gate closed
+        // because the network is down would punish them for the marina.
+        const blocker = completionBlocker({
+          conditions_found: d.notes,
+          photoCount: shots.length + pending.length,
+        });
         const isOpen = expanded === e.id;
         const done = e.status === "completed";
         const comp = num(e.compensated_hours);
@@ -192,7 +238,10 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
                 </Text>
                 <Text style={styles.entryMeta}>
                   {done ? "Completed" : e.status === "not_applicable" ? "Not applicable" : "To do"}
-                  {shots.length > 0 ? ` · ${shots.length} photo${shots.length === 1 ? "" : "s"}` : ""}
+                  {shots.length + pending.length > 0
+                    ? ` · ${shots.length + pending.length} photo${shots.length + pending.length === 1 ? "" : "s"}`
+                    : ""}
+                  {pending.length > 0 ? ` (${pending.length} waiting to upload)` : ""}
                 </Text>
               </View>
               <Text style={styles.hours}>{comp.toFixed(1)} h</Text>
@@ -211,6 +260,12 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
                 <View style={styles.shots}>
                   {shots.map((p) => (
                     <Image key={p.id} source={{ uri: p.photo_url }} style={styles.shot} />
+                  ))}
+                  {pending.map((uri, i) => (
+                    <View key={`q${i}`}>
+                      <Image source={{ uri }} style={[styles.shot, styles.shotQueued]} />
+                      <Text style={styles.queuedTag}>queued</Text>
+                    </View>
                   ))}
                 </View>
                 <TouchableOpacity
@@ -428,4 +483,15 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   retryText: { color: colors.gold, fontSize: 14, fontWeight: "600" },
+  shotQueued: { opacity: 0.55, borderColor: colors.gold },
+  queuedTag: {
+    position: "absolute",
+    bottom: 3,
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 9,
+    color: colors.gold,
+    backgroundColor: "rgba(6,10,18,0.75)",
+  },
 });

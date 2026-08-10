@@ -1,5 +1,14 @@
 import * as SQLite from "expo-sqlite";
 
+// ── Service campaigns ───────────────────────────────────────────────────────
+// Campaign entries are created by the office and already exist server-side, so
+// unlike reports there is no offline id to map — the tech only ever edits, or
+// attaches photos to, a row that already has a real id. That makes these queue
+// entries much simpler than the report ones.
+//
+// Declared here at the top of the module for visibility; the implementations sit
+// with the other queue writers below.
+
 let db: SQLite.SQLiteDatabase | null = null;
 
 export async function getDB(): Promise<SQLite.SQLiteDatabase> {
@@ -603,4 +612,85 @@ export async function clearSyncedItems(): Promise<void> {
   if ((remaining?.count ?? 0) === 0) {
     await database.execAsync(`DELETE FROM id_map`);
   }
+}
+
+/**
+ * Queue a work-area photo taken while offline. The file stays on the device at
+ * `localUri` until the queue drains; sync-service uploads it, then links it.
+ */
+export async function savePendingCampaignPhoto(
+  campaignLogId: string,
+  localUri: string,
+  caption?: string | null
+): Promise<void> {
+  const database = await getDB();
+  await database.runAsync(
+    `INSERT INTO sync_queue (table_name, record_id, action, payload) VALUES (?, ?, ?, ?)`,
+    [
+      "campaign_photos",
+      campaignLogId,
+      "insert",
+      JSON.stringify({
+        campaign_log_id: campaignLogId,
+        local_uri: localUri,
+        caption: caption ?? null,
+      }),
+    ]
+  );
+}
+
+/**
+ * Queue findings / hours written while offline.
+ *
+ * Replaces any earlier un-synced update for the same entry rather than stacking
+ * them: a tech editing one note five times should produce a single write when
+ * signal returns, and only the last version matters.
+ */
+export async function savePendingCampaignUpdate(
+  campaignLogId: string,
+  patch: {
+    conditions_found?: string | null;
+    actual_hours?: number | null;
+    engine_hours?: number | null;
+  }
+): Promise<void> {
+  const database = await getDB();
+  await database.runAsync(
+    `DELETE FROM sync_queue WHERE table_name = 'campaign_log' AND record_id = ? AND synced = 0`,
+    [campaignLogId]
+  );
+  await database.runAsync(
+    `INSERT INTO sync_queue (table_name, record_id, action, payload) VALUES (?, ?, ?, ?)`,
+    ["campaign_log", campaignLogId, "update", JSON.stringify({ id: campaignLogId, ...patch })]
+  );
+}
+
+/** How many campaign writes are still waiting — drives the offline banner. */
+export async function countPendingCampaignWrites(): Promise<number> {
+  const database = await getDB();
+  const row = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM sync_queue
+      WHERE synced = 0 AND table_name IN ('campaign_photos', 'campaign_log')`
+  );
+  return row?.count ?? 0;
+}
+
+/** Locally queued photos for an entry, so a tech sees their own shot immediately. */
+export async function getPendingCampaignPhotos(campaignLogId: string): Promise<string[]> {
+  const database = await getDB();
+  const rows = await database.getAllAsync<{ payload: string }>(
+    `SELECT payload FROM sync_queue
+      WHERE synced = 0 AND table_name = 'campaign_photos' AND record_id = ?
+      ORDER BY id`,
+    [campaignLogId]
+  );
+  return rows
+    .map((r) => {
+      try {
+        return JSON.parse(r.payload).local_uri as string;
+      } catch {
+        return null;
+      }
+    })
+    .filter((u): u is string => !!u);
 }

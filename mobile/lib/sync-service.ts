@@ -265,6 +265,44 @@ async function processSyncItem(
         return true;
       }
 
+      // Campaign work queued in a marina dead-spot. Both cases reference a
+      // campaign_log row the office already created, so there is no offline id to
+      // resolve — unlike reports, the parent always exists.
+      case "campaign_photos": {
+        const photoUrl = await uploadPhotoToStorage(
+          payload.local_uri,
+          "report-photos",
+          `campaigns/${payload.campaign_log_id}`
+        );
+        if (!photoUrl) {
+          await markFailed(item.id, "Campaign photo upload failed");
+          return false;
+        }
+        const { error } = await supabase.from("report_photos").insert({
+          campaign_log_id: payload.campaign_log_id,
+          photo_url: photoUrl,
+          category: "campaign",
+          caption: payload.caption,
+        });
+        if (error) {
+          console.error("[Sync] Campaign photo insert error:", error);
+          await markFailed(item.id, error.message);
+          return false;
+        }
+        return true;
+      }
+
+      case "campaign_log": {
+        const { id, ...patch } = payload;
+        const { error } = await supabase.from("campaign_log").update(patch).eq("id", id);
+        if (error) {
+          console.error("[Sync] Campaign update error:", error);
+          await markFailed(item.id, error.message);
+          return false;
+        }
+        return true;
+      }
+
       case "parts": {
         const realReportId = payload._offline_report_id
           ? idMap.get(payload._offline_report_id) ?? payload._offline_report_id

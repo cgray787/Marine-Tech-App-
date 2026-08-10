@@ -40,6 +40,8 @@ type Boat = {
   engine_make: string | null;
   engine_model: string | null;
   engine_hours_port: number | null;
+  engine_serial_port: string | null;
+  engine_serial_starboard: string | null;
   engine_hours_starboard: number | null;
   color: string | null;
   home_marina: string | null;
@@ -79,6 +81,10 @@ export function CustomerList({
   const [boatEngineMake, setBoatEngineMake] = useState("");
   const [boatEngineModel, setBoatEngineModel] = useState("");
   const [boatEngineHoursPort, setBoatEngineHoursPort] = useState("");
+  // Mercury identifies which engines a bulletin covers by serial number, so a
+  // campaign cannot be matched to a boat without these.
+  const [boatEngineSerialPort, setBoatEngineSerialPort] = useState("");
+  const [boatEngineSerialStarboard, setBoatEngineSerialStarboard] = useState("");
   const [boatEngineHoursStarboard, setBoatEngineHoursStarboard] = useState("");
   const [boatColor, setBoatColor] = useState("");
   const [boatMarina, setBoatMarina] = useState("");
@@ -170,6 +176,8 @@ export function CustomerList({
       engine_hours_starboard: boatEngineHoursStarboard
         ? parseFloat(boatEngineHoursStarboard)
         : null,
+      engine_serial_port: boatEngineSerialPort.trim() || null,
+      engine_serial_starboard: boatEngineSerialStarboard.trim() || null,
       color: boatColor || null,
       home_marina: boatMarina || null,
     };
@@ -211,6 +219,8 @@ export function CustomerList({
     setBoatEngineMake(b.engine_make ?? "");
     setBoatEngineModel(b.engine_model ?? "");
     setBoatEngineHoursPort(b.engine_hours_port != null ? String(b.engine_hours_port) : "");
+    setBoatEngineSerialPort(b.engine_serial_port ?? "");
+    setBoatEngineSerialStarboard(b.engine_serial_starboard ?? "");
     setBoatEngineHoursStarboard(b.engine_hours_starboard != null ? String(b.engine_hours_starboard) : "");
     setBoatColor(b.color ?? "");
     setBoatMarina(b.home_marina ?? "");
@@ -674,6 +684,23 @@ export function CustomerList({
                                 setBoatEngineHoursStarboard(e.target.value)
                               }
                               placeholder="Engine Hours (Stbd, twin only)"
+                              className="rounded-lg border border-border-line bg-primary-bg px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none"
+                            />
+                            {/* Mercury scopes its bulletins by engine serial, so
+                                without these a Mercury campaign cannot be matched
+                                to this boat. Axopar matches on the HIN above. */}
+                            <input
+                              type="text"
+                              value={boatEngineSerialPort}
+                              onChange={(e) => setBoatEngineSerialPort(e.target.value)}
+                              placeholder="Engine Serial (Port) — e.g. 3B458751"
+                              className="rounded-lg border border-border-line bg-primary-bg px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={boatEngineSerialStarboard}
+                              onChange={(e) => setBoatEngineSerialStarboard(e.target.value)}
+                              placeholder="Engine Serial (Stbd, twin only)"
                               className="rounded-lg border border-border-line bg-primary-bg px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-gold focus:outline-none"
                             />
                             <input
