@@ -38,12 +38,14 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
   const [photos, setPhotos] = useState<Record<string, CampaignPhoto[]>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, { notes: string; hours: string }>>({});
 
   const load = useCallback(async () => {
     try {
       const rows = await getJobCampaigns(jobId);
       setEntries(rows);
+      setLoadFailed(false);
       setPhotos(await getCampaignPhotos(rows.map((r) => r.id)));
       setDrafts((prev) => {
         const next = { ...prev };
@@ -57,7 +59,12 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
         return next;
       });
     } catch {
-      setEntries([]);
+      // Distinguish "this job has no campaigns" from "we could not reach the
+      // server". Collapsing both into an empty list would hide the section
+      // entirely in a marina dead-spot, and a tech would reasonably conclude
+      // there was no campaign work on the boat.
+      setLoadFailed(true);
+      setEntries((prev) => prev ?? []);
     }
   }, [jobId]);
 
@@ -130,7 +137,23 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
     );
   }
 
-  if (entries.length === 0) return null; // nothing to show, don't add noise
+  // Couldn't reach the server — say so rather than implying there is no work.
+  if (loadFailed && entries.length === 0) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.sectionLabel}>SERVICE CAMPAIGNS</Text>
+        <Text style={styles.offlineNote}>
+          Couldn&apos;t load campaigns — no connection. This job may still have campaign
+          work on it. Pull to refresh once you have signal.
+        </Text>
+        <TouchableOpacity onPress={load} style={styles.retryBtn} activeOpacity={0.7}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (entries.length === 0) return null; // genuinely no campaigns — don't add noise
 
   const open = entries.filter((e) => e.status === "open");
 
@@ -390,4 +413,19 @@ const styles = StyleSheet.create({
   ctaTextDisabled: { color: "#4a5468" },
   gate: { color: colors.gold, fontSize: 12, textAlign: "center", marginTop: 8 },
   gateOk: { color: colors.good },
+  offlineNote: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 8,
+  },
+  retryBtn: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  retryText: { color: colors.gold, fontSize: 14, fontWeight: "600" },
 });

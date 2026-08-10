@@ -51,6 +51,10 @@ create policy viewer_select_pdi_reports on public.pdi_reports
     and (customer_id is null or public.customer_in_my_location(customer_id))
   );
 
+-- NOTE: superseded by migration 048. The `report_id is null` clause below was
+-- meant to avoid hiding unattached photos, but campaign photos are exactly the
+-- rows with a null report_id, so it exposed every campaign photo org-wide to any
+-- viewer. 048 replaces this policy with an explicit campaign_log_id check.
 drop policy if exists viewer_select_report_photos on public.report_photos;
 create policy viewer_select_report_photos on public.report_photos
   for select using (
