@@ -163,6 +163,71 @@ export async function updateCampaignEntry(
   if (error) throw error;
 }
 
+/** A photo the tech shot against a campaign, as stored in report_photos. */
+export interface CampaignPhoto {
+  id: string;
+  campaign_log_id: string;
+  photo_url: string;
+  caption: string | null;
+  created_at: string | null;
+}
+
+/**
+ * Photos for a set of campaign entries, in one round-trip.
+ *
+ * Takes the ids rather than querying per entry — a job with four campaigns would
+ * otherwise fire four requests, and this renders inside a list.
+ */
+export async function getCampaignPhotos(
+  campaignLogIds: string[]
+): Promise<Record<string, CampaignPhoto[]>> {
+  if (campaignLogIds.length === 0) return {};
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("report_photos")
+    .select("id, campaign_log_id, photo_url, caption, created_at")
+    .in("campaign_log_id", campaignLogIds)
+    .order("created_at");
+  if (error) throw error;
+
+  const byEntry: Record<string, CampaignPhoto[]> = {};
+  for (const row of (data ?? []) as unknown as CampaignPhoto[]) {
+    (byEntry[row.campaign_log_id] ??= []).push(row);
+  }
+  return byEntry;
+}
+
+/**
+ * Attach a campaign to a job that already exists — the job-detail path, as
+ * opposed to attachCampaignsToJob() which stages them during creation.
+ * Snapshot columns are filled by the database trigger.
+ */
+export async function attachCampaignToExistingJob(params: {
+  campaignId: string;
+  orgId: string;
+  jobId: string;
+  boatId: string | null;
+  customerId: string | null;
+}): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("campaign_log").insert({
+    campaign_id: params.campaignId,
+    org_id: params.orgId,
+    job_id: params.jobId,
+    boat_id: params.boatId,
+    customer_id: params.customerId,
+    status: "open",
+  });
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error(
+        "That campaign is already on this boat. A campaign is performed once per vessel — withdraw the existing entry if it was attached in error."
+      );
+    }
+    throw error;
+  }
+}
+
 /**
  * Withdraw a campaign attached in error. This is the app's "delete": the row is
  * never removed — the database refuses DELETE outright — it is marked voided with

@@ -15,6 +15,7 @@ import {
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { supabase } from "@/lib/supabase";
+import { JobCampaigns } from "@/components/JobCampaigns";
 import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/constants/Colors";
 import { generateServiceReportHTML, generatePDIReportHTML, formatEngineHours } from "@/lib/pdf-template";
@@ -464,6 +465,10 @@ export default function JobDetailScreen() {
           ))}
         </View>
       )}
+
+      {/* Service campaigns — attached by the office, worked here. Instructions,
+          photos and findings all live on the same rows the dashboard reads. */}
+      <JobCampaigns jobId={String(id)} />
 
       {/* Service notes — per-service descriptions */}
       {(() => {
