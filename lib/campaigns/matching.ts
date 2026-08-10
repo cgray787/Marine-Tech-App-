@@ -43,6 +43,17 @@ export function serialAtOrAfter(
 /**
  * Does this campaign apply to this boat?
  *
+ * NOT YET WIRED INTO ANY UI. The campaign pickers currently list every active
+ * bulletin for a manufacturer and the user chooses. Turning this on needs two
+ * things first: an engine-serial field on the Add/Edit Boat form (migration 043
+ * added boats.engine_serial_port/starboard, but nothing writes them), and a
+ * decision about whether a non-matching campaign should be hidden or merely
+ * de-emphasised — hiding it would block a legitimate manual attach when the
+ * manufacturer's range data is wrong, which happens.
+ *
+ * Kept and tested because the rules are subtle and worth pinning down now; see
+ * __tests__/campaigns/matching.test.ts.
+ *
  * Axopar issues a Boat Service Task against specific hulls, so we match on HIN.
  * Mercury issues a warranty claim against an engine serial range, so we match on
  * either engine's serial. A campaign with no targeting data applies to nothing

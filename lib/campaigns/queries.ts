@@ -113,7 +113,18 @@ export async function attachCampaignsToJob(params: {
   }));
 
   const { error } = await supabase.from("campaign_log").insert(rows);
-  if (error) throw error;
+  if (error) {
+    // One live row per campaign per boat. If any staged campaign is already on
+    // this vessel from an earlier job the whole batch fails atomically, so none
+    // of the others attach either — surface that in words rather than leaking
+    // "duplicate key value violates unique constraint" into the UI.
+    if (error.code === "23505") {
+      throw new Error(
+        "One of these campaigns is already recorded on this boat. A campaign is performed once per vessel — remove it here, or withdraw the existing entry from that boat's history first. None of the campaigns were attached."
+      );
+    }
+    throw error;
+  }
 }
 
 /**

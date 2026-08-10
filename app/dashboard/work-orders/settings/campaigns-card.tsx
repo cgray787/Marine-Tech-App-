@@ -301,8 +301,8 @@ export function CampaignsCard({ campaigns, orgId }: Props) {
                 {mfg === "axopar" ? "Affected HINs" : "Engine serial — from"}
                 <span className="ml-1 font-normal normal-case tracking-normal text-text-secondary">
                   {mfg === "axopar"
-                    ? "— one per line; these auto-match your fleet"
-                    : "— “and after”. Boats need engine serials recorded to auto-match."}
+                    ? "— one per line. Recorded on the bulletin so you know which hulls it covers."
+                    : "— “and after”. Recorded for reference; boats have no engine-serial field yet, so this is not matched automatically."}
                 </span>
               </Label>
               {mfg === "axopar" ? (

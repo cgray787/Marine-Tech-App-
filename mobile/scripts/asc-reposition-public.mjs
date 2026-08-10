@@ -11,6 +11,18 @@ import { createSign } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
+// The demo password is deliberately not in source. Bail loudly rather than
+// submitting an empty one — Apple rejects a non-working demo account, and the
+// failure would otherwise surface days later as a review rejection.
+if (!process.env.APP_REVIEW_PASSWORD) {
+  console.error(
+    "APP_REVIEW_PASSWORD is not set. Export it before running:\n" +
+      "  export APP_REVIEW_PASSWORD='…'\n" +
+      "It is the App Review demo account password and belongs only in App Store Connect."
+  );
+  process.exit(1);
+}
+
 const KEY_ID = "2B5Z869244";
 const ISSUER_ID = "f3b47a16-d70b-4ef4-bc3b-e30fed4d2766";
 const APP_ID = "6762853683";
@@ -109,7 +121,7 @@ await api(`/v1/appStoreReviewDetails/${reviewDetailId}`, {
         contactPhone: "+1 206 555 0100",
         contactEmail: "connorgray41@gmail.com",
         demoAccountName: "appreview@grayyachts.com",
-        demoAccountPassword: process.env.APP_REVIEW_PASSWORD ?? "",
+        demoAccountPassword: process.env.APP_REVIEW_PASSWORD,
         demoAccountRequired: false, // anyone can sign up — demo is optional
         notes: newNotes,
       },

@@ -10,6 +10,18 @@
 import { readFileSync } from "node:fs";
 import { createSign } from "node:crypto";
 import { fileURLToPath } from "node:url";
+
+// The demo password is deliberately not in source. Bail loudly rather than
+// submitting an empty one — Apple rejects a non-working demo account, and the
+// failure would otherwise surface days later as a review rejection.
+if (!process.env.APP_REVIEW_PASSWORD) {
+  console.error(
+    "APP_REVIEW_PASSWORD is not set. Export it before running:\n" +
+      "  export APP_REVIEW_PASSWORD='…'\n" +
+      "It is the App Review demo account password and belongs only in App Store Connect."
+  );
+  process.exit(1);
+}
 import { dirname, join } from "node:path";
 
 const KEY_ID = "2B5Z869244";
@@ -38,7 +50,10 @@ const REVIEW_DETAILS = {
   demoAccountName: "appreview@grayyachts.com",
   // Read from the environment — a working password for a live tech account has
   // no business in source control. Export APP_REVIEW_PASSWORD before running.
-  demoAccountPassword: process.env.APP_REVIEW_PASSWORD ?? "",
+  // Falling back to "" would push an empty demo password to App Store Connect and
+  // earn a rejection for a non-working demo account, with no local error — so the
+  // script hard-exits instead (see the guard above).
+  demoAccountPassword: process.env.APP_REVIEW_PASSWORD,
   demoAccountRequired: true,
   notes: REVIEW_NOTES,
 };

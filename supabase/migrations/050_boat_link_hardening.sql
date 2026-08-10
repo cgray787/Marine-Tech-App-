@@ -1,4 +1,17 @@
--- 041_boat_link_hardening.sql
+-- 050_boat_link_hardening.sql
+--
+-- Renumbered from 041. Prod already has a DIFFERENT 041 applied
+-- (041_quo_activity_log_cron), so leaving this at 041 reproduced exactly the
+-- collision migration 043 skipped ahead to avoid — and which CLAUDE.md already
+-- documents as a footgun from the duplicate 026 pair.
+--
+-- ⚠️ DEPENDS ON 040_auto_link_sole_boat.sql, which lives on the unmerged branch
+-- fix/boat-sync-auto-link (PR #3) and is NOT in this tree. Prod has 040 applied,
+-- so applying this there was correct and is verified — but a replay into a fresh
+-- project or a Supabase branch WILL FAIL here: it create-or-replaces functions
+-- whose triggers 040 defines, and revokes on trim_boat_fields() which 040
+-- creates. Merge PR #3 (renumbering its files above 050) before any clean replay.
+--
 -- Hermes cross-agent audit follow-ups on migration 040 (all four findings verified):
 --  1. per-customer advisory lock around sole-boat decisions — two concurrent
 --     first-boat inserts could each see count(*) = 1 under READ COMMITTED and
