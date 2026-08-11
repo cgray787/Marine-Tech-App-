@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { canAccessDashboard } from "@/lib/roles";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -46,8 +47,10 @@ export async function updateSession(request: NextRequest) {
       .eq("auth_id", user.id)
       .single();
 
-    // Web dashboard is gated to admin + viewer (viewer = read-only).
-    if (!profile || (profile.role !== "admin" && profile.role !== "viewer")) {
+    // Gated to the same roles lib/admin.ts accepts. Keeping this in one shared
+    // constant is deliberate — the two lists had drifted, and because middleware
+    // runs first the stricter one silently won.
+    if (!canAccessDashboard(profile?.role)) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("error", "unauthorized");
@@ -55,7 +58,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Redirect authenticated admins/viewers away from login
+  // Redirect an already-authenticated dashboard user away from login
   if (path === "/login" && user) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -63,7 +66,7 @@ export async function updateSession(request: NextRequest) {
       .eq("auth_id", user.id)
       .single();
 
-    if (profile?.role === "admin" || profile?.role === "viewer") {
+    if (canAccessDashboard(profile?.role)) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

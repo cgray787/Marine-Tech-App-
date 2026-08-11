@@ -24,19 +24,16 @@ export interface JobEditorInitial {
   scheduled_end_date: string | null;
   marina_id: string | null;
   assigned_to: string | null;
+  // Needed so campaigns can be attached to the right vessel and office.
+  boat_id: string | null;
+  customer_id: string | null;
+  org_id: string | null;
 }
 
-const SERVICE_TYPE_OPTIONS = [
-  "Engine Service",
-  "Electrical",
-  "Hull & Bottom",
-  "Safety Inspection",
-  "Navigation Systems",
-  "General Maintenance",
-  "Winterization",
-  "Spring Commissioning",
-  "Sea Trial",
-];
+// Was a second copy of this list. Two copies is how they drift — adding the two
+// campaign types would have meant editing both — so it now lives in one place.
+import { SERVICE_TYPE_OPTIONS } from "@/lib/campaigns/constants";
+import { JobCampaigns } from "@/components/campaigns/JobCampaigns";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "new", label: "New" },
@@ -412,6 +409,19 @@ export function JobEditor({
           })}
         </div>
       </div>
+
+      {/* Service campaigns — the shared hub between this page, the field app and
+          the portal. Attaching here is what makes a campaign appear on the tech's
+          phone; their photos and findings come back into it. */}
+      {initial.org_id && (
+        <JobCampaigns
+          jobId={initial.id}
+          boatId={initial.boat_id}
+          customerId={initial.customer_id}
+          orgId={initial.org_id}
+          canWrite={canWrite}
+        />
+      )}
 
       {/* Status + Notes */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

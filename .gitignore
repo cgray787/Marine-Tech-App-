@@ -53,3 +53,8 @@ next-env.d.ts
 sos-view.png
 superpowers-os-full.png
 .gstack/
+
+# npm cache + debug logs (1,724 of these were committed to a PR once)
+.npmcache/
+*-debug-*.log
+.claude/worktrees/

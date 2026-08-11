@@ -35,7 +35,7 @@ function fmtTime(iso: string | null): string {
 
 export default async function JobDetailPage({ params }: { params: RouteParams }) {
   const { id } = await params;
-  const { supabase } = await requireAdmin();
+  const { supabase, profile } = await requireAdmin();
 
   const { data: job } = await supabase
     .from("jobs")
@@ -167,6 +167,9 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
           scheduled_end_date: (job as unknown as { scheduled_end_date?: string | null }).scheduled_end_date ?? null,
           marina_id: job.marina_id ?? null,
           assigned_to: job.assigned_to ?? null,
+          boat_id: boatIdRaw ?? null,
+          customer_id: customer?.id ?? null,
+          org_id: (profile.org_id as string | null) ?? null,
         }}
         techs={techsList ?? []}
         marinas={marinasList ?? []}

@@ -24,7 +24,11 @@ const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE = env.SUPABASE_SERVICE_ROLE_KEY;
 
 const REVIEWER_EMAIL = "appreview@grayyachts.com";
-const REVIEWER_PASSWORD = "ReviewMarine2026!"; // share this in App Review Notes
+const REVIEWER_PASSWORD = process.env.APP_REVIEW_PASSWORD; // set before running; share via App Review Notes only
+if (!REVIEWER_PASSWORD) {
+  console.error("APP_REVIEW_PASSWORD is not set. Export it before seeding the reviewer account.");
+  process.exit(1);
+}
 const REVIEWER_NAME = "App Reviewer";
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
