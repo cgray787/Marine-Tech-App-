@@ -3,7 +3,7 @@
     "name": "Marine Tech",
     "slug": "marine-tech",
     "owner": "cgrayy",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "marine-tech",
@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.grayyachts.marinetech",
       "usesAppleSignIn": true,
-      "buildNumber": "36",
+      "buildNumber": "37",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Marine Tech needs camera access to photograph boat conditions, HIN plates, and engine hours during service inspections.",
