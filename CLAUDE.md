@@ -180,7 +180,61 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - `038_locations_read_policy.sql` — `locations` SELECT policy (fixes the empty office picker).
 - `039_paperwork_perday_location.sql` — `jobs.kind` ('service'|'paperwork'), `jobs.day_locations` (jsonb per-day place for multi-day jobs), `jobs.location_id` (+ `set_paperwork_location` trigger deriving it from the assigned tech for clientless paperwork); `paperwork_*` RLS (read/insert/update/delete) gated on `kind='paperwork'`, assignee-location scoped. Powers schedulable Paperwork blocks + per-day multi-day locations.
 
-**Numbering collision footgun:** two files share the `026` prefix — `026_owner_only_user_management.sql` and `026_parts_order_email.sql` (pg_cron schedule + `parts-order-email` edge-function wiring). Both are applied. Always check `supabase/migrations/` for the highest prefix before numbering (036 is taken by in-flight QuickBooks work on `feat/wo-phase2`). Migrations are applied via Supabase MCP (`mcp__supabase__apply_migration`), not the Supabase CLI.
+**Numbering collision footgun:** migrations now run to **050**. Two files share the `026` prefix — `026_owner_only_user_management.sql` and `026_parts_order_email.sql` (pg_cron schedule + `parts-order-email` edge-function wiring). Both are applied. Always check `supabase/migrations/` for the highest prefix before numbering (036 is taken by in-flight QuickBooks work on `feat/wo-phase2`). Migrations are applied via Supabase MCP (`mcp__supabase__apply_migration`), not the Supabase CLI.
+
+## Service Campaigns — AXOPAR + Mercury (live 2026-08-11)
+
+Manufacturer bulletins performed on specific hulls or engines, tracked end to end
+from the office to the boat and back.
+
+**Why the two manufacturers are modelled differently.** Axopar issues a *Boat
+Service Task* scoped by **HIN**, with *Compensated Work Hours* and an Issue +
+Introduction narrative. Mercury issues a *warranty claim* scoped by **engine
+serial**, with a Part/Fail code, labor codes (`CA12 .5` + `CA18 .5`) and a
+*Conditions Found* narrative. Forcing them into one form drops the fields needed
+to actually file, so each entry form mirrors the portal it is transcribed from and
+uses that manufacturer's own words.
+
+**Two tables, one deliberate split** (migration 043):
+- `service_campaigns` — the catalog. Mutable; maintained as bulletins arrive.
+- `campaign_log` — the permanent record, one row per campaign per boat.
+
+`campaign_log` **freezes a copy** of the campaign text at attach time rather than
+referencing the catalog: manufacturers revise bulletins, and a pure reference
+would silently rewrite what the records claim was done on boats already finished.
+It is **append-only** — a trigger rejects snapshot rewrites, DELETE is blocked
+outright, and a mistaken entry is withdrawn with `status='voided'` (excluded from
+the one-live-row-per-boat unique index, so the campaign can be attached again).
+It anchors to the **hull**, storing HIN and owner name as text, so history follows
+a sold boat and survives a client delete.
+
+**Surfaces** — all three read and write the same rows; nothing is copied:
+| Surface | Role |
+|---|---|
+| Dashboard `/dashboard/jobs/[id]` | Attach campaigns, read instructions, see the tech's photos, record findings/hours/claim number, complete |
+| Dashboard Work Orders → Settings | The catalog: add bulletins, per-manufacturer forms |
+| Mobile job detail | **No catalog** — campaigns arrive attached. Read, photograph, write findings, complete |
+| Portal `/portal/marine-tech/campaigns` | Read-only: Outstanding / Bulletins on file / Campaign history, with field photos |
+
+**Completion is gated** on a photo *and* a written finding — the two things whose
+absence gets a warranty claim rejected. `completed_by` is stamped by trigger, not
+by clients, so no surface can forget it.
+
+**Offline:** campaign photos and findings queue through the existing `sync_queue`
+(`campaign_photos` / `campaign_log` replay cases). Updates coalesce per entry;
+photos accumulate and count toward the completion gate while still queued.
+
+**Migrations:** 043 (tables) · 044 (allow FK-null cascades) · 045 (close unscoped
+report INSERTs) · 046 (scope viewer reads) · 047 (realtime publication — it was
+EMPTY, so every subscription in the app had been silently receiving nothing) ·
+048 (campaign photo policies) · 049 (created_by cascade, both engine serials,
+completed_by stamp) · 050 (boat-link hardening; ⚠️ depends on PR #3's 040).
+
+**Not yet wired:** `lib/campaigns/matching.ts` is tested but unused — the pickers
+list every active bulletin. Boats can now record engine serials, but until they
+are populated, filtering would hide every Mercury campaign.
+
+Spec: `docs/superpowers/specs/2026-08-04-service-campaigns-design.md`
 
 ## Parts-to-Order (live since 2026-06-05)
 
@@ -414,7 +468,8 @@ marine-tech-app/
 - **ASC API key:** `2B5Z869244` (Issuer `f3b47a16-d70b-4ef4-bc3b-e30fed4d2766`); `.p8` lives at `mobile/.secrets/AuthKey_2B5Z869244.p8` (gitignored)
 - **EAS:** owner `cgrayy`, slug `marine-tech`, project `5e70f74a-b7b2-49e0-a65f-4e40d2527fb0`
 - **Live:** v1.0, v1.1.0 and **v1.2.0** are all shipped. v1.2.0 (Apple + Google SSO) went live **2026-06-12** — verified against the public storefront 2026-07-29.
-- ⚠️ **All App Store Connect API calls currently return `403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`.** An Apple agreement has lapsed; no new version can be submitted until the Account Holder signs it at appstoreconnect.apple.com → Business. The app itself remains downloadable.
+- **Agreements cleared 2026-08-11.** Two were outstanding (they sign separately and propagate ~3 min apart); the ASC API is fully open again. Symptom to recognise: `403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`, sometimes on *some* endpoints only — reading the app can succeed while versions/builds still 403.
+- **v1.3.0 / build 38** building 2026-08-11 with the mobile Service Campaigns work. ⚠️ `runtimeVersion` follows `appVersion`, so OTA to 1.3.0 will NOT reach 1.2.0 devices — publish to both runtimes while two versions are live.
 - **EAS Update:** wired with `runtimeVersion = appVersion` (build 24+ can receive OTA; build 23 cannot). OTA only applies when the installed build's runtime matches exactly — publish to both runtimes if two versions are live (run from `mobile/`, no `--runtime-version` flag).
 
 **Autonomous App Store update flow** (uses ASC API end-to-end):
