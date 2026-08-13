@@ -292,6 +292,30 @@ async function processSyncItem(
         return true;
       }
 
+      case "job_photos": {
+        const photoUrl = await uploadPhotoToStorage(
+          payload.local_uri,
+          "report-photos",
+          `jobs/${payload.job_id}`
+        );
+        if (!photoUrl) {
+          await markFailed(item.id, "Job photo upload failed");
+          return false;
+        }
+        const { error } = await supabase.from("report_photos").insert({
+          job_id: payload.job_id,
+          photo_url: photoUrl,
+          category: "work_area",
+          caption: payload.caption,
+        });
+        if (error) {
+          console.error("[Sync] Job photo insert error:", error);
+          await markFailed(item.id, error.message);
+          return false;
+        }
+        return true;
+      }
+
       case "campaign_log": {
         const { id, ...patch } = payload;
         const { error } = await supabase.from("campaign_log").update(patch).eq("id", id);
