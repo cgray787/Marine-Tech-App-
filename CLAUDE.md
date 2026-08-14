@@ -236,6 +236,39 @@ are populated, filtering would hide every Mercury campaign.
 
 Spec: `docs/superpowers/specs/2026-08-04-service-campaigns-design.md`
 
+## Job photos — from the calendar to the office (2026-08-11)
+
+Three kinds of photo now live in `report_photos`, distinguished by which FK is set:
+
+| Kind | Key column | Purpose |
+|---|---|---|
+| Report photo | `report_id` | Attached to a submitted service report |
+| Campaign photo | `campaign_log_id` | Warranty evidence for a bulletin; **not deletable** |
+| **Job photo** | `job_id` (others null) | Work area on a job, often before any report exists |
+
+**The path that matters:** a tech taps a job on the Calendar tab → *Open job →* →
+`mobile/app/job/[id].tsx`, which now carries a **JOB PHOTOS** section. Camera or
+library, thumbnails, long-press to remove. Job photos are working documentation
+rather than warranty evidence, so unlike campaign photos they *can* be deleted.
+
+**Offline:** queues through `sync_queue` (`job_photos` replay case). A photo taken
+without signal is stored on the device, rendered immediately from its local uri
+tagged "queued", and uploaded when signal returns. A failed *online* upload queues
+too rather than making the tech reshoot.
+
+**Where they appear:** `/dashboard/jobs/[id]` Photos section and the portal jobs
+list, both reading the same rows.
+
+⚠️ **Two long-standing dashboard bugs were fixed here.** The Photos query selected
+`bucket` and `file_path` — neither column exists on `report_photos` — so it
+returned nothing and the section never rendered. And each tile was an empty
+`aspect-square` div; a comment claimed image rendering "uses the mobile app and
+reports tabs for now". Photos had therefore never been visible on the job page.
+
+**RLS:** migration 051's `job_photo_in_scope()` mirrors `campaign_photo_in_scope()`
+— you may act on a job photo exactly when you may act on the job's customer, with
+clientless paperwork jobs falling back to the assignee's office.
+
 ## Parts-to-Order (live since 2026-06-05)
 
 Techs enter parts in the mobile service form's "Parts Needed" section (name, part #, qty, **description**, supplier, URL, photo, ordered flag); on submit they persist to `public.parts`. The dashboard shows a **Parts to Order** section (grouped Customer→Boat, gold-highlighted cards, per-part Need-to-order⇄Ordered toggle, collapsed Ordered sub-list, count badge + 5th KPI card, realtime). Spec/plan: `docs/superpowers/{specs/2026-06-05-parts-to-order-design.md, plans/2026-06-05-parts-to-order.md}`.
