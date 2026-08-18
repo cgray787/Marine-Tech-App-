@@ -2,6 +2,141 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
+# Engineering Operating Rules
+
+These rules govern **how** to work in this repo. They come before the feature
+context below and apply to every task.
+
+## Context discipline
+
+This is a large repository — two codebases (Next.js dashboard at the root,
+React Native/Expo app in `/mobile`) plus a Supabase backend, and a sibling
+dashboard living in the separate `grayyachts.com` repo. Do not indiscriminately
+load it.
+
+For every task:
+
+1. Identify the smallest likely evidence surface.
+2. Search before opening many files.
+3. Open only the files needed to answer the current question or test the current hypothesis.
+4. Do not read generated/build/cache directories — `node_modules/`, `.next/`, `.open-next/`, `.expo/`, coverage, binaries.
+5. Prefer the existing specs in `docs/superpowers/specs/` over rediscovering stable architecture.
+6. Expand context only when evidence requires it.
+
+This repo's docs are the technical source of truth. The Obsidian vault is
+retrieved only when business, product, historical, or domain context is actually
+needed — not for ordinary coding tasks.
+
+## Evidence standard
+
+Every repository-specific claim must rest on evidence obtained this session: a
+file opened, a command run, test output, a log, a database result, or
+external-service state actually inspected.
+
+If you cannot verify something, write:
+
+```
+UNVERIFIED — need to check <specific thing>
+```
+
+Do not substitute an assumption about how this kind of system is usually built.
+Framework convention is not evidence.
+
+**Empty output is never automatically a pass.** Distinguish:
+
+- 0 matches,
+- command failure,
+- unavailable tool,
+- incomplete search scope,
+- permission failure (including RLS returning `[]` instead of an error),
+- truncated output.
+
+Prefer "grep returned 0 matches across 184 files" to "it's not there."
+
+For surprising or diagnosis-changing findings, show the command and the small
+relevant slice of raw output alongside the interpretation.
+
+## Debugging protocol
+
+For bugs, follow this order:
+
+1. **OBSERVE** — identify the exact failure. Quote the literal error text; do not paraphrase when the exact string is available.
+2. **REPRODUCE** — establish a reliable failing case (input / expected / actual / steps).
+3. **INSTRUMENT** — gather evidence before changing behavior.
+4. **ISOLATE** — test layers independently to find the first divergence. In this stack that is usually:
+   `row exists in Postgres?` → `service-role query returns it?` → `authenticated (RLS) query returns it?` → `route/API returns it?` → `UI renders it?`
+5. **ROOT CAUSE** — state the cause, the evidence, why it explains the symptom, and what would falsify it.
+6. **FIX** — one focused change.
+7. **VERIFY** — observe the real, previously failing behavior.
+
+Do not shotgun-debug, make several speculative fixes at once, or add retries,
+wrappers, or workarounds before understanding the cause. If multiple hypotheses
+remain, rank them and test one at a time.
+
+## Verification standard
+
+Verify outcomes, not implementation presence.
+
+"The function exists", "the config is set", "the migration file was created",
+and "the column was added" are **not** verification.
+
+Verification here looks like:
+
+- the authenticated user — not the service role — actually receives the expected rows,
+- the previously failing screen renders the expected content,
+- the scheduled job ran and produced its side effect,
+- a regression test fails before the fix and passes after it,
+- the deployed URL, not the local build, serves the change.
+
+Cautionary precedent: the dashboard job-photos section selected `bucket` and
+`file_path`, columns that do not exist on `report_photos`, and rendered each
+tile as an empty `aspect-square` div. Both the query and the tiles "existed."
+No photo had ever appeared. Presence proved nothing.
+
+## External-service bugs
+
+This repo touches Supabase (Postgres/RLS/Storage/Realtime/Edge Functions/pg_cron),
+Cloudflare Workers, Salesforce, QuickBooks Online, Resend, Expo EAS, and App
+Store Connect. When a bug touches one:
+
+1. inspect that service's own state first,
+2. compare it with the application's database/state,
+3. trace which handler or branch actually ran,
+4. only then change code.
+
+Do not assume the fault is in this repository merely because the symptom appears
+in the app.
+
+## Silent failures
+
+Treat a success signal skeptically when it measures something other than the
+intended effect. Suspicious by default:
+
+- caught exceptions followed by success responses, `.catch(() => {})`, empty catch blocks,
+- RLS reads returning empty arrays that read as "no data" rather than "no access",
+- `sync_queue` offline replay cases that drop or coalesce a mutation,
+- pg_cron schedules and edge functions whose only health signal is "no errors" (`parts-order-email`, `salesforce-sync`),
+- Realtime subscriptions on a publication that omits the table — migration 047 found the publication was EMPTY, so every subscription in the app had been silently receiving nothing,
+- config or secret writes that do not take effect until redeploy.
+
+For every automated process ask:
+
+> If this failed silently every run for six months, what would tell us?
+
+Where practical, verify both that no error occurred **and** that the expected
+outcome actually happened.
+
+## Change discipline
+
+Make the smallest change that addresses the proven root cause.
+
+Do not combine unrelated cleanup with a bug fix unless explicitly asked. After a
+fix, run the narrowest meaningful verification first, then broaden.
+
+---
+
 # Marine Tech App
 
 ## Project Overview
@@ -15,31 +150,6 @@ Two codebases, one Supabase backend:
 - **Mobile App** (`/mobile`) — React Native + Expo (technician-facing, iOS + Android)
 - **Admin Dashboard** (root `/`) — Next.js 16 web app (owner-facing, deployed to Cloudflare Workers)
 - **Backend** — Supabase (auth, Postgres database, file storage, Realtime)
-
-## Tech Stack
-
-### Mobile App
-- **Framework:** React Native with Expo SDK 54
-- **Navigation:** Expo Router (file-based, 5-tab layout)
-- **Camera:** expo-camera + expo-image-picker
-- **Auth Storage:** expo-secure-store
-- **Offline:** expo-sqlite (`useOffline` context queues mutations)
-- **Calendar:** react-native-calendars + @gorhom/bottom-sheet
-- **Data fetching:** @tanstack/react-query (with Supabase Realtime invalidation)
-
-### Admin Dashboard
-- **Framework:** Next.js 16 (App Router) with TypeScript
-- **Styling:** Tailwind CSS v4
-- **UI primitives:** Radix UI (popover, dialog), lucide-react (icons)
-- **Calendar:** react-big-calendar (Month/Week/Day views) with custom theme overrides
-- **Data fetching:** @tanstack/react-query (with Supabase Realtime invalidation)
-- **Date utilities:** date-fns
-- **Deployment:** Cloudflare Workers via OpenNext
-
-### Tests
-- **Web unit:** vitest + @testing-library/react
-- **Web e2e:** Playwright (Chromium)
-- **Mobile e2e:** Maestro (YAML flows)
 
 ## Design Scheme
 
@@ -60,11 +170,6 @@ Two codebases, one Supabase backend:
 ## Commands
 
 ```bash
-# Mobile App (from /mobile)
-npm start              # Start Expo dev server
-npm run ios            # Run on iOS simulator
-npm run android        # Run on Android emulator
-
 # EAS Build — run from /mobile
 npx eas build --platform ios --profile development     # Dev client (iOS simulator)
 npx eas build --platform android --profile development # Dev client (Android)
@@ -86,14 +191,8 @@ node scripts/asc-resubmit.mjs                          # Retry submit past post-
 maestro test mobile/.maestro/calendar.yaml             # Run a single flow
 
 # Admin Dashboard (from root /)
-npm run dev                                            # Start Next.js dev server
-npm test                                               # Run vitest unit tests
-npm run test:watch                                     # Vitest in watch mode
-npm run test:e2e                                       # Playwright e2e tests
 npm run deploy                                         # Deploy to CF Workers (sources .env.local, cleans .next/.open-next, builds, deploys)
 
-# Type check
-npx tsc --noEmit       # Run from /mobile or root as needed
 ```
 
 ## GitHub Repo
@@ -138,47 +237,6 @@ https://github.com/cgray787/Marine-Tech-App-.git
 | `pdi_checklist_items` | PDI assessments | same shape as checklist_items |
 | `invites` | Tech invite tokens (7-day expiry) | `token`, `email`, `expires_at`, `used_at` (no tier/location columns — invitees default to `individual` + NULL location, must be promoted post-signup) |
 | `parts` | Parts-to-order from service reports | `name`, `part_number`, `qty`, `description`, `supplier`, `url`, `photo_path`, `ordered`, `notified_at`, `org_id` (set by trigger), `location_id` |
-
-**Migrations:**
-- `001_create_tables.sql` — all base tables + RLS enabled
-- `002_add_push_token.sql` — `profiles.push_token` (push notification subsystem since removed)
-- `003_job_webhook.sql` — webhook trigger on `jobs` insert/update
-- `004_tech_insert_customers_boats.sql` — RLS allowing techs to add customers/boats
-- `005_fix_rls_infinite_recursion.sql` — RLS recursion fix
-- `006_security_hardening.sql` — RLS hardening
-- `007_tech_edit_delete_jobs.sql` — RLS allowing techs to edit/delete their own jobs
-- `008_jobs_scheduled_timestamps.sql` — adds `scheduled_start`, `scheduled_end`, `location_override` to `jobs`
-- `009_viewer_role.sql` — adds `viewer` role
-- `010_public_signup_tier.sql` — adds `profiles.tier` (`individual`/`shop`/`free`) + tier-aware RLS; gates the Clients list (App Review fix for Guideline 3.2)
-- `011_drop_soft_caps_add_account_deletion.sql` — removes free-tier soft caps, adds self-serve account deletion
-- `012_profile_delete_set_null_fks.sql` — switch `customers.created_by` / `jobs.assigned_to` to ON DELETE SET NULL so profile deletes don't cascade
-- `013_handle_new_user_trigger.sql` — auto-create `profiles` row on auth signup
-- `014_jobs_scheduled_end_date.sql` — adds `jobs.scheduled_end_date` for multi-day scheduling (used by mobile long-press scheduling)
-- `015_orgs_locations.sql` — adds `orgs` + `locations` tables, tags existing profiles/customers/boats/jobs to Seattle (additive only, no RLS isolation yet)
-- `016_customer_salesforce_link.sql` — adds `customers.salesforce_account_id` (stable join key) + `customers.salesforce_url` (deep link) + index
-- `017_location_scoped_office_isolation.sql` — shop-tier users now scoped to **their own office** via `profiles.location_id`. Adds `current_profile_location()` and `customer_in_my_location(uuid)` SECURITY DEFINER helpers; rewrites `shop_read_customers` / `shop_read_boats` / `shop_read_jobs` RLS policies
-- `018_shop_update_delete_policies.sql` — shop-tier update/delete RLS policies
-- `019_boats_engine_hours.sql` — adds `boats.engine_hours_port` + `boats.engine_hours_starboard` (numeric, per-engine hour readings; surfaced in Add/Edit Boat + boat detail + the service-report PDF)
-- `020_customers_salesforce_synced_at.sql` — adds `customers.salesforce_synced_at` (observability for the SF auto-link)
-- `021_customers_salesforce_sync_trigger.sql` — `pg_net` AFTER INSERT trigger `customer_salesforce_sync` → calls the `salesforce-sync` edge function (gated to JBY org + not-yet-linked); reads shared secret from Vault
-- `022_salesforce_sync_secrets_rpc.sql` — `salesforce_sync_secrets()` service-role-only RPC returning the SF refresh token + sync secret from Vault
-- `023_customers_tenant_from_profile.sql` — `set_customer_tenant` BEFORE INSERT trigger derives `customers.org_id`/`location_id` from the inserting user's profile (blocks client tenant-spoofing; service-role inserts keep explicit values)
-- `024_admin_user_management.sql` — `admin_set_user_role(target,role)` + `admin_delete_user(target)` admin-only RPCs (gated by `is_admin()`, block acting on self) powering the dashboard Users & Access page
-- `025_parts.sql` — `parts` table (parts-to-order) + RLS + `current_profile_org()` helper + `set_part_org` BEFORE INSERT org-assign trigger
-- `026_owner_only_user_management.sql` — `is_owner()` SQL helper (mirrors `lib/owner.ts` email + auth_id allowlist) + re-gates `admin_set_user_role` / `admin_delete_user` on `is_owner()` instead of `is_admin()`. Role-management is now Owner-only at the database layer.
-- `027_manager_role.sql` — adds `manager` role + `is_manager()` helper + fixes a latent bug from migration 018 (missing `shop_update_jobs` / `shop_delete_jobs`). Promotes Darik to `manager` + Seattle. Multi-location data model is now ready for Sausalito / San Diego — see `docs/superpowers/specs/2026-06-07-multi-location-expansion.md` for the onboarding runbook.
-- `028_rls_audit_reports_parts.sql` — completes the location-scoped RLS audit across every shop-sensitive table: adds the missing shop SELECT/INSERT/UPDATE/DELETE for `service_reports`, `pdi_reports`, `report_photos`, `checklist_items`, `pdi_checklist_items`; replaces the org-only parts policies with location-scoped ones. Adds `service_report_in_my_location()` and `pdi_report_in_my_location()` helpers for chained joins.
-- `029_tighten_shop_inserts.sql` — closes three remaining cross-location INSERT holes: replaces the permissive `tech_insert_jobs` (`WITH CHECK true`) with tier-aware `shop_insert_jobs` + `individual_insert_jobs`, and adds explicit location checks to `shop_insert_customers` and `shop_insert_boats` (defense in depth on top of migration 023's `set_customer_tenant` trigger).
-- `030_marinas_insert_for_team.sql` — opens `marinas` INSERT to shop tier + admins (was admin-only) so Create Job's inline "+ Add new marina" works; viewers are blocked at the UI by `canWrite`.
-- `031_jobs_service_descriptions.sql` — adds `jobs.service_descriptions` JSONB (per-service-type descriptions keyed by `service_types` values, default `{}`), powering per-area notes on the Create Job form.
-- `032_viewer_readonly_enforcement.sql` — `profile_can_write()` helper + RESTRICTIVE write policies on every user-writable table so `viewer` is read-only at the DB layer.
-- `033_work_orders.sql` — Work Orders module: `price_levels`, `job_templates`, `wo_settings`, `work_orders` (+`work_order_number_seq` from 1001), `work_order_jobs`, `work_order_lines`, `work_order_payments`; `wo_can_edit()` helper (admin+manager writes only); seeds 15 templates + Seattle $175/hr price level. (Its pre-Sausalito follow-up was closed by migration 034.)
-- `034_wo_location_scoped_writes.sql` — location-scopes the four `wo_*_write` policies from 033: admins stay org-wide, managers can only write WOs (and their jobs/lines/payments) in their own office.
-- `035_gate_job_assignment_to_location.sql` — `job_assignee_location` BEFORE trigger on `jobs`: `assigned_to` must belong to the same location as the job's customer (admin assignees and location-less customers exempt). Covers every write path incl. mobile offline sync and raw REST.
-- `036_quickbooks.sql` — `qb_connections` (QuickBooks OAuth tokens; RLS deny-all / service-role only) for Work Orders → QuickBooks invoice export.
-- `037_admin_set_user_location.sql` — owner/admin RPC to set a user's `location_id`.
-- `038_locations_read_policy.sql` — `locations` SELECT policy (fixes the empty office picker).
-- `039_paperwork_perday_location.sql` — `jobs.kind` ('service'|'paperwork'), `jobs.day_locations` (jsonb per-day place for multi-day jobs), `jobs.location_id` (+ `set_paperwork_location` trigger deriving it from the assigned tech for clientless paperwork); `paperwork_*` RLS (read/insert/update/delete) gated on `kind='paperwork'`, assignee-location scoped. Powers schedulable Paperwork blocks + per-day multi-day locations.
 
 **Numbering collision footgun:** migrations now run to **050**. Two files share the `026` prefix — `026_owner_only_user_management.sql` and `026_parts_order_email.sql` (pg_cron schedule + `parts-order-email` edge-function wiring). Both are applied. Always check `supabase/migrations/` for the highest prefix before numbering (036 is taken by in-flight QuickBooks work on `feat/wo-phase2`). Migrations are applied via Supabase MCP (`mcp__supabase__apply_migration`), not the Supabase CLI.
 
@@ -327,112 +385,6 @@ The Technicians (Users & Access) page is **owner-gated at three layers**: sideba
 - `docs/superpowers/specs/2026-05-26-multi-location-orgs-design.md`
 - `docs/superpowers/plans/2026-05-26-multi-location-orgs.md`
 
-## Project Structure
-
-```
-marine-tech-app/
-├── app/                           # Next.js Admin Dashboard
-│   ├── login/                     # Login page
-│   └── dashboard/
-│       ├── layout.tsx             # Sidebar + QueryClientProvider wrap
-│       ├── sidebar.tsx            # Inline-SVG nav (Dashboard / Reports / Jobs / Calendar / Technicians / Customers & Boats / PDI Reports)
-│       ├── page.tsx               # Dashboard home (KPI cards incl. Parts to Order)
-│       ├── jobs/                  # Jobs table + pending-jobs panel + create-job-form
-│       │   └── [id]/              # Job detail page with JobEditor client island (F4/F5)
-│       ├── calendar/              # Calendar tab (Month/Week/Day)
-│       │   ├── page.tsx
-│       │   ├── loading.tsx
-│       │   └── error.tsx
-│       ├── customers/             # "Clients" page (renamed from "Customers & Boats"; editable client + boat cards, Delete Client)
-│       ├── technicians/, reports/, pdi-reports/
-├── components/
-│   └── calendar/                  # NEW
-│       ├── CalendarView.tsx       # react-big-calendar wrapper
-│       ├── CalendarToolbar.tsx    # Date nav + tech filter + view switcher + +new
-│       ├── JobChip.tsx            # 3-line chip with location, color-by-tech, status stripe
-│       ├── JobPopover.tsx         # Radix popover on chip click
-│       ├── NewJobModal.tsx        # Radix dialog with create mutation
-│       ├── UnscheduledTray.tsx    # Collapsible unscheduled-jobs strip
-│       ├── calendar-overrides.css # react-big-calendar theme
-│       └── modal-input.css
-├── lib/
-│   ├── supabase/                  # createClient (browser) + createClient (server, async)
-│   ├── react-query.ts             # makeQueryClient factory
-│   └── calendar/                  # NEW: shared lib for web
-│       ├── types.ts               # CalendarJob, JobStatus, CalendarView
-│       ├── colors.ts              # techColor (deterministic hash) + statusStripeColor
-│       ├── format.ts              # 9 AM / 10:30 AM / 9-11 AM time formatters
-│       ├── queries.ts             # getJobsInRange, getUnscheduledJobs, createJob, updateJob
-│       └── realtime.ts            # subscribeToJobs (Supabase Realtime channel)
-├── middleware.ts                   # Auth middleware
-├── supabase/
-│   ├── migrations/                # 001-031 (two files share prefix 026 — see footgun above)
-│   ├── functions/                 # Edge functions: send-invite, salesforce-sync, parts-order-email, job-notification-webhook, send-notification
-│   └── rls_policies.sql
-├── e2e/calendar.spec.ts           # NEW: Playwright tests
-├── playwright.config.ts           # NEW
-├── vitest.config.ts               # NEW (excludes e2e/, mobile/, .worktrees/)
-├── vitest.setup.ts                # NEW
-├── __tests__/calendar/            # NEW: colors.test, format.test, queries.test (20 unit tests)
-├── wrangler.toml                  # CF Workers deploy config (public env vars committed; service role as secret)
-└── mobile/                        # React Native + Expo (technician app)
-    ├── app/
-    │   ├── _layout.tsx            # GestureHandlerRootView → QueryClientProvider → BottomSheetModalProvider → AuthProvider → OfflineProvider → Stack
-    │   ├── login.tsx, register.tsx, account-settings.tsx
-    │   ├── job/[id].tsx           # Job detail / summary (Edit + Delete actions on `feat/mobile-job-edit` branch)
-    │   └── (tabs)/
-    │       ├── _layout.tsx        # 5-tab layout
-    │       ├── index.tsx          # Clients (was "My Jobs")
-    │       ├── service.tsx        # Service form (edit mode via ?editJobId on `feat/mobile-job-edit`)
-    │       ├── pdi.tsx            # PDI form
-    │       ├── jobs.tsx           # NEW (on `feat/mobile-job-edit` branch): browse/search assigned jobs
-    │       └── calendar.tsx       # NEW: Calendar tab
-    ├── components/
-    │   ├── calendar/
-    │   │   ├── MonthCalendar.tsx  # react-native-calendars with multi-dot markers
-    │   │   ├── HourGrid.tsx       # Day-view vertical hour rows (shipped via feat/calendar-hourgrid-newjobsheet)
-    │   │   ├── AllDayStrip.tsx    # All-day/multi-day jobs strip above the HourGrid
-    │   │   ├── ViewToggle.tsx     # Month ⇄ Day view switcher
-    │   │   ├── NewJobSheet.tsx    # Create-job-from-calendar bottom sheet
-    │   │   ├── WeeklyJobsPanel.tsx# Month-view bottom panel: scheduled-this-week + unscheduled tray
-    │   │   ├── DayList.tsx        # Legacy FlatList variant, kept but not mounted
-    │   │   └── JobBottomSheet.tsx # @gorhom/bottom-sheet on tap
-    │   └── ScheduleSheet.tsx      # Long-press scheduling sheet (date + time + duration → updateJob)
-    ├── lib/
-    │   ├── supabase.ts            # Supabase client (SecureStore auth)
-    │   ├── auth-context.tsx
-    │   ├── offline-context.tsx
-    │   ├── react-query.ts         # NEW: makeQueryClient factory
-    │   └── calendar/              # NEW: mirrors web (types/colors/format/queries/realtime)
-    ├── constants/Colors.ts
-    ├── babel.config.js            # Includes 'react-native-reanimated/plugin' (last)
-    └── .maestro/
-        ├── calendar.yaml          # NEW: Maestro flow
-        └── README.md
-```
-
-## Mobile App Screens (5 tabs, all on `main`)
-
-1. **Login** — Email/password, gold anchor icon, "MARINE TECH" branding
-2. **Clients** (Tab 1) — Client cards (location-scoped per RLS), pull-to-refresh, tap-to-call/text/email + "View in Salesforce" link from `customers.salesforce_url`
-3. **Service** (Tab 2) — Job form with customer/boat dropdowns, category tabs, BAD/GOOD checklist, notes. Supports edit mode via `?editJobId=`.
-4. **PDI** (Tab 3) — Pre-Delivery Inspection with progress counter
-5. **Jobs** (Tab 4) — Browse + search assigned jobs, status filter, navigate to detail
-6. **Calendar** (Tab 5) — Month ⇄ Day via ViewToggle. Month: multi-dot markers per tech, tap day → WeeklyJobsPanel. Day: HourGrid hour rows + AllDayStrip. Tap job → JobBottomSheet (25%/60% snap); **long-press a job → ScheduleSheet** (calendar + time picker, writes `scheduled_start`/`scheduled_end`/`scheduled_end_date`); create from calendar via NewJobSheet
-7. **Job Summary** (`/job/[id]`) — Read-only report view, photo gallery, Edit + Delete actions, Export PDF + Share.
-
-## Admin Dashboard Pages
-
-1. **Dashboard** (`/dashboard`) — Home overview (KPI cards incl. Parts to Order count + grouped parts section)
-2. **Reports** (`/dashboard/reports`)
-3. **Jobs** (`/dashboard/jobs`) — Table view with Create / Start / Complete actions, pending-jobs panel + sidebar count, multi-day scheduling + per-service descriptions on Create Job
-4. **Job detail** (`/dashboard/jobs/[id]`) — vessel/engine/checklist/photos with editable JobEditor; target of the calendar's "Open job" link
-5. **Calendar** (`/dashboard/calendar`) — Month/Week/Day. Tech filter. Unscheduled tray. Click-empty-cell → New job modal. Click chip → popover with "Open job" link. Popup overlay for multi-job days. Realtime updates.
-6. **Technicians / Users & Access** (`/dashboard/technicians`) — owner-gated at three layers
-7. **Clients** (`/dashboard/customers`) — renamed from "Customers & Boats"; editable client + boat cards, Delete Client (cascade-deletes child records)
-8. **PDI Reports** (`/dashboard/pdi-reports`)
-9. **Work Orders** (`/dashboard/work-orders`) — priced customer-facing work orders modeled on the Salesforce teamMarine W/O: list + editor (`[id]`) with job sections (FRH/Flat/Per-Foot labor off `price_levels`, 3-C fields, ESTIMATE flag, auto shop-supplies line), parts w/ hidden margin, stacked taxes, optional CC fee, payments + balance, internal profit (hidden from viewers), JBY-letterhead print view (`[id]/print`), Add-Jobs template catalog, settings page (`settings` — price levels / templates / defaults, admin+manager only). Money math single-sourced in `lib/work-orders/totals.ts` (unit-tested). Client profile page `/dashboard/customers/[id]` shows per-client WOs; delete-client is blocked while a client has WOs (fail-closed guard, web + mobile). Spec/plan: `docs/superpowers/{specs/2026-06-12-work-orders-design.md, plans/2026-06-12-work-orders.md}`. **Phase 2 (live 2026-06-12):** branded **Download PDF** button (lazy `@react-pdf/renderer`, doc in `lib/work-orders/pdf.tsx`, JBY logo `public/jby-logo.png`, `formatDateOnly` for date-only columns) + **QuickBooks Online**: `qb_connections` (migration 036, RLS deny-all/service-role only), OAuth routes `app/api/quickbooks/{connect,callback,status,disconnect}` (state-cookie CSRF, refresh-token rotation persisted), settings "Connect to QuickBooks" card, per-WO "Send to QuickBooks" → QBO Invoice (`lib/quickbooks/invoice.ts` pure builder, find-or-create Customer + Labor/Parts & Materials/Service Fees items, TxnTaxDetail override; Re-send = NEW invoice w/ confirm). Needs wrangler secrets `INTUIT_CLIENT_ID`/`INTUIT_CLIENT_SECRET` (QB_ENV vars already in wrangler.toml). Still not built: email/text WO, SF catalog import, portal mirror, QBO payment sync.
-
 ## Calendar Feature (shipped to `main`)
 
 - **Spec:** `docs/superpowers/specs/2026-04-27-calendar-tab-design.md`
@@ -457,18 +409,6 @@ marine-tech-app/
 - **Mobile Job Details back arrow fix** — the native auto back button no-ops on RN 0.81 new-arch + react-native-screens; replaced with a custom `headerLeft` in `mobile/app/job/[id].tsx` (all roles).
 - **Specs:** `docs/superpowers/specs/2026-06-18-scheduling-redesign-design.md`, `docs/superpowers/specs/2026-06-22-paperwork-perday-location-design.md`.
 
-## Checklist Categories & Items
-
-**Engine:** Oil Pressure, Oil Level, Coolant Level, Fuel System, Exhaust System, Throttle Response, Steering System, Propeller Condition, Trim & Tilt, Belts & Hoses
-
-**Electrical:** Battery Voltage, Battery Connections, Navigation Lights, Bilge Pump, Horn, Gauges & Instruments, Switch Panel, Shore Power
-
-**Hull:** Hull Integrity, Gel Coat Finish, Zinc Anodes, Through-Hull Fittings, Rub Rail & Hardware
-
-**Safety:** Life Jackets, Fire Extinguisher, Flares & Signals, First Aid Kit, Anchor & Line
-
-**Nav:** GPS / Chartplotter, Depth Finder, VHF Radio, Compass
-
 ## Authentication Flow
 
 1. Admin creates tech account via invite (sends email with token via `supabase/functions/send-invite`)
@@ -492,40 +432,6 @@ marine-tech-app/
 - **Reconcile `feat/mobile-job-edit`** — diff against `main`, salvage anything not already shipped, then close the branch.
 - **Playwright auth setup** — so the 3 scaffolded e2e tests can actually run.
 - **Multi-office follow-ups** (Sausalito + San Diego opened 2026-06-12; runbook: `docs/superpowers/specs/2026-06-07-multi-location-expansion.md`) — remaining: mobile join-code signup flow (gap 2; until then promote invitees via SQL), mirror the office filter onto the grayyachts.com `/portal/marine-tech` dashboard, seed Sausalito/San Diego price levels in `price_levels` (only Seattle's $175/hr exists).
-
-## iOS App Store / EAS
-
-- **Apple Developer Program:** active through 2027-04-20
-- **Bundle ID:** `com.grayyachts.marinetech` · **Team ID:** `L34MUY39UV`
-- **ASC App ID:** `6762853683` · **App name (ASC):** `JBY-Marine Tech` (in-app display name remains `Marine Tech`)
-- **ASC API key:** `2B5Z869244` (Issuer `f3b47a16-d70b-4ef4-bc3b-e30fed4d2766`); `.p8` lives at `mobile/.secrets/AuthKey_2B5Z869244.p8` (gitignored)
-- **EAS:** owner `cgrayy`, slug `marine-tech`, project `5e70f74a-b7b2-49e0-a65f-4e40d2527fb0`
-- **Live:** v1.0, v1.1.0 and **v1.2.0** are all shipped. v1.2.0 (Apple + Google SSO) went live **2026-06-12** — verified against the public storefront 2026-07-29.
-- **Agreements cleared 2026-08-11.** Two were outstanding (they sign separately and propagate ~3 min apart); the ASC API is fully open again. Symptom to recognise: `403 FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`, sometimes on *some* endpoints only — reading the app can succeed while versions/builds still 403.
-- **v1.3.0 / build 38** building 2026-08-11 with the mobile Service Campaigns work. ⚠️ `runtimeVersion` follows `appVersion`, so OTA to 1.3.0 will NOT reach 1.2.0 devices — publish to both runtimes while two versions are live.
-- **EAS Update:** wired with `runtimeVersion = appVersion` (build 24+ can receive OTA; build 23 cannot). OTA only applies when the installed build's runtime matches exactly — publish to both runtimes if two versions are live (run from `mobile/`, no `--runtime-version` flag).
-
-**Autonomous App Store update flow** (uses ASC API end-to-end):
-1. EAS production build, non-interactive via env vars — see `reference_eas_noninteractive_ios_creds` memory (`EXPO_ASC_KEY_ID`, not `EXPO_ASC_API_KEY_ID`)
-2. `eas submit --id <buildId> --profile production` — uploads + processes
-3. `node scripts/asc-submit.mjs <version> <buildNumber>` — creates `appStoreVersion`, attaches build, sets `whatsNew`, submits for review (note: root `scripts/`, not `mobile/scripts/`)
-4. **Gotcha:** final submit will 409 with `STATE_ERROR "Version is not ready yet, try again later"` for a few minutes right after attach. `node scripts/asc-resubmit.mjs` polls past it.
-
-**Reusable ASC API scripts** (`mobile/scripts/` except where noted, all sign their own JWT from the `.p8`):
-- `asc-builds.mjs` — list recent builds
-- `asc-upload-screenshots.mjs` — parametric by device type
-- `asc-fill-metadata.mjs` — name / subtitle / description / keywords
-- `asc-attach-build-and-categories.mjs` — attach build + set categories
-- `asc-finalize-listing.mjs` — age rating + review details
-- `asc-fix-blockers.mjs` — copyright + content rights flags
-- `asc-set-free-pricing.mjs`
-- `asc-submit-for-review.mjs` + `asc-resubmit-v2.mjs` (retry path)
-- `asc-add-tester.mjs` — TestFlight invite
-
-**Reviewer / demo credentials** (for Apple App Review):
-- Email: `appreview@grayyachts.com` / Password: **not stored here** — set `APP_REVIEW_PASSWORD` in your shell; the value belongs only in App Store Connect's review notes. (It was previously committed in four tracked files; rotate it.)
-- Seeded as a real `tech` Supabase user with a "Demo Customer (App Review)" customer + "Sea Trial" boat + assigned job
-- Privacy + Support pages live at `https://grayyachts.com/marine-tech/privacy` and `/support` (deployed from the `grayyachts.com` repo)
 
 ## Related Projects
 
