@@ -102,11 +102,17 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
           .eq("report_id", reportId)
           .order("sort_order", { ascending: true })
       : Promise.resolve({ data: [] as Array<{ id: string; category: string; item_name: string; assessment: string; notes: string | null; sort_order: number }> }),
-    reportId
-      ? supabase.from("report_photos")
-          .select("id, bucket, category, caption, file_path")
-          .eq("report_id", reportId)
-      : Promise.resolve({ data: [] as Array<{ id: string; bucket: string; category: string; caption: string | null; file_path: string }> }),
+    // Every photo tied to this job, of both kinds:
+    //   - report photos, hanging off a submitted service report
+    //   - job photos, shot from the field app straight onto the job (report_id null)
+    // The previous query selected `bucket` and `file_path`, which do not exist on
+    // this table — so it returned nothing and the section never appeared. It also
+    // omitted photo_url, which is the column that actually holds the image.
+    supabase.from("report_photos")
+      .select("id, photo_url, category, caption, report_id, job_id, created_at")
+      .or(reportId ? `report_id.eq.${reportId},job_id.eq.${id}` : `job_id.eq.${id}`)
+      .is("campaign_log_id", null)
+      .order("created_at", { ascending: true }),
     supabase.from("parts")
       .select("id, name, part_number, quantity, supplier, description, ordered, url")
       .eq("job_id", id)
@@ -311,17 +317,32 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
           <p className="text-[11px] font-medium uppercase tracking-wider text-text-secondary">Photos ({photos.length})</p>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {photos.map((p) => (
-              <div key={p.id} className="overflow-hidden rounded-lg border border-border-line bg-secondary-bg">
-                <div className="aspect-square bg-secondary-bg" />
+              <a
+                key={p.id}
+                href={p.photo_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group overflow-hidden rounded-lg border border-border-line bg-secondary-bg transition-colors hover:border-gold"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={p.photo_url}
+                  alt={p.caption ?? `${p.category ?? "Job"} photo`}
+                  className="aspect-square w-full bg-secondary-bg object-cover transition-opacity group-hover:opacity-90"
+                  loading="lazy"
+                />
                 <div className="px-2 py-1.5">
-                  <p className="text-[10px] uppercase tracking-wider text-text-secondary">{p.category}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-text-secondary">
+                    {p.report_id ? p.category ?? "report" : "from the field"}
+                  </p>
                   {p.caption && <p className="text-xs text-text-primary">{p.caption}</p>}
                 </div>
-              </div>
+              </a>
             ))}
           </div>
           <p className="mt-3 text-[11px] text-text-secondary">
-            Image rendering uses the mobile app and reports tabs for now; this view lists the photo records attached to the job.
+            Photos the tech attached from the field app appear here as soon as they upload.
+            Click any photo to open it full size.
           </p>
         </div>
       )}

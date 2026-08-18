@@ -16,6 +16,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { supabase } from "@/lib/supabase";
 import { JobCampaigns } from "@/components/JobCampaigns";
+import { JobPhotos } from "@/components/JobPhotos";
 import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/constants/Colors";
 import { generateServiceReportHTML, generatePDIReportHTML, formatEngineHours } from "@/lib/pdf-template";
@@ -465,6 +466,11 @@ export default function JobDetailScreen() {
           ))}
         </View>
       )}
+
+      {/* Work-area photos. The common path here is the calendar — tap a job,
+          Open job, and shoot what is in front of you. Same rows the dashboard
+          and portal read. */}
+      <JobPhotos jobId={String(id)} />
 
       {/* Service campaigns — attached by the office, worked here. Instructions,
           photos and findings all live on the same rows the dashboard reads. */}

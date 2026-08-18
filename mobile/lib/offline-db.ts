@@ -675,6 +675,48 @@ export async function countPendingCampaignWrites(): Promise<number> {
   return row?.count ?? 0;
 }
 
+/**
+ * Queue a job photo taken while offline. Mirrors the campaign-photo path: the
+ * file stays on the device until the queue drains. The job already exists
+ * server-side, so there is no offline id to resolve.
+ */
+export async function savePendingJobPhoto(
+  jobId: string,
+  localUri: string,
+  caption?: string | null
+): Promise<void> {
+  const database = await getDB();
+  await database.runAsync(
+    `INSERT INTO sync_queue (table_name, record_id, action, payload) VALUES (?, ?, ?, ?)`,
+    [
+      "job_photos",
+      jobId,
+      "insert",
+      JSON.stringify({ job_id: jobId, local_uri: localUri, caption: caption ?? null }),
+    ]
+  );
+}
+
+/** Locally queued job photos, so a tech sees their own shot immediately. */
+export async function getPendingJobPhotos(jobId: string): Promise<string[]> {
+  const database = await getDB();
+  const rows = await database.getAllAsync<{ payload: string }>(
+    `SELECT payload FROM sync_queue
+      WHERE synced = 0 AND table_name = 'job_photos' AND record_id = ?
+      ORDER BY id`,
+    [jobId]
+  );
+  return rows
+    .map((r) => {
+      try {
+        return JSON.parse(r.payload).local_uri as string;
+      } catch {
+        return null;
+      }
+    })
+    .filter((u): u is string => !!u);
+}
+
 /** Locally queued photos for an entry, so a tech sees their own shot immediately. */
 export async function getPendingCampaignPhotos(campaignLogId: string): Promise<string[]> {
   const database = await getDB();
