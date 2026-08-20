@@ -51,7 +51,19 @@ type Boat = {
 export function CustomerList({
   initialCustomers,
   initialBoats,
+  activeLocationId = null,
 }: {
+  /**
+   * The office currently selected in the sidebar switcher, for org-wide users
+   * (admins + Owner); null means "All offices" or a location-scoped user.
+   *
+   * A new client is filed into this office. Without it an admin whose own
+   * profile has no location_id creates NULL-location clients, which are
+   * invisible to every `.eq("location_id", …)` view on the dashboard and to
+   * location-scoped RLS for everyone else — the row is written (201) and then
+   * cannot be found. See migration 052.
+   */
+  activeLocationId?: string | null;
   initialCustomers: Customer[];
   initialBoats: Boat[];
 }) {
@@ -107,6 +119,12 @@ export function CustomerList({
       phone: customerPhone || null,
       address: customerAddress || null,
       notes: customerNotes || null,
+      // File the client into the office being viewed. The set_customer_tenant
+      // trigger still owns org_id, and (as of migration 052) only overrides
+      // location_id when the caller's own profile has one — so this value
+      // survives for an org-wide admin and is ignored for location-scoped
+      // users, who cannot file outside their own office anyway.
+      ...(activeLocationId ? { location_id: activeLocationId } : {}),
     };
     // Edit path — update the existing row. Otherwise insert. org_id/location_id
     // are assigned server-side from the caller's profile by the
