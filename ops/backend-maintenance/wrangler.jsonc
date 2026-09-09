@@ -1,0 +1,25 @@
+{
+  "name": "marine-tech-backend-maintenance",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-09-09",
+  "account_id": "9099fbe252af84600401436396def12d",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": [
+      "*/2 * * * *"
+    ]
+  },
+  "vars": {
+    "SUPABASE_URL": "https://ikfcnqdrlvhvlyhiuphs.supabase.co",
+    "SUPABASE_PUBLIC_KEY": "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "STATE",
+      "id": "0f482dcb56e04961af25afc9b6d9495e"
+    }
+  ]
+}
