@@ -4,7 +4,7 @@ import { assess, nextState } from "./checks.mjs";
 
 const healthy = () => ({
   auth: { ok: true }, rest: { ok: true }, dashboard: { ok: true },
-  database: { ok: true, data: { wal_bytes: 1024 ** 3, database_bytes: 52_000_000, read_only: false } },
+  database: { ok: true, data: { resources: { observedAt: '2026-09-09T00:00:00Z', availableBytes: 900000000, sizeBytes: 1000000000, disks: [] }, wal_bytes: 1024 ** 3, database_bytes: 52_000_000, read_only: false } },
 });
 
 test("detects the WAL accumulation from this incident before a 16 GB disk fills", () => {

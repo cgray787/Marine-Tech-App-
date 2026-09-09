@@ -1,3 +1,5 @@
+import { parseDiskMetrics } from "./disk-metrics.mjs";
+
 // The external monitor receives only aggregate capacity metrics. Its dedicated
 // token cannot authenticate to the database or access business records.
 Deno.serve(async (request: Request) => {
@@ -24,7 +26,20 @@ Deno.serve(async (request: Request) => {
     });
     if (!response.ok) return Response.json({ ok: false, error: "Database probe failed" }, { status: 503 });
     const metrics = await response.json();
-    return Response.json({ ok: true, ...metrics }, { headers: { "cache-control": "no-store" } });
+    let resources = null;
+    let resource_error = null;
+    try {
+      const resourceResponse = await fetch(`${url}/customer/v1/privileged/metrics`, {
+        headers: { authorization: `Basic ${btoa(`service_role:${key}`)}`, "accept-encoding": "gzip" },
+        signal: AbortSignal.timeout(8_000),
+        redirect: "manual",
+      });
+      if (!resourceResponse.ok) throw new Error("Metrics endpoint unavailable");
+      resources = parseDiskMetrics(await resourceResponse.text());
+    } catch {
+      resource_error = "Disk resource metrics unavailable";
+    }
+    return Response.json({ ok: true, ...metrics, resources, resource_error }, { headers: { "cache-control": "no-store" } });
   } catch {
     return Response.json({ ok: false, error: "Database probe unreachable" }, { status: 503 });
   }

@@ -21,7 +21,7 @@ test('runs existing parts handler and saves health without sending unconfigured 
   const calls = [];
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     calls.push({ url, options });
-    if (url.endsWith('/backend-health-probe')) return Response.json({ ok: true, database_bytes: 50000000, wal_bytes: 1073741824, read_only: false });
+    if (url.endsWith('/backend-health-probe')) return Response.json({ ok: true, database_bytes: 50000000, resources: { observedAt: '2026-09-09T00:00:00Z', availableBytes: 900000000, sizeBytes: 1000000000, disks: [] }, wal_bytes: 1073741824, read_only: false });
     if (url.endsWith('/parts-order-email')) return Response.json({ ok: true, sent: 0 });
     return Response.json({});
   });
@@ -41,7 +41,7 @@ test('runs existing parts handler and saves health without sending unconfigured 
 
 test('detects a parts-handler error even when its HTTP status is 200', async (t) => {
   t.mock.method(globalThis, 'fetch', async url => {
-    if (url.endsWith('/backend-health-probe')) return Response.json({ ok: true, database_bytes: 50000000, wal_bytes: 1073741824 });
+    if (url.endsWith('/backend-health-probe')) return Response.json({ ok: true, database_bytes: 50000000, resources: { observedAt: '2026-09-09T00:00:00Z', availableBytes: 900000000, sizeBytes: 1000000000, disks: [] }, wal_bytes: 1073741824 });
     if (url.endsWith('/parts-order-email')) return Response.json({ ok: false, error: 'database failure' });
     return Response.json({});
   });

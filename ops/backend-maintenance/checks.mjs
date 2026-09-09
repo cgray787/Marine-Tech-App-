@@ -1,6 +1,8 @@
+import { diskRates } from "../../supabase/functions/backend-health-probe/disk-metrics.mjs";
+
 const GiB = 1024 ** 3;
 
-export function assess(probes) {
+export function assess(probes, previousMetrics = null) {
   const issues = [];
   for (const [name, probe] of Object.entries(probes)) {
     if (!probe.ok) issues.push(`${name}: ${probe.error || `HTTP ${probe.status}`}`);
@@ -10,6 +12,19 @@ export function assess(probes) {
     if (!metrics || !Number.isFinite(Number(metrics.wal_bytes)) || !Number.isFinite(Number(metrics.database_bytes))) {
       issues.push("Database probe returned invalid capacity metrics");
     } else {
+      if (!metrics.resources || metrics.resource_error) {
+        issues.push("Disk resource monitoring unavailable");
+      } else {
+        const resources = metrics.resources;
+        if (resources.availableBytes / resources.sizeBytes <= 0.2) {
+          issues.push("Database filesystem has less than 20% free space");
+        }
+        const rates = diskRates(resources, previousMetrics?.resources);
+        // 80% of documented Nano baselines: 250 IOPS, 5 MB/s.
+        // These sampled OS rates are not Supabase's daily credit balance.
+        if (rates?.operationsPerSecond >= 200) issues.push("Disk operations approaching the Free plan sustained I/O limit");
+        if (rates?.bytesPerSecond >= 4_000_000) issues.push("Disk throughput approaching the Free plan sustained I/O limit");
+      }
       if (metrics.read_only) issues.push("Database is in read-only mode");
       const minimumWal = Number(metrics.min_wal_bytes);
       const walWarning = Math.max(256 * 1024 ** 2, 2 * (Number.isFinite(minimumWal) && minimumWal > 0 ? minimumWal : GiB));

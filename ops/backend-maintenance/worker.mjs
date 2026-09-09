@@ -1,4 +1,5 @@
 import { assess, nextState } from './checks.mjs';
+import { diskRates } from '../../supabase/functions/backend-health-probe/disk-metrics.mjs';
 
 async function probe(url, headers = {}, json = false, method = 'GET') {
   try {
@@ -18,15 +19,16 @@ async function check(env) {
     probe('https://marinetech.grayyachts.com/login'),
     probe(`${base}/functions/v1/parts-order-email`, { 'x-cron-secret': env.PARTS_CRON_SECRET }, true, 'POST'),
   ]);
-  const issues = assess({ auth, rest, database, dashboard });
-  if (!parts.ok || parts.data?.ok !== true) issues.push('Parts notification worker failed');
   const previous = await env.STATE.get('health', 'json');
+  const issues = assess({ auth, rest, database, dashboard }, previous?.metrics);
+  if (!parts.ok || parts.data?.ok !== true) issues.push('Parts notification worker failed');
   const now = Date.now();
   const { state, kind } = nextState(previous, issues, now);
   state.checkedAt = new Date(now).toISOString();
   state.emailConfigured = Boolean(env.ALERT_TO && env.RESEND_API_KEY);
   state.parts = { ok: parts.ok && parts.data?.ok === true, sent: parts.data?.sent ?? null };
   state.metrics = database.data?.ok ? database.data : null;
+  state.diskRates = diskRates(state.metrics?.resources, previous?.metrics?.resources);
   if (kind && state.emailConfigured) {
     const body = kind === 'outage' ? `Marine Tech backend needs attention.\n\n${issues.join('\n')}\n\n${state.checkedAt}` : `Marine Tech backend has recovered.\n\n${state.checkedAt}`;
     const result = await fetch('https://api.resend.com/emails', {

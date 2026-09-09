@@ -29,8 +29,12 @@ Until enabled, incidents appear in Worker logs and protected status only.
 Capacity checks warn at 400 MiB database size, ahead of the Free database quota.
 WAL warnings adapt to the instance's configured minimum: the larger of 256 MiB
 or twice `min_wal_size`. Missing baseline metrics conservatively assume 1 GiB.
-Read-only mode and the most-recent archival failure are also checked. This is
-not a daily I/O-credit measurement or a full filesystem-space monitor.
+Read-only mode and the most-recent archival failure are also checked. The protected probe also reads compressed aggregate OS metrics. It warns at
+80% filesystem use, 200 disk operations/second, or 4 MB/second across physical
+disks (80% of the documented Nano baseline). Rates compare consecutive samples;
+restarts, missing devices and stale intervals establish a fresh baseline.
+Missing resource metrics are reported as a monitoring failure. These are
+two-minute sampled rates, not a daily I/O-credit measurement.
 Supabase's own Database Health provides I/O budget.
 
 ## Deployment
@@ -46,7 +50,7 @@ Use the existing repo Wrangler executable or a pinned installed Wrangler.
 4. Verify all probes and an automatic cron invocation.
 5. Apply `057_parts_scheduler_to_cloudflare.sql` to deactivate the old parts cron.
 
-Tests: `node --test *.test.mjs` (eight tests).
+Tests: `node --test *.test.mjs` (eleven tests).
 
 ## Rollback
 
