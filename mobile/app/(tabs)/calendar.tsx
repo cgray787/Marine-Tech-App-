@@ -5,8 +5,11 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  AppState,
   useWindowDimensions,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { startCalendarSession } from "@/lib/calendar/live-session";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -79,15 +82,34 @@ export default function CalendarScreen() {
       queryKey: ["calendar-mobile-unscheduled"],
     });
   }, [queryClient]);
+  useEffect(() => {
+    let current = true;
+    setViewMode("month");
+    if (!profile?.id) return;
+    void AsyncStorage.getItem(`calendar-mode:${profile.id}`).then((saved) => {
+      if (current && (saved === "month" || saved === "week" || saved === "day")) {
+        setViewMode(saved);
+      }
+    }).catch(() => { /* A local preference failure must not block the calendar. */ });
+    return () => { current = false; };
+  }, [profile?.id]);
+  const changeViewMode = useCallback((mode: CalendarMode) => {
+    setViewMode(mode);
+    if (profile?.id) void AsyncStorage.setItem(`calendar-mode:${profile.id}`, mode).catch(() => {});
+  }, [profile?.id]);
   useFocusEffect(
     useCallback(() => {
-      invalidateCalendar();
-    }, [invalidateCalendar]),
+      if (!profile?.id) return;
+      const live = startCalendarSession({
+        initialState: AppState.currentState,
+        subscribe: (onChange) => subscribeToJobs(supabase, onChange),
+        unsubscribe: (channel) => unsubscribe(supabase, channel),
+        refresh: invalidateCalendar,
+      });
+      const listener = AppState.addEventListener("change", live.setState);
+      return () => { listener.remove(); live.stop(); };
+    }, [profile?.id, invalidateCalendar]),
   );
-  useEffect(() => {
-    const channel = subscribeToJobs(supabase, invalidateCalendar);
-    return () => unsubscribe(supabase, channel);
-  }, [invalidateCalendar]);
   function openNewJob(day = selectedDate) {
     const date = parseISO(day);
     date.setHours(9, 0, 0, 0);
@@ -117,7 +139,7 @@ export default function CalendarScreen() {
         viewMode === "week"
           ? (day) => {
               setSelectedDate(day);
-              setViewMode("day");
+              changeViewMode("day");
             }
           : undefined
       }
@@ -243,7 +265,7 @@ export default function CalendarScreen() {
           />
         </View>
       )}
-      <ViewToggle value={viewMode} onChange={setViewMode} />
+      <ViewToggle value={viewMode} onChange={changeViewMode} />
       <ScheduleSheet ref={scheduleSheetRef} onScheduled={invalidateCalendar} />
       <NewJobSheet
         ref={newJobSheetRef}
