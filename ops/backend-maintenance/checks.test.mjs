@@ -41,3 +41,14 @@ test("retries notification when delivery was not accepted", () => {
   const previous = { consecutiveFailures: 2, alerted: false };
   assert.equal(nextState(previous, ["down"], 1000).kind, "outage");
 });
+
+
+test("adapts WAL warnings to a smaller Free instance and warns before its database quota", () => {
+  const probes = healthy();
+  probes.database.data.min_wal_bytes = 80 * 1024 ** 2;
+  probes.database.data.wal_bytes = 300 * 1024 ** 2;
+  assert.match(assess(probes).join("\n"), /Transaction logs/);
+  probes.database.data.wal_bytes = 80 * 1024 ** 2;
+  probes.database.data.database_bytes = 450 * 1024 ** 2;
+  assert.match(assess(probes).join("\n"), /Free plan/);
+});

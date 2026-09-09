@@ -109,3 +109,27 @@ growth, and add independent failure detection.
 Rollback and deployment details: `ops/backend-maintenance/README.md`.
 Supabase references: https://supabase.com/docs/guides/cron/quickstart and
 https://supabase.com/docs/guides/troubleshooting/exhaust-disk-io.
+
+
+## Free downgrade and Neon follow-up
+
+The user subsequently requested an immediate return to Free and migration of
+some projects to Neon. Subscription downgrade is NOT completed. Public
+Management API credentials work for projects/database administration but the
+billing `/platform/organizations/{slug}/billing/subscription` endpoint requires
+a dashboard JWT; the saved CLI PAT is rejected. The Supabase billing page was
+opened for the user to choose Change subscription plan → Free.
+
+Account inventory: Marine Tech is active in JBY Yachts; Agentic Dashboard
+`pmjqnwvcwnoaothfaxub` is inactive in organization `qngoiybbbydbirrftwqb`.
+Agentic Dashboard source was located at `Projects/40 - AI & Tooling/claude-os`.
+It uses Supabase Auth and Supabase query clients, so a database-only connection
+string swap would break login/query paths. Project selection is awaiting the
+user's async answer. Neon CLI was launched and is waiting for browser OAuth;
+no Neon project or migration has been created and no source project resumed.
+
+Applied `058_backend_health_free_readiness.sql` and updated external capacity
+checks to warn at 400 MiB database size, with WAL warning based on the greater
+of 256 MiB or twice managed min_wal_size. This adapts to a downgrade without
+assuming the current paid disk's 16 GB capacity. Eight tests pass. These
+changes prepare monitoring; they do not change the subscription itself.

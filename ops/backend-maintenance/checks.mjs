@@ -11,11 +11,13 @@ export function assess(probes) {
       issues.push("Database probe returned invalid capacity metrics");
     } else {
       if (metrics.read_only) issues.push("Database is in read-only mode");
-      if (Number(metrics.wal_bytes) >= 4 * GiB) {
+      const minimumWal = Number(metrics.min_wal_bytes);
+      const walWarning = Math.max(256 * 1024 ** 2, 2 * (Number.isFinite(minimumWal) && minimumWal > 0 ? minimumWal : GiB));
+      if (Number(metrics.wal_bytes) >= walWarning) {
         issues.push(`Transaction logs have grown to ${(Number(metrics.wal_bytes) / GiB).toFixed(1)} GiB`);
       }
-      if (Number(metrics.database_bytes) + Number(metrics.wal_bytes) >= 12 * GiB) {
-        issues.push("Database and transaction logs exceed 12 GiB; review available disk capacity");
+      if (Number(metrics.database_bytes) >= 400 * 1024 ** 2) {
+        issues.push("Database is approaching the Free plan 500 MB database limit");
       }
       const failure = Date.parse(metrics.last_archive_failure_at);
       const success = Date.parse(metrics.last_archived_at);
