@@ -19,6 +19,21 @@ Calendar queries include visible padding dates and jobs whose multi-day end over
 
 ## Release and remaining context
 
-The implementation is local and has not been published through Expo Updates or App Store/TestFlight. Preview screenshots are browser renders of the actual mobile components; native safe areas and gestures still need a device smoke check during release.
+Published to the production Expo Updates channel on September 9, 2026 after the user explicitly requested deployment. Preview screenshots are browser renders of the actual mobile components; physical-device receipt and gestures have not been directly observed.
 
 The user's Supabase Pro month is temporary. This UI work does not migrate or downgrade the backend. Backend recovery evidence, backup locations, and the pending email-monitor destination remain in the main checkout's separate recovery handoff. Do not interpret this change as completing the Supabase/Neon cost-reduction work.
+
+## Production release verification
+
+Source commit: `014988b`. Production channel is active and maps to the `production` EAS branch. App Store Connect reports 1.2.0 ready for sale; EAS also has the finished 1.3.0 iOS build 38. Comparing current source with the 1.2 build commit `cb507ecc` showed no dependency, lockfile, Babel, or EAS build configuration changes; app config differs only in version/build number.
+
+Published iOS and Android updates for both runtimes:
+
+- 1.2.0: group `36cff10e-b6ed-431a-9883-e35fd4574553`, published 17:46:30 UTC.
+- 1.3.0: group `e5030bc4-5c46-4ed4-857b-96621aba4820`, published 17:45:57 UTC.
+
+The 1.2 publication temporarily selected app version 1.2.0 for runtime compatibility, then restored app.json byte-for-byte. Both exports produced the same iOS/Android code bundles. No new native build or store submission was needed.
+
+Verified all four production manifest requests by platform/runtime against the exact published update IDs. Downloaded both unique launch bundles using the manifest extensions' asset request headers and verified SHA-256 hashes. Raw CDN requests without these supplied authorization headers return 403; the supported update protocol succeeds. Physical phone receipt remains unobserved.
+
+Previous 1.2 production update group, available for rollback: `dfa4d13e-dcb0-4b25-b7ef-161d1e78eccb`. The 1.3 build previously used its embedded update. Keep these runtime distinctions when rolling back.
