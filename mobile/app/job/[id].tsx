@@ -61,6 +61,7 @@ type ReportPhoto = {
 };
 
 type Customer = {
+  id: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -123,7 +124,7 @@ export default function JobDetailScreen() {
     // Fetch job with customer, boat, and marina details
     const { data: jobData } = await supabase
       .from("jobs")
-      .select("id, status, service_types, service_descriptions, scheduled_date, notes, boat_id, customers(name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color), marinas(name, address)")
+      .select("id, status, service_types, service_descriptions, scheduled_date, notes, boat_id, customers(id, name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color), marinas(name, address)")
       .eq("id", id)
       .single();
 
@@ -199,7 +200,7 @@ export default function JobDetailScreen() {
       router.back();
     } else {
       // Deep-link / cold-start fallback: nothing to pop, land somewhere sensible.
-      router.replace("/(tabs)/jobs");
+      router.replace("/(tabs)/calendar");
     }
   }
 
@@ -532,7 +533,10 @@ export default function JobDetailScreen() {
         <View style={styles.vesselCard}>
           <View style={styles.vesselCardAccent} />
           <View style={styles.vesselCardContent}>
-            <Text style={styles.cardTitle}>Customer</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={styles.cardTitle}>Customer</Text>
+              {job.customers.id && <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/client/[id]", params: { id: job.customers!.id } })} style={{ paddingVertical: 12 }}><Text style={{ color: colors.gold }}>View client ›</Text></TouchableOpacity>}
+            </View>
             <View style={styles.infoGrid}>
               <InfoRow label="Name" value={job.customers.name} />
               {job.customers.phone && (

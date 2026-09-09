@@ -1,3 +1,4 @@
+import { format, parseISO } from "date-fns";
 import type { CalendarJob } from "./types";
 
 /** Hard cap so a bad/huge scheduled_end_date can never spin the day loop. */
@@ -8,12 +9,12 @@ const MAX_SPAN_DAYS = 60;
  * Span = the start day → scheduled_end_date (inclusive). A job with no end date
  * (or an end <= start) is a single day. Unscheduled jobs return [].
  *
- * Day strings are sliced/iterated in UTC to match how MonthCalendar derives the
- * day (j.scheduledStart.slice(0,10)), so the markers and the lists agree.
+ * The first day follows the phone’s local timezone. Date-only spans are then
+ * iterated in UTC so daylight-saving changes cannot skip a date.
  */
 export function jobDays(job: Pick<CalendarJob, "scheduledStart" | "scheduledEndDate">): string[] {
   if (!job.scheduledStart) return [];
-  const start = job.scheduledStart.slice(0, 10);
+  const start = format(parseISO(job.scheduledStart), "yyyy-MM-dd");
   const end =
     job.scheduledEndDate && job.scheduledEndDate > start ? job.scheduledEndDate : start;
   if (end === start) return [start];

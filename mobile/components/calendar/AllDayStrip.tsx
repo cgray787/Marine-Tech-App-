@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import type { CalendarJob } from "@/lib/calendar/types";
-import { clientColor, jobStripeColor } from "@/lib/calendar/colors";
+import { colors } from "@/constants/Colors";
 import { dayOfN } from "@/lib/calendar/format";
 import { placeForDay } from "@/lib/calendar/spans";
 
@@ -18,8 +18,8 @@ export function AllDayStrip({ jobs, selectedDate, onSelectJob, onScheduleJob }: 
     <View style={styles.container} testID="all-day-strip">
       {jobs.map((j) => {
         const isPaperwork = j.kind === "paperwork";
-        const bg = isPaperwork ? "#334155" : clientColor(j.customer?.id);
-        const stripe = isPaperwork ? "#C9A96E" : jobStripeColor(j.id);
+        const bg = colors.bgCard;
+        const stripe = colors.gold;
         const { day, total } = dayOfN(
           selectedDate,
           j.scheduledStart!,
@@ -28,10 +28,11 @@ export function AllDayStrip({ jobs, selectedDate, onSelectJob, onScheduleJob }: 
         // Per-day place for the spanned day in view.
         const place = placeForDay(j, selectedDate);
         const title = isPaperwork
-          ? `📋 Paperwork${j.notes?.trim() ? ` — ${j.notes.trim()}` : ""}${place ? ` · 📍 ${place}` : ""}`
-          : `🛠 ${j.customer?.name ?? "Customer"} · ${j.boat?.name ?? "Boat"}${place ? ` · 📍 ${place}` : ""}`;
+          ? `Paperwork${j.notes?.trim() ? ` — ${j.notes.trim()}` : ""}${place ? ` · ${place}` : ""}`
+          : `${j.customer?.name ?? "Customer"} · ${j.boat?.name ?? "Boat"}${place ? ` · ${place}` : ""}`;
         return (
           <Pressable
+            accessibilityRole="button"
             key={j.id}
             onPress={() => onSelectJob(j)}
             onLongPress={onScheduleJob ? () => onScheduleJob(j) : undefined}
@@ -39,7 +40,7 @@ export function AllDayStrip({ jobs, selectedDate, onSelectJob, onScheduleJob }: 
             style={[styles.chip, { backgroundColor: bg, borderLeftColor: stripe }]}
             testID={`all-day-chip-${j.id}`}
           >
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={styles.title} numberOfLines={2}>
               {title}
             </Text>
             <Text style={styles.badge}>DAY {day}/{total}</Text>
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    height: 28,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
