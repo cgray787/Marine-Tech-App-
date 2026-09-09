@@ -125,7 +125,7 @@ Account inventory: Marine Tech is active in JBY Yachts; Agentic Dashboard
 Agentic Dashboard source was located at `Projects/40 - AI & Tooling/claude-os`.
 It uses Supabase Auth and Supabase query clients, so a database-only connection
 string swap would break login/query paths. Project selection is awaiting the
-user's async answer. Neon CLI was launched and is waiting for browser OAuth;
+user's async answer. Neon CLI browser OAuth timed out after 60 seconds; authentication is incomplete;
 no Neon project or migration has been created and no source project resumed.
 
 Applied `058_backend_health_free_readiness.sql` and updated external capacity
