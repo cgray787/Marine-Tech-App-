@@ -20,11 +20,11 @@ KV `STATE` holds the latest check. KV reads are eventually consistent; an
 immediate `/status` after `/check` can briefly show an older result. The live
 response from `/check` and scheduled event logs provide direct execution proof.
 
-Email alerts are implemented but NOT configured: the user's destination is
-unconfirmed. To enable later, configure confirmed `ALERT_TO`, verified
-`ALERT_FROM`, and a machine-local `RESEND_API_KEY` as a Worker secret. Then
-verify alert and recovery delivery. Do not copy credentials into this repo.
-Until enabled, incidents appear in Worker logs and protected status only.
+Email alerts are configured for the app admin at connorgray@jeffbrownyachts.com.
+The provider accepted a setup test; inbox delivery has not been independently
+confirmed. Credentials remain Worker secrets and machine-local configuration.
+Backup failures and missing heartbeats older than 36 hours share these alerts.
+Offsite backup enforcement is disabled until R2 is activated and verified.
 
 Capacity checks warn at 400 MiB database size, ahead of the Free database quota.
 WAL warnings adapt to the instance's configured minimum: the larger of 256 MiB
@@ -50,7 +50,7 @@ Use the existing repo Wrangler executable or a pinned installed Wrangler.
 4. Verify all probes and an automatic cron invocation.
 5. Apply `057_parts_scheduler_to_cloudflare.sql` to deactivate the old parts cron.
 
-Tests: `node --test *.test.mjs` (eleven tests).
+Tests: `node --test *.test.mjs` (thirteen tests).
 
 ## Rollback
 

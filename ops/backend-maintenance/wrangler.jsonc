@@ -14,7 +14,9 @@
   },
   "vars": {
     "SUPABASE_URL": "https://ikfcnqdrlvhvlyhiuphs.supabase.co",
-    "SUPABASE_PUBLIC_KEY": "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ"
+    "SUPABASE_PUBLIC_KEY": "sb_publishable_y0xjXPDDXb6v-ZObTlmLWg_s93OPBcZ",
+    "BACKUP_MONITORING_ENABLED": "true",
+    "REQUIRE_OFFSITE_BACKUP": "false"
   },
   "kv_namespaces": [
     {

@@ -1,4 +1,4 @@
-import { assess, nextState } from './checks.mjs';
+import { assess, nextState, backupIssues } from './checks.mjs';
 import { diskRates } from '../../supabase/functions/backend-health-probe/disk-metrics.mjs';
 
 async function probe(url, headers = {}, json = false, method = 'GET') {
@@ -23,8 +23,11 @@ async function check(env) {
   const issues = assess({ auth, rest, database, dashboard }, previous?.metrics);
   if (!parts.ok || parts.data?.ok !== true) issues.push('Parts notification worker failed');
   const now = Date.now();
+  const backup = await env.STATE.get('backup', 'json');
+  if (env.BACKUP_MONITORING_ENABLED === 'true') issues.push(...backupIssues(backup, now, env.REQUIRE_OFFSITE_BACKUP === 'true'));
   const { state, kind } = nextState(previous, issues, now);
   state.checkedAt = new Date(now).toISOString();
+  state.backup = backup;
   state.emailConfigured = Boolean(env.ALERT_TO && env.RESEND_API_KEY);
   state.parts = { ok: parts.ok && parts.data?.ok === true, sent: parts.data?.sent ?? null };
   state.metrics = database.data?.ok ? database.data : null;
@@ -49,6 +52,14 @@ export default {
   async fetch(request, env) {
     if (!env.MONITOR_ADMIN_TOKEN || request.headers.get('authorization') !== `Bearer ${env.MONITOR_ADMIN_TOKEN}`) return new Response('Unauthorized', { status: 401 });
     const path = new URL(request.url).pathname;
+    if (request.method === 'POST' && path === '/backup-status') {
+      let body;
+      try { body = await request.json(); } catch { return new Response('Invalid JSON', { status: 400 }); }
+      const checkedAt = Date.parse(body?.checkedAt);
+      if (typeof body?.ok !== 'boolean' || !Number.isFinite(checkedAt) || checkedAt > Date.now() + 300000) return new Response('Invalid backup status', { status: 400 });
+      await env.STATE.put('backup', JSON.stringify({ checkedAt: new Date(checkedAt).toISOString(), ok: body.ok, offsiteUploaded: body.offsiteUploaded === true }));
+      return Response.json({ ok: true });
+    }
     if (request.method === 'POST' && path === '/check') return Response.json(await check(env));
     if (request.method === 'GET' && path === '/status') return Response.json(await env.STATE.get('health', 'json'));
     return new Response('Not found', { status: 404 });

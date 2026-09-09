@@ -48,3 +48,16 @@ test('detects a parts-handler error even when its HTTP status is 200', async (t)
   const state = await (await worker.fetch(request(), environment())).json();
   assert.ok(state.issues.includes('Parts notification worker failed'));
 });
+
+test('accepts a protected backup heartbeat and rejects future or malformed status', async () => {
+  const values = new Map();
+  const env = { ...environment(), STATE: {get:async key=>values.get(key),put:async(key,value)=>values.set(key,JSON.parse(value))} };
+  const send = body => worker.fetch(new Request('https://worker.example/backup-status', {
+    method:'POST', headers:{authorization:'Bearer admin-token','content-type':'application/json'},body:JSON.stringify(body),
+  }),env);
+  assert.equal((await send({ok:true,checkedAt:new Date().toISOString(),offsiteUploaded:false,private:'discard'})).status,200);
+  assert.equal(values.get('backup').ok,true);
+  assert.equal(values.get('backup').private,undefined);
+  assert.equal((await send({ok:true,checkedAt:'bad'})).status,400);
+  assert.equal((await send({ok:true,checkedAt:new Date(Date.now()+3600000).toISOString()})).status,400);
+});

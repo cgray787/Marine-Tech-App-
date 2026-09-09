@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assess, nextState } from "./checks.mjs";
+import { assess, nextState, backupIssues } from "./checks.mjs";
 
 const healthy = () => ({
   auth: { ok: true }, rest: { ok: true }, dashboard: { ok: true },
@@ -51,4 +51,15 @@ test("adapts WAL warnings to a smaller Free instance and warns before its databa
   probes.database.data.wal_bytes = 80 * 1024 ** 2;
   probes.database.data.database_bytes = 450 * 1024 ** 2;
   assert.match(assess(probes).join("\n"), /Free plan/);
+});
+
+
+test("reports failed, stale and missing offsite backups", () => {
+  const now = Date.parse("2026-09-09T22:00:00Z");
+  const fresh = { checkedAt: "2026-09-09T21:00:00Z", ok: true, offsiteUploaded: false };
+  assert.deepEqual(backupIssues(fresh, now), []);
+  assert.match(backupIssues(fresh, now, true).join(), /offsite/);
+  assert.match(backupIssues({ ...fresh, ok: false }, now).join(), /failed/);
+  assert.match(backupIssues({ ...fresh, checkedAt: "2026-09-07T21:00:00Z" }, now).join(), /36 hours/);
+  assert.match(backupIssues(null, now).join(), /heartbeat/);
 });

@@ -57,3 +57,12 @@ export function nextState(previous, issues, now) {
     kind,
   };
 }
+
+export function backupIssues(backup, now, requireOffsite = false) {
+  const checkedAt = Date.parse(backup?.checkedAt);
+  if (!Number.isFinite(checkedAt)) return ["No completed backup heartbeat has been received"];
+  if (!backup.ok) return ["The latest nightly backup failed"];
+  if (now - checkedAt > 36 * 60 * 60 * 1000) return ["Nightly backup is more than 36 hours old; check the Mac is awake and online"];
+  if (requireOffsite && !backup.offsiteUploaded) return ["The latest backup has not been verified offsite"];
+  return [];
+}
