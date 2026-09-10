@@ -66,3 +66,23 @@ Final maintenance Worker version: `6d7c17c4-d912-455c-93e9-7d7bf02664cd`.
 At 22:38:36 UTC, automatic status showed zero issues, email configured, and the
 verified 22:25:24 backup heartbeat with `offsiteUploaded: false`. Thirteen
 maintenance tests passed, including heartbeat validation and stale-backup checks.
+
+## Continuation — 9 September, 17:38 Pacific
+
+Rechecked billing and R2: billing still returns 401 JWT could not be decoded;
+R2 still returns 10042 requesting dashboard activation. Disk remains provisioned
+at 16 GB. A guessed /config/compute route returned 404 and provides no compute
+plan evidence. No downgrade or offsite upload occurred.
+
+Found and reproduced an unhandled email network timeout that aborted saving the
+current health check. The worker now persists that health result and records a
+sanitized delivery error; a subsequent accepted retry clears the delivery error.
+Regression failed with the original code and passes with the fix. All 14 tests in
+ops/backend-maintenance pass; its suite already includes disk-metric coverage.
+An additional attempted test path did not exist and was not counted as a pass.
+
+Deployed Worker version 81cfb9e3-a121-45ac-b20d-47f8914493c5. No production outage
+or email failure was deliberately triggered. LaunchAgent remains loaded for
+04:15 local, last exit code 0. At 00:36:22 UTC the live monitor had zero issues,
+16.71 sampled IOPS, 351178 bytes/s, and the verified local-only backup heartbeat.
+These sampled rates do not measure the Supabase daily I/O credit balance.

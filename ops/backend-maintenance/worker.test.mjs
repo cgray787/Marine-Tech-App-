@@ -12,6 +12,31 @@ function environment() {
 }
 const request = () => new Request('https://worker.example/check', { method: 'POST', headers: { authorization: 'Bearer admin-token' } });
 
+test('persists health after email timeout and clears the error after a successful retry', async (t) => {
+  let rejectEmail = true;
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url === 'https://api.resend.com/emails') {
+      if (rejectEmail) throw new Error('network timeout');
+      return Response.json({ id: 'accepted' });
+    }
+    if (url.endsWith('/backend-health-probe')) return new Response('Unavailable', { status: 503 });
+    if (url.endsWith('/parts-order-email')) return Response.json({ ok: true, sent: 0 });
+    return Response.json({});
+  });
+  const env = { ...environment(), ALERT_TO: 'admin@example.com', RESEND_API_KEY: 'test', ALERT_FROM: 'test@example.com' };
+  await worker.fetch(request(), env);
+  const failed = await (await worker.fetch(request(), env)).json();
+  assert.equal(failed.consecutiveFailures, 2);
+  assert.equal(failed.emailError, 'Delivery request failed or timed out');
+  assert.equal(failed.alerted, undefined);
+  assert.deepEqual(await env.STATE.get(), failed);
+  rejectEmail = false;
+  const retried = await (await worker.fetch(request(), env)).json();
+  assert.equal(retried.consecutiveFailures, 3);
+  assert.equal(retried.alerted, true);
+  assert.equal(retried.emailError, undefined);
+});
+
 test('rejects unauthorized maintenance requests without calling backend', async () => {
   const result = await worker.fetch(new Request('https://worker.example/check', { method: 'POST' }), environment());
   assert.equal(result.status, 401);

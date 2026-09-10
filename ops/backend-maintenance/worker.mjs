@@ -34,13 +34,20 @@ async function check(env) {
   state.diskRates = diskRates(state.metrics?.resources, previous?.metrics?.resources);
   if (kind && state.emailConfigured) {
     const body = kind === 'outage' ? `Marine Tech backend needs attention.\n\n${issues.join('\n')}\n\n${state.checkedAt}` : `Marine Tech backend has recovered.\n\n${state.checkedAt}`;
-    const result = await fetch('https://api.resend.com/emails', {
-      method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: env.ALERT_FROM, to: env.ALERT_TO, subject: kind === 'outage' ? 'Marine Tech: backend alert' : 'Marine Tech: recovered', text: body }),
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (result.ok) { state.alerted = kind === 'outage'; state.lastEmailAt = now; }
-    else state.emailError = `Delivery rejected: ${result.status}`;
+    try {
+      const result = await fetch('https://api.resend.com/emails', {
+        method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ from: env.ALERT_FROM, to: env.ALERT_TO, subject: kind === 'outage' ? 'Marine Tech: backend alert' : 'Marine Tech: recovered', text: body }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (result.ok) {
+        state.alerted = kind === 'outage'; state.lastEmailAt = now;
+        delete state.emailError;
+      } else state.emailError = `Delivery rejected: ${result.status}`;
+    } catch {
+      // Keep the health result and retry delivery on the next scheduled check.
+      state.emailError = 'Delivery request failed or timed out';
+    }
   }
   await env.STATE.put('health', JSON.stringify(state));
   console.log(JSON.stringify({ ok: issues.length === 0, issues, parts: state.parts, emailConfigured: state.emailConfigured }));
