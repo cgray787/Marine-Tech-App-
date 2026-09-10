@@ -87,13 +87,13 @@ export function CalendarAgenda({
                   </Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.title}>
-                      {job.boat?.name ||
-                        job.customer?.name ||
+                      {job.customer?.name ||
+                        job.boat?.name ||
                         (job.kind === "paperwork" ? "Paperwork" : "Service")}
                     </Text>
                     <Text numberOfLines={1} style={styles.detail}>
                       {[
-                        job.boat?.name ? job.customer?.name : null,
+                        job.customer?.name ? job.boat?.name : null,
                         placeForDay(job, day),
                       ]
                         .filter(Boolean)
