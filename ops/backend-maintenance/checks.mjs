@@ -27,7 +27,14 @@ export function assess(probes, previousMetrics = null) {
       }
       if (metrics.read_only) issues.push("Database is in read-only mode");
       const minimumWal = Number(metrics.min_wal_bytes);
-      const walWarning = Math.max(256 * 1024 ** 2, 2 * (Number.isFinite(minimumWal) && minimumWal > 0 ? minimumWal : GiB));
+      const maximumWal = Number(metrics.max_wal_bytes);
+      // min_wal_size is a recycling floor, not a healthy-usage ceiling.
+      // Allow the configured soft maximum plus checkpoint/recovery headroom.
+      const walAllowance = Math.max(
+        Number.isFinite(minimumWal) && minimumWal > 0 ? minimumWal : 0,
+        Number.isFinite(maximumWal) && maximumWal > 0 ? maximumWal : GiB,
+      );
+      const walWarning = Math.max(256 * 1024 ** 2, 2 * walAllowance);
       if (Number(metrics.wal_bytes) >= walWarning) {
         issues.push(`Transaction logs have grown to ${(Number(metrics.wal_bytes) / GiB).toFixed(1)} GiB`);
       }

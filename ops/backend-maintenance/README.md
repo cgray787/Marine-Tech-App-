@@ -24,11 +24,13 @@ Email alerts are configured for the app admin at connorgray@jeffbrownyachts.com.
 The provider accepted a setup test; inbox delivery has not been independently
 confirmed. Credentials remain Worker secrets and machine-local configuration.
 Backup failures and missing heartbeats older than 36 hours share these alerts.
-Offsite backup enforcement is disabled until R2 is activated and verified.
+Offsite backup enforcement is enabled after verified private R2 upload and
+download checksum comparison. Nightly snapshots expire after 30 days in R2.
 
 Capacity checks warn at 400 MiB database size, ahead of the Free database quota.
-WAL warnings adapt to the instance's configured minimum: the larger of 256 MiB
-or twice `min_wal_size`. Missing baseline metrics conservatively assume 1 GiB.
+WAL warnings use the larger of 256 MiB or twice the configured WAL allowance
+(the larger of `min_wal_size` and `max_wal_size`). The minimum is a recycling
+floor, not a ceiling. Missing maximum metrics conservatively assume 1 GiB.
 Read-only mode and the most-recent archival failure are also checked. The protected probe also reads compressed aggregate OS metrics. It warns at
 80% filesystem use, 200 disk operations/second, or 4 MB/second across physical
 disks (80% of the documented Nano baseline). Rates compare consecutive samples;
@@ -43,14 +45,14 @@ Run Wrangler from THIS directory: the root is a Next/OpenNext application and
 Wrangler's framework detection will otherwise try to deploy the dashboard.
 Use the existing repo Wrangler executable or a pinned installed Wrangler.
 
-1. Apply `055_backend_health_snapshot.sql` and `056_backend_cron_retention.sql`.
+1. Apply migrations 055–059, including the aggregate maximum WAL allowance.
 2. Deploy `backend-health-probe` with JWT verification disabled; its dedicated
    token validation remains mandatory. Configure its monitor secret first.
 3. Configure the Worker KV namespace and secrets, deploy, then call `/check`.
 4. Verify all probes and an automatic cron invocation.
 5. Apply `057_parts_scheduler_to_cloudflare.sql` to deactivate the old parts cron.
 
-Tests: `node --test *.test.mjs` (thirteen tests).
+Tests: `node --test *.test.mjs` (fifteen tests).
 
 ## Rollback
 

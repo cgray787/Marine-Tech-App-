@@ -46,11 +46,22 @@ test("retries notification when delivery was not accepted", () => {
 test("adapts WAL warnings to a smaller Free instance and warns before its database quota", () => {
   const probes = healthy();
   probes.database.data.min_wal_bytes = 80 * 1024 ** 2;
+  probes.database.data.max_wal_bytes = 128 * 1024 ** 2;
   probes.database.data.wal_bytes = 300 * 1024 ** 2;
   assert.match(assess(probes).join("\n"), /Transaction logs/);
   probes.database.data.wal_bytes = 80 * 1024 ** 2;
   probes.database.data.database_bytes = 450 * 1024 ** 2;
   assert.match(assess(probes).join("\n"), /Free plan/);
+});
+
+test("does not flag normal WAL retained across a Free-plan downgrade", () => {
+  const probes = healthy();
+  probes.database.data.min_wal_bytes = 128 * 1024 ** 2;
+  probes.database.data.max_wal_bytes = 1024 ** 3;
+  probes.database.data.wal_bytes = 1_056_965_012;
+  assert.deepEqual(assess(probes), []);
+  probes.database.data.wal_bytes = 2 * 1024 ** 3;
+  assert.match(assess(probes).join("\n"), /Transaction logs/);
 });
 
 

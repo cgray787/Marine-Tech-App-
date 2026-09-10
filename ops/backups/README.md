@@ -45,3 +45,8 @@ The external maintenance worker receives protected backup heartbeats and warns
 if a run fails or no successful run arrives for 36 hours. Set `monitor_url` and
 `monitor_secrets` (path to the local maintenance-secret JSON) in backup.json.
 After verifying offsite upload, also set REQUIRE_OFFSITE_BACKUP=true on the worker.
+
+Production R2 destination: `marine-tech-private-backups`, prefix `marine-tech/`.
+Public r2.dev access is disabled; no custom domains are attached. A complete
+LaunchAgent run uploaded and downloaded its archive with matching SHA-256 on
+2026-09-10. Nightly config includes the bucket; external offsite enforcement is on.
