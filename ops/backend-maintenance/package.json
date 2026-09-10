@@ -1,0 +1,6 @@
+{
+  "name": "marine-tech-backend-maintenance",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test *.test.mjs" }
+}
