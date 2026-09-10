@@ -1,78 +1,53 @@
 import { View, Pressable, Text, StyleSheet } from "react-native";
-
-export type CalendarPanelMode = "week" | "day";
-
-type Props = {
-  value: CalendarPanelMode;
-  onChange: (mode: CalendarPanelMode) => void;
-};
-
-export function ViewToggle({ value, onChange }: Props) {
+import { colors } from "@/constants/Colors";
+import type { CalendarMode } from "@/lib/calendar/navigation";
+export type CalendarPanelMode = CalendarMode;
+export function ViewToggle({
+  value,
+  onChange,
+}: {
+  value: CalendarMode;
+  onChange: (mode: CalendarMode) => void;
+}) {
   return (
-    <View style={styles.container}>
-      <ToggleButton
-        label="Week"
-        active={value === "week"}
-        onPress={() => onChange("week")}
-        testID="view-toggle-week"
-      />
-      <ToggleButton
-        label="Day"
-        active={value === "day"}
-        onPress={() => onChange("day")}
-        testID="view-toggle-day"
-      />
+    <View style={styles.bar}>
+      {(["month", "week", "day"] as const).map((mode) => (
+        <Pressable
+          key={mode}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: mode === value }}
+          testID={`view-toggle-${mode}`}
+          onPress={() => onChange(mode)}
+          style={[styles.button, value === mode && styles.active]}
+        >
+          <Text
+            style={{
+              color: value === mode ? colors.gold : colors.textSecondary,
+              fontWeight: "600",
+              fontSize: 14,
+            }}
+          >
+            {mode[0].toUpperCase() + mode.slice(1)}
+          </Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
-
-function ToggleButton({
-  label,
-  active,
-  onPress,
-  testID,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  testID: string;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      testID={testID}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-    >
-      <Text style={[styles.label, active ? styles.active : styles.inactive]}>{label}</Text>
-      {active && <View style={styles.underline} />}
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
+  bar: {
     flexDirection: "row",
-    height: 36,
-    backgroundColor: "#0d1320",
-    borderBottomWidth: 1,
-    borderBottomColor: "#1a2236",
+    padding: 8,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    gap: 8,
   },
   button: {
     flex: 1,
-    justifyContent: "center",
+    minHeight: 44,
     alignItems: "center",
-    position: "relative",
+    justifyContent: "center",
+    borderRadius: 12,
   },
-  pressed: { backgroundColor: "rgba(201,169,110,0.08)" },
-  label: { fontSize: 13, fontWeight: "600" },
-  active: { color: "#C9A96E" },
-  inactive: { color: "#8892A5" },
-  underline: {
-    position: "absolute",
-    bottom: 0,
-    left: "20%",
-    right: "20%",
-    height: 2,
-    backgroundColor: "#C9A96E",
-  },
+  active: { backgroundColor: colors.goldMuted },
 });

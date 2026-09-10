@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import type { CalendarJob } from "@/lib/calendar/types";
-import { clientColor, jobStripeColor } from "@/lib/calendar/colors";
+import { colors } from "@/constants/Colors";
 import {
   isMultiDay,
   bucketJobsByHour,
@@ -14,7 +14,7 @@ import { AllDayStrip } from "./AllDayStrip";
 const HOUR_START = 5;       // 5 AM
 const HOUR_END   = 20;      // 8 PM (16 rows: 5..20)
 const HOUR_HEIGHT = 60;
-const LANE_HEIGHT = 28;
+const LANE_HEIGHT = 48;
 
 type Props = {
   jobs: CalendarJob[];
@@ -40,18 +40,23 @@ export function HourGrid({
       if (!j.scheduledStart) continue;
       if (isMultiDay(j)) {
         // include only if selectedDate is within the span
-        const startDate = j.scheduledStart.slice(0, 10);
+        const startDate = format(parseISO(j.scheduledStart), "yyyy-MM-dd");
         if (selectedDate >= startDate && selectedDate <= j.scheduledEndDate!) {
           multi.push(j);
         }
         continue;
       }
-      if (j.scheduledStart.slice(0, 10) === selectedDate) single.push(j);
+      if (format(parseISO(j.scheduledStart), "yyyy-MM-dd") === selectedDate) single.push(j);
     }
     return { singleDayJobs: single, multiDayJobs: multi };
   }, [jobs, selectedDate]);
 
   const buckets = useMemo(() => bucketJobsByHour(singleDayJobs), [singleDayJobs]);
+  const rowHeights = buckets.map(row => Math.max(HOUR_HEIGHT, row.length * LANE_HEIGHT + 8));
+  function timeOffset(minutes: number) {
+    const hour = Math.max(0, Math.min(rowHeights.length - 1, Math.floor(minutes / 60)));
+    return rowHeights.slice(0, hour).reduce((sum, height) => sum + height, 0) + (minutes / 60 - hour) * rowHeights[hour];
+  }
   const hasAnyJobs = singleDayJobs.length > 0 || multiDayJobs.length > 0;
 
   const scrollRef = useRef<ScrollView>(null);
@@ -69,8 +74,8 @@ export function HourGrid({
   // Auto-scroll on first mount + on selectedDate change
   useEffect(() => {
     const targetY = isToday
-      ? Math.max(0, (nowMinutes / 60) * HOUR_HEIGHT - 100)
-      : (8 - HOUR_START) * HOUR_HEIGHT;      // 8 AM near top on other days
+      ? Math.max(0, timeOffset(nowMinutes) - 100)
+      : timeOffset((8 - HOUR_START) * 60);      // 8 AM near top on other days
     // RN ScrollView measures after layout; defer to next tick
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: targetY, animated: false }));
     // Intentionally NOT depending on nowMinutes — auto-scroll only on date change.
@@ -123,7 +128,7 @@ export function HourGrid({
           <View
             style={[
               styles.nowLine,
-              { top: (nowMinutes / 60) * HOUR_HEIGHT, pointerEvents: "none" },
+              { top: timeOffset(nowMinutes), pointerEvents: "none" },
             ]}
           >
             <View style={styles.nowDot} />
@@ -152,21 +157,22 @@ function JobLane({
   onLongPress?: () => void;
 }) {
   const isPaperwork = job.kind === "paperwork";
-  const bg     = isPaperwork ? "#334155" : clientColor(job.customer?.id);
-  const stripe = isPaperwork ? "#C9A96E" : jobStripeColor(job.id);
+  const bg = colors.bgCard;
+  const stripe = colors.gold;
   const range  = formatTimeRange(job.scheduledStart, job.scheduledEnd);
   const label  = isPaperwork
-    ? `📋 Paperwork${job.notes?.trim() ? ` — ${job.notes.trim()}` : ""}`
+    ? `Paperwork${job.notes?.trim() ? ` — ${job.notes.trim()}` : ""}`
     : `${job.customer?.name ?? "Customer"} · ${job.boat?.name ?? "Boat"}`;
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={500}
       style={[styles.lane, { backgroundColor: bg, borderLeftColor: stripe }]}
       testID={`hour-grid-chip-${job.id}`}
     >
-      <Text style={styles.laneText} numberOfLines={1}>
+      <Text style={styles.laneText} numberOfLines={2}>
         {range} · {label}
       </Text>
     </Pressable>
@@ -209,14 +215,14 @@ const styles = StyleSheet.create({
   slot: { flex: 1, padding: 4, gap: 4 },
   emptySlot: { flex: 1, minHeight: 50 },
   lane: {
-    height: 24,
+    minHeight: 44,
     borderRadius: 4,
     borderLeftWidth: 3,
     paddingHorizontal: 6,
     paddingVertical: 4,
     justifyContent: "center",
   },
-  laneText: { color: "#fff", fontSize: 11, fontWeight: "500" },
+  laneText: { color: "#fff", fontSize: 12, fontWeight: "500" },
   emptyOverlay: {
     position: "absolute",
     top: 0, left: 0, right: 0, bottom: 0,

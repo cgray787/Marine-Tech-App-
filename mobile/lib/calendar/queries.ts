@@ -1,3 +1,4 @@
+import { format, parseISO } from "date-fns";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CalendarJob, JobKind, JobStatus } from './types';
 
@@ -51,7 +52,7 @@ export async function getJobsInRange(
   let q = supabase
     .from('jobs')
     .select(SELECT)
-    .gte('scheduled_start', startUtc)
+    .or(`scheduled_start.gte.${startUtc},scheduled_end_date.gte.${format(parseISO(startUtc), "yyyy-MM-dd")}`)
     .lte('scheduled_start', endUtc)
     .order('scheduled_start');
   if (techId) q = q.eq('assigned_to', techId);

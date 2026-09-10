@@ -22,7 +22,7 @@ import { addHours, parseISO, format as fmtDate } from "date-fns";
 import { formatTime } from "@/lib/calendar/format";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import type { JobKind } from "@/lib/calendar/types";
+import type { JobKind, CalendarJob } from "@/lib/calendar/types";
 import {
   getCustomersForLocation,
   getBoatsForCustomer,
@@ -49,7 +49,7 @@ export type NewJobSheetHandle = {
 };
 
 type Props = {
-  onCreated?: () => void;
+  onCreated?: (job: CalendarJob) => void;
 };
 
 export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
@@ -74,17 +74,19 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
     const [showBoatPicker, setShowBoatPicker] = useState(false);
 
     const isPaperwork = kind === "paperwork";
+    const [isOpen, setIsOpen] = useState(false);
 
     const customersQuery = useQuery({
       queryKey: ["picker-customers"],
       queryFn: () => getCustomersForLocation(supabase),
+      enabled: isOpen,
       staleTime: 60_000,
     });
 
     const boatsQuery = useQuery({
       queryKey: ["picker-boats", customerId],
       queryFn: () => getBoatsForCustomer(supabase, customerId!),
-      enabled: customerId != null,
+      enabled: isOpen && customerId != null,
       staleTime: 60_000,
     });
 
@@ -117,11 +119,11 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
           notes: isPaperwork ? paperworkNote.trim() : null,
         });
       },
-      onSuccess: () => {
+      onSuccess: (job) => {
         // Parent is responsible for cache invalidation (matches ScheduleSheet's
         // pattern: see calendar.tsx's onCreated handler).
         sheetRef.current?.close();
-        onCreated?.();
+        onCreated?.(job);
       },
       onError: (err: Error) => {
         Alert.alert("Couldn't schedule", err.message);
@@ -143,6 +145,7 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
 
     useImperativeHandle(ref, () => ({
       present: (initial) => {
+        setIsOpen(true);
         setKind("service");
         setStartIso(initial);
         setDurationHours(1);
@@ -174,6 +177,7 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
         ref={sheetRef}
         snapPoints={snapPoints}
         index={-1}
+        onChange={index => setIsOpen(index >= 0)}
         enablePanDownToClose
         backgroundStyle={{ backgroundColor: "#0d1320" }}
         handleIndicatorStyle={{ backgroundColor: "#8892A5" }}

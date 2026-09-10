@@ -1,0 +1,446 @@
+import { useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  TextInput,
+} from "react-native";
+import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
+import { colors } from "@/constants/Colors";
+
+type Boat = {
+  id: string;
+  name: string;
+  make_model: string | null;
+  year: number | null;
+};
+
+type Job = {
+  id: string;
+  status: string;
+  service_types: string[] | null;
+  scheduled_date: string | null;
+  created_at: string | null;
+  boats: { name: string } | null;
+  marinas: { name: string } | null;
+};
+
+type Client = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  boats: Boat[];
+  jobs: Job[];
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  new: colors.statusNew,
+  in_progress: colors.statusInProgress,
+  completed: colors.statusComplete,
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  new: "New",
+  in_progress: "In Progress",
+  completed: "Complete",
+};
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr.includes("T") ? dateStr : dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Matches migration 027 role hierarchy: admin, manager, tech can write; viewer cannot. */
+function canWriteRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "manager" || role === "tech";
+}
+
+export default function ClientsScreen() {
+  const { profile } = useAuth();
+  const canWrite = canWriteRole(profile?.role);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const fetchClients = useCallback(async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from("customers")
+      .select(
+        "id, name, email, phone, boats(id, name, make_model, year), jobs(id, status, service_types, scheduled_date, created_at, boats(name), marinas(name))"
+      )
+      .order("name");
+    if (data) setClients(data as unknown as Client[]);
+  }, [profile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchClients();
+    }, [fetchClients])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchClients();
+    setRefreshing(false);
+  }, [fetchClients]);
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Clients</Text>
+          <Text style={styles.subtitle}>
+            {clients.length} client{clients.length !== 1 ? "s" : ""}
+          </Text>
+        </View>
+        {canWrite && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => router.push("/client/new")}
+          >
+            <Text style={styles.addButtonText}>+ Add Client</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Search bar */}
+      <View style={styles.searchWrapper}>
+        <Text style={styles.searchIcon}>{"\uD83D\uDD0D"}</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search clients..."
+          placeholderTextColor={colors.textSecondary}
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch("")} style={styles.searchClear}>
+            <Text style={styles.searchClearText}>×</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Client List */}
+      <FlatList
+        data={clients.filter((c) => {
+          if (!search.trim()) return true;
+          const q = search.toLowerCase().trim();
+          const boatNames = (c.boats || []).map((b) => b.name?.toLowerCase() || "").join(" ");
+          return (
+            c.name.toLowerCase().includes(q) ||
+            (c.email || "").toLowerCase().includes(q) ||
+            (c.phone || "").toLowerCase().includes(q) ||
+            boatNames.includes(q)
+          );
+        })}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.gold}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>{"\uD83D\uDC64"}</Text>
+            <Text style={styles.emptyTitle}>No Clients Yet</Text>
+            <Text style={styles.emptyText}>
+              Tap &quot;+ Add Client&quot; to add your first customer.
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => {
+          const latestJob = item.jobs && item.jobs.length > 0 ? item.jobs[0] : null;
+          const primaryBoat = item.boats && item.boats.length > 0 ? item.boats[0] : null;
+          const jobStatus = latestJob?.status || null;
+
+          return (
+            <TouchableOpacity
+              style={styles.clientCard}
+              onPress={() => router.push(`/client/${item.id}`)}
+              activeOpacity={0.7}
+            >
+              {/* Gold accent bar */}
+              <View style={styles.cardAccent} />
+
+              <View style={styles.cardContent}>
+                {/* Row 1: Client name + status badge */}
+                <View style={styles.row1}>
+                  <Text style={styles.clientName}>{item.name}</Text>
+                  {jobStatus && (
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor:
+                            (STATUS_COLORS[jobStatus] || colors.statusNew) + "20",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusText,
+                          {
+                            color:
+                              STATUS_COLORS[jobStatus] || colors.statusNew,
+                          },
+                        ]}
+                      >
+                        {STATUS_LABELS[jobStatus] || jobStatus}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Row 2: Boat (smaller, under the name) */}
+                {primaryBoat && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoIcon}>{"\u2693"}</Text>
+                    <Text style={styles.boatSubText}>
+                      {primaryBoat.name}
+                      {primaryBoat.make_model &&
+                      primaryBoat.make_model !== primaryBoat.name
+                        ? `  \u2022  ${primaryBoat.make_model}`
+                        : ""}
+                      {primaryBoat.year ? `  \u2022  ${primaryBoat.year}` : ""}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Row 4: Service types from latest job */}
+                {latestJob?.service_types && latestJob.service_types.length > 0 && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoIcon}>{"\uD83D\uDD27"}</Text>
+                    <Text style={styles.serviceText}>
+                      {latestJob.service_types.join(", ")}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Row 5: Marina + date */}
+                {latestJob && (
+                  <View style={styles.bottomRow}>
+                    {latestJob.marinas?.name ? (
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoIcon}>{"\uD83D\uDCCD"}</Text>
+                        <Text style={styles.infoText}>
+                          {latestJob.marinas.name}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View />
+                    )}
+                    <Text style={styles.dateText}>
+                      {formatDate(
+                        latestJob.scheduled_date || latestJob.created_at
+                      )}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Additional boats */}
+                {item.boats && item.boats.length > 1 && (
+                  <Text style={styles.moreBoats}>
+                    +{item.boats.length - 1} more boat
+                    {item.boats.length - 1 > 1 ? "s" : ""}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.bgPrimary,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  addButton: {
+    backgroundColor: colors.gold,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  addButtonText: {
+    color: colors.bgPrimary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  clientCard: {
+    flexDirection: "row",
+    backgroundColor: colors.bgSecondary,
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cardAccent: {
+    width: 4,
+    backgroundColor: colors.gold,
+  },
+  cardContent: {
+    flex: 1,
+    padding: 14,
+    gap: 6,
+  },
+  row1: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  boatName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  clientName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  boatSubText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  statusBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginLeft: 8,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  infoIcon: {
+    fontSize: 13,
+    width: 18,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  serviceText: {
+    fontSize: 14,
+    color: colors.gold,
+    flex: 1,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  dateText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  moreBoats: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: "italic",
+    marginTop: 2,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    paddingTop: 80,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  searchWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    backgroundColor: colors.bgCard,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchIcon: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    color: colors.textPrimary,
+    fontSize: 14,
+  },
+  searchClear: {
+    paddingHorizontal: 8,
+  },
+  searchClearText: {
+    color: colors.textSecondary,
+    fontSize: 22,
+    lineHeight: 22,
+  },
+});
