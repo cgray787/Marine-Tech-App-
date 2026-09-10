@@ -13,7 +13,7 @@
     "deploy": "set -a && . ./.env.local && set +a && rm -rf .next .open-next && opennextjs-cloudflare build && wrangler deploy"
   },
   "dependencies": {
-    "@opennextjs/cloudflare": "^1.17.1",
+    "@opennextjs/cloudflare": "1.20.6",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-popover": "^1.1.15",
     "@react-pdf/renderer": "^4.5.1",
