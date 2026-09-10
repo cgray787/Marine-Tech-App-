@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run",
+    "test": "vitest run && node --test ops/backend-maintenance/*.test.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "deploy": "set -a && . ./.env.local && set +a && rm -rf .next .open-next && opennextjs-cloudflare build && wrangler deploy"
