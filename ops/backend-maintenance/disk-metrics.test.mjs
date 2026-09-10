@@ -41,3 +41,18 @@ test('warns on low filesystem space and I/O near Free baselines', () => {
   assert.ok(issues.some(i => i.includes('operations')));
   assert.ok(issues.some(i => i.includes('throughput')));
 });
+
+test('measures the data volume and ignores a busy operating-system volume', () => {
+  const root = sample(900000).split('\n').filter(line => line.startsWith('node_disk_')).join('\n').replaceAll('nvme1n1', 'nvme0n1');
+  const data = parseDiskMetrics(sample(100) + root);
+  assert.deepEqual(data.disks.map(d => d.device), ['nvme1n1']);
+  assert.equal(data.disks[0].reads_completed_total, 100);
+});
+test('uses exporter time so a cached response cannot shorten the rate interval', () => {
+  const a = parseDiskMetrics(sample(100) + '\nnode_time_seconds{job="node"} 1788998400', '2026-09-10T00:01:00Z');
+  const cached = parseDiskMetrics(sample(100) + '\nnode_time_seconds{job="node"} 1788998400', '2026-09-10T00:02:00Z');
+  const b = parseDiskMetrics(sample(400) + '\nnode_time_seconds{job="node"} 1788998700', '2026-09-10T00:06:00Z');
+  assert.equal(diskRates(cached, a), null);
+  assert.equal(diskRates(b, cached).seconds, 300);
+  assert.equal(diskRates(b, cached).operationsPerSecond, 2);
+});
