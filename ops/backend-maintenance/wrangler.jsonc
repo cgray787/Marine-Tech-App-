@@ -27,5 +27,17 @@
       "binding": "STATE",
       "id": "0f482dcb56e04961af25afc9b6d9495e"
     }
+  ],
+  // Reach the dashboard Worker directly instead of fetching
+  // https://marinetech.grayyachts.com over the public internet. Both Workers
+  // live on this same account, so that fetch left the edge and came back in
+  // to reach a neighbour — the leading suspect for the 20s TimeoutErrors,
+  // since the page itself measures 0.16-1.45s from outside. A service binding
+  // is an in-process call: no DNS, no TLS, no edge round trip.
+  "services": [
+    {
+      "binding": "DASHBOARD",
+      "service": "marine-tech-dashboard"
+    }
   ]
 }

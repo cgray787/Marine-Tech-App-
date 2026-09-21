@@ -10,17 +10,46 @@ async function probe(url, headers = {}, json = false, method = 'GET') {
   } catch (error) { return { ok: false, error: String(error) }; }
 }
 
+// Dashboard liveness.
+//
+// Two things changed here after the alert storm of Sept 2026:
+//
+// 1. Target. This used to fetch /login — a full Next.js page render — so every
+//    health check depended on the framework's render path and cold start. A
+//    slow render tripped the 20s abort and emailed a backend outage.
+//    /api/health is static JSON: no auth, no DB, no Supabase client, no
+//    Turnstile.
+//
+// 2. Transport. It used to fetch https://marinetech.grayyachts.com over the
+//    public internet, but that Worker lives on this same Cloudflare account —
+//    so the request left the edge and came back in to reach a neighbour. The
+//    page measures 0.16-1.45s from outside, which makes that hop the leading
+//    suspect for the 20s TimeoutErrors. The DASHBOARD service binding is an
+//    in-process call: no DNS, no TLS, no round trip.
+//
+// Falls back to the public URL when the binding is absent, so unit tests and
+// any unbound deploy still perform a real check rather than silently passing.
+const DASHBOARD_HEALTH_URL = 'https://marinetech.grayyachts.com/api/health';
+
+async function probeDashboard(env) {
+  try {
+    const response = env.DASHBOARD
+      ? await env.DASHBOARD.fetch(DASHBOARD_HEALTH_URL, { signal: AbortSignal.timeout(20_000) })
+      : await fetch(DASHBOARD_HEALTH_URL, { signal: AbortSignal.timeout(20_000), redirect: 'manual' });
+    if (!response.ok) return { ok: false, status: response.status };
+    return { ok: true, status: response.status, data: await response.json() };
+  } catch (error) {
+    return { ok: false, error: String(error) };
+  }
+}
+
 async function check(env) {
   const base = env.SUPABASE_URL;
   const [auth, rest, database, dashboard, parts] = await Promise.all([
     probe(`${base}/auth/v1/health`, { apikey: env.SUPABASE_PUBLIC_KEY }, true),
     probe(`${base}/rest/v1/profiles?select=id&limit=1`, { apikey: env.SUPABASE_PUBLIC_KEY }, true),
     probe(`${base}/functions/v1/backend-health-probe`, { 'x-monitor-token': env.BACKEND_MONITOR_TOKEN }, true),
-    // Liveness only. This used to probe /login — a full Next.js page render —
-    // so every check depended on the framework's render path and cold start,
-    // and a slow render emailed a backend-outage alert. /api/health returns
-    // static JSON with no auth, no DB and no Turnstile.
-    probe('https://marinetech.grayyachts.com/api/health', {}, true),
+    probeDashboard(env),
     probe(`${base}/functions/v1/parts-order-email`, { 'x-cron-secret': env.PARTS_CRON_SECRET }, true, 'POST'),
   ]);
   const previous = await env.STATE.get('health', 'json');
