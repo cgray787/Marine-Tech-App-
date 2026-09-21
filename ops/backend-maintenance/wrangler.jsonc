@@ -7,9 +7,13 @@
   "observability": {
     "enabled": true
   },
+  // Every 5 minutes. Was */2 — 720 runs/day, each one rendering a full
+  // Next.js page on the production dashboard purely to check liveness. With
+  // the 2-consecutive-failure gate that still detects a real outage inside
+  // ~10 minutes, while cutting the self-inflicted load by 60%.
   "triggers": {
     "crons": [
-      "*/2 * * * *"
+      "*/5 * * * *"
     ]
   },
   "vars": {
@@ -22,6 +26,18 @@
     {
       "binding": "STATE",
       "id": "0f482dcb56e04961af25afc9b6d9495e"
+    }
+  ],
+  // Reach the dashboard Worker directly instead of fetching
+  // https://marinetech.grayyachts.com over the public internet. Both Workers
+  // live on this same account, so that fetch left the edge and came back in
+  // to reach a neighbour — the leading suspect for the 20s TimeoutErrors,
+  // since the page itself measures 0.16-1.45s from outside. A service binding
+  // is an in-process call: no DNS, no TLS, no edge round trip.
+  "services": [
+    {
+      "binding": "DASHBOARD",
+      "service": "marine-tech-dashboard"
     }
   ]
 }
