@@ -16,7 +16,11 @@ async function check(env) {
     probe(`${base}/auth/v1/health`, { apikey: env.SUPABASE_PUBLIC_KEY }, true),
     probe(`${base}/rest/v1/profiles?select=id&limit=1`, { apikey: env.SUPABASE_PUBLIC_KEY }, true),
     probe(`${base}/functions/v1/backend-health-probe`, { 'x-monitor-token': env.BACKEND_MONITOR_TOKEN }, true),
-    probe('https://marinetech.grayyachts.com/login'),
+    // Liveness only. This used to probe /login — a full Next.js page render —
+    // so every check depended on the framework's render path and cold start,
+    // and a slow render emailed a backend-outage alert. /api/health returns
+    // static JSON with no auth, no DB and no Turnstile.
+    probe('https://marinetech.grayyachts.com/api/health', {}, true),
     probe(`${base}/functions/v1/parts-order-email`, { 'x-cron-secret': env.PARTS_CRON_SECRET }, true, 'POST'),
   ]);
   const previous = await env.STATE.get('health', 'json');

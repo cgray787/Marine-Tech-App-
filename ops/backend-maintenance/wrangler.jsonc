@@ -7,9 +7,13 @@
   "observability": {
     "enabled": true
   },
+  // Every 5 minutes. Was */2 — 720 runs/day, each one rendering a full
+  // Next.js page on the production dashboard purely to check liveness. With
+  // the 2-consecutive-failure gate that still detects a real outage inside
+  // ~10 minutes, while cutting the self-inflicted load by 60%.
   "triggers": {
     "crons": [
-      "*/2 * * * *"
+      "*/5 * * * *"
     ]
   },
   "vars": {
