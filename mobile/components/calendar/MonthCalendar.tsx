@@ -53,8 +53,7 @@ export function MonthCalendar({
                 {items.slice(0, 2).map((job) => (
                   <Text key={job.id} numberOfLines={1} style={styles.job}>
                     {job.customer?.name ||
-                      job.boat?.name ||
-                      (job.kind === "paperwork" ? "Paperwork" : "Service")}
+                      (job.kind === "paperwork" ? "Paperwork" : "Unassigned")}
                   </Text>
                 ))}
                 {items.length > 2 && (
