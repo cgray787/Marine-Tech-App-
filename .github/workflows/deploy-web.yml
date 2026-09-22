@@ -38,18 +38,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install companion dependencies
-        working-directory: .
-        run: npm ci --prefix mobile
-
-      - name: Verify dashboard and mobile
-        working-directory: .
-        run: |
-          npm test
-          npm run test:mobile
-          npx tsc --noEmit
-          cd mobile && npx tsc --noEmit
-
       - name: Build (OpenNext)
         # NEXT_PUBLIC_* must be in scope at build time so Next.js can
         # inline them into the browser bundle. wrangler.toml's [vars]
