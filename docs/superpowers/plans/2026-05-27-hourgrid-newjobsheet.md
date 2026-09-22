@@ -42,7 +42,7 @@
 
 - [ ] **Step 1: Verify clean working tree**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && git status`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && git status`
 Expected: `nothing to commit, working tree clean` on `main`.
 
 - [ ] **Step 2: Pull latest main**

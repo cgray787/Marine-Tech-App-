@@ -184,9 +184,11 @@ async function resolveIncomeAccount(
 // ── Route handler ─────────────────────────────────────────────────────────
 
 export async function POST(request: Request): Promise<Response> {
+  let scopedDb: Awaited<ReturnType<typeof requireQbRole>>["supabase"];
   // Auth guard — admin | manager only
   try {
-    await requireQbRole();
+    const ctx = await requireQbRole();
+    scopedDb = ctx.supabase;
   } catch (authErr) {
     if (authErr instanceof Response) return authErr;
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -196,8 +198,8 @@ export async function POST(request: Request): Promise<Response> {
   let workOrderId: string;
   try {
     const body = (await request.json()) as { workOrderId?: string };
-    if (!body.workOrderId) {
-      return NextResponse.json({ error: "workOrderId is required" }, { status: 400 });
+    if (!body.workOrderId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.workOrderId)) {
+      return NextResponse.json({ error: "A valid workOrderId is required" }, { status: 400 });
     }
     workOrderId = body.workOrderId;
   } catch {
@@ -206,8 +208,8 @@ export async function POST(request: Request): Promise<Response> {
 
   const db = adminDb();
 
-  // Load WO with full tree (service-role bypasses RLS)
-  const { data: rawWo, error: woErr } = await db
+  // Respect the caller's office scope when reading business records.
+  const { data: rawWo, error: woErr } = await scopedDb
     .from("work_orders")
     .select(WO_FULL_SELECT)
     .eq("id", workOrderId)
@@ -221,6 +223,10 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const wo = rawWo as unknown as WorkOrderFull;
+
+  if (wo.quickbooks_invoice_id) {
+    return NextResponse.json({ invoiceId: wo.quickbooks_invoice_id, qboUrl: `${qboAppBase()}/app/invoice?txnId=${wo.quickbooks_invoice_id}` });
+  }
 
   // Compute totals
   const totals = computeTotals(toTotalsInput(wo));
@@ -259,7 +265,7 @@ export async function POST(request: Request): Promise<Response> {
     // ── 5. POST Invoice to QBO ──────────────────────────────────────────
     const invoiceRes = await qbFetch(
       db,
-      `/v3/company/${realmId}/invoice?minorversion=65`,
+      `/v3/company/${realmId}/invoice?minorversion=65&requestid=mt-invoice-${workOrderId}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -281,13 +287,15 @@ export async function POST(request: Request): Promise<Response> {
     const syncedAt = new Date().toISOString();
 
     // ── 6. Persist to work_orders ────────────────────────────────────
-    await db
+    const { error: saveError } = await scopedDb
       .from("work_orders")
       .update({
         quickbooks_invoice_id: invoiceId,
         quickbooks_synced_at: syncedAt,
       })
-      .eq("id", workOrderId);
+      .eq("id", workOrderId).select("id").single();
+
+    if (saveError) return NextResponse.json({ error: "Invoice created but its link could not be saved. Do not export again; contact the office.", invoiceId }, { status: 502 });
 
     // ── 7. Return result ─────────────────────────────────────────────
     const qboUrl = `${qboAppBase()}/app/invoice?txnId=${invoiceId}`;

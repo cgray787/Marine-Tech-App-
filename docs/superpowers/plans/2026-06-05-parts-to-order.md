@@ -215,7 +215,7 @@ In the expanded part editor (where `supplier`/`url` inputs render, inside the `p
 
 - [ ] **Step 4: Verify it compiles**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app/mobile" && npx tsc --noEmit`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app/mobile" && npx tsc --noEmit`
 Expected: `EXIT=0`.
 
 - [ ] **Step 5: Commit**
@@ -292,7 +292,7 @@ Then, just before the EDIT branch finishes inserting checklist/photos (after `re
 
 - [ ] **Step 4: Verify it compiles**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app/mobile" && npx tsc --noEmit`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app/mobile" && npx tsc --noEmit`
 Expected: `EXIT=0`.
 
 - [ ] **Step 5: Commit**
@@ -350,7 +350,7 @@ describe("groupPartsByCustomerBoat", () => {
 
 - [ ] **Step 2: Run it — expect failure**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && npx vitest run __tests__/dashboard/parts.test.ts`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && npx vitest run __tests__/dashboard/parts.test.ts`
 Expected: FAIL — cannot find `@/lib/dashboard/parts`.
 
 - [ ] **Step 3: Implement the helper**
@@ -404,7 +404,7 @@ export function groupPartsByCustomerBoat(parts: PartRow[]): CustomerGroup[] {
 
 - [ ] **Step 4: Run the test — expect pass**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && npx vitest run __tests__/dashboard/parts.test.ts`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && npx vitest run __tests__/dashboard/parts.test.ts`
 Expected: PASS (2 tests).
 
 - [ ] **Step 5: Write the client section component**
@@ -635,7 +635,7 @@ and change the stats grid to 5 columns: `lg:grid-cols-4` → `lg:grid-cols-5` on
 
 - [ ] **Step 7: Typecheck + run web tests**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && npx tsc --noEmit && npx vitest run __tests__/dashboard/parts.test.ts`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && npx tsc --noEmit && npx vitest run __tests__/dashboard/parts.test.ts`
 Expected: tsc `EXIT=0`; vitest 2 passed.
 
 - [ ] **Step 8: Commit**
@@ -749,7 +749,7 @@ Add `import { savePendingParts } from "@/lib/offline-db";` (or extend the existi
 
 - [ ] **Step 4: Verify compile**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app/mobile" && npx tsc --noEmit`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app/mobile" && npx tsc --noEmit`
 Expected: `EXIT=0`.
 
 - [ ] **Step 5: Commit**
@@ -792,7 +792,7 @@ delete from public.parts where name = 'ZZ Test Impeller';
 - [ ] **Step 4: Deploy the dashboard**
 
 ```bash
-cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && npm run deploy
+cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && npm run deploy
 ```
 Expected: `Deployed marine-tech-dashboard`.
 

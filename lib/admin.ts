@@ -25,7 +25,7 @@ export async function requireAdmin() {
     .single();
 
   // Shared with lib/supabase/middleware.ts — see lib/roles.ts for why.
-  if (!profile || !canAccessDashboard(profile.role)) {
+  if (!profile || profile.status !== "active" || !canAccessDashboard(profile.role)) {
     redirect("/login?error=unauthorized");
   }
 

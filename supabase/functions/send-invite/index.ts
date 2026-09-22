@@ -55,6 +55,12 @@ Deno.serve(async (req: Request) => {
     // Create Supabase admin client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const bearer = req.headers.get("authorization")?.replace(/^Bearer /i, "") ?? "";
+    const { data: { user }, error: authError } = await supabase.auth.getUser(bearer);
+    if (authError || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    const { data: actor } = await supabase.from("profiles").select("id,role,status").eq("auth_id", user.id).single();
+    if (!actor || actor.role !== "admin" || actor.status !== "active") return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+
     // Generate invite token
     const token = crypto.randomUUID();
 
@@ -67,7 +73,7 @@ Deno.serve(async (req: Request) => {
     const { error: inviteError } = await supabase.from("invites").insert({
       email,
       token,
-      invited_by,
+      invited_by: actor.id,
       expires_at: expiresAt,
     });
 

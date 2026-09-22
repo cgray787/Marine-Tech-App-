@@ -178,7 +178,7 @@ Deno.test("buildSalesforceUrl: strips trailing slash", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && deno test supabase/functions/salesforce-sync/salesforce_test.ts`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && deno test supabase/functions/salesforce-sync/salesforce_test.ts`
 Expected: FAIL — `Module not found "./salesforce.ts"`.
 
 - [ ] **Step 3: Write the helper module**
@@ -248,7 +248,7 @@ export function buildSalesforceUrl(instanceUrl: string, accountId: string): stri
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && deno test supabase/functions/salesforce-sync/salesforce_test.ts`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && deno test supabase/functions/salesforce-sync/salesforce_test.ts`
 Expected: PASS — all tests ok.
 
 - [ ] **Step 5: Commit**
@@ -405,7 +405,7 @@ Deno.serve(async (req) => {
 
 - [ ] **Step 2: Type-check the function**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && deno check supabase/functions/salesforce-sync/index.ts`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && deno check supabase/functions/salesforce-sync/index.ts`
 Expected: no errors (helpers resolve; types align).
 
 - [ ] **Step 3: Commit**
@@ -448,7 +448,7 @@ Save the output as the value for `SF_SYNC_SECRET` (used by both the edge functio
 
 Run (substituting the parsed values; `SF_CLIENT_SECRET` may be an empty string):
 ```bash
-cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app"
+cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app"
 npx supabase secrets set --project-ref ikfcnqdrlvhvlyhiuphs \
   SF_CLIENT_ID="<clientId>" \
   SF_CLIENT_SECRET="<clientSecret>" \
@@ -632,7 +632,7 @@ Replace the customer insert block in `handleAddCustomer` with:
 
 - [ ] **Step 3: Type-check the web app**
 
-Run: `cd "/Users/connorgray/Desktop/Claude OS/marine-tech-app" && npx tsc --noEmit`
+Run: `cd "/Users/connorgray/Desktop/Artificial Intelligence/Projects/20 - Marine Tech/marine-tech-app" && npx tsc --noEmit`
 Expected: `EXIT=0` / no errors.
 
 - [ ] **Step 4: Commit**

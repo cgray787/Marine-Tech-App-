@@ -57,7 +57,7 @@ describe("mobile calendar dates", () => {
     );
     expect(calls).toContainEqual([
       "or",
-      `scheduled_start.gte.${range.startUtc},scheduled_end_date.gte.2026-09-09`,
+      `scheduled_start.gte.${range.startUtc},scheduled_end.gte.${range.startUtc},scheduled_end_date.gte.2026-09-09`,
     ]);
     expect(calls).toContainEqual(["lte", "scheduled_start", range.endUtc]);
     expect(calls).toContainEqual(["eq", "assigned_to", "tech-1"]);

@@ -195,7 +195,7 @@ export async function getFreshAccessToken(db: SupabaseClient): Promise<string> {
   const tokens = await refreshTokens(conn.refresh_token);
   const now = new Date();
 
-  await db.from("qb_connections").update({
+  const { error: persistError } = await db.from("qb_connections").update({
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     access_expires_at: new Date(now.getTime() + tokens.expires_in * 1000).toISOString(),
@@ -203,7 +203,8 @@ export async function getFreshAccessToken(db: SupabaseClient): Promise<string> {
       now.getTime() + tokens.x_refresh_token_expires_in * 1000
     ).toISOString(),
     updated_at: now.toISOString(),
-  }).eq("org_id", conn.org_id);
+  }).eq("org_id", conn.org_id).select("org_id").single();
+  if (persistError) throw new Error("Could not persist refreshed QuickBooks credentials");
 
   return tokens.access_token;
 }
@@ -242,7 +243,7 @@ export async function qbFetch(
   const tokens = await refreshTokens(conn.refresh_token);
   const now = new Date();
 
-  await db.from("qb_connections").update({
+  const { error: persistError } = await db.from("qb_connections").update({
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     access_expires_at: new Date(now.getTime() + tokens.expires_in * 1000).toISOString(),
@@ -250,7 +251,8 @@ export async function qbFetch(
       now.getTime() + tokens.x_refresh_token_expires_in * 1000
     ).toISOString(),
     updated_at: now.toISOString(),
-  }).eq("org_id", conn.org_id);
+  }).eq("org_id", conn.org_id).select("org_id").single();
+  if (persistError) throw new Error("Could not persist refreshed QuickBooks credentials");
 
   return doFetch(tokens.access_token);
 }
@@ -258,6 +260,7 @@ export async function qbFetch(
 // ── requireQbRole ──────────────────────────────────────────────────────────
 
 interface QbRoleContext {
+  supabase: SupabaseClient;
   profile: {
     id: string;
     role: string;
@@ -312,12 +315,12 @@ export async function requireQbRole(): Promise<QbRoleContext> {
     .eq("auth_id", user.id)
     .single();
 
-  if (!profile || !["admin", "manager"].includes(profile.role)) {
+  if (!profile || profile.status !== "active" || !["admin", "manager"].includes(profile.role)) {
     throw new Response(JSON.stringify({ error: "Forbidden — admin or manager required" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  return { profile };
+  return { profile, supabase };
 }

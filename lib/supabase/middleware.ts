@@ -30,6 +30,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Session refresh may rotate cookies even when this request redirects.
+  function redirect(url: URL) {
+    const response = NextResponse.redirect(url);
+    for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie);
+    return response;
+  }
   const path = request.nextUrl.pathname;
 
   // Protect /dashboard routes
@@ -37,24 +43,24 @@ export async function updateSession(request: NextRequest) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      return NextResponse.redirect(url);
+      return redirect(url);
     }
 
     // Check admin role
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, status")
       .eq("auth_id", user.id)
       .single();
 
     // Gated to the same roles lib/admin.ts accepts. Keeping this in one shared
     // constant is deliberate — the two lists had drifted, and because middleware
     // runs first the stricter one silently won.
-    if (!canAccessDashboard(profile?.role)) {
+    if (profile?.status !== "active" || !canAccessDashboard(profile?.role)) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("error", "unauthorized");
-      return NextResponse.redirect(url);
+      return redirect(url);
     }
   }
 
@@ -62,14 +68,14 @@ export async function updateSession(request: NextRequest) {
   if (path === "/login" && user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, status")
       .eq("auth_id", user.id)
       .single();
 
-    if (canAccessDashboard(profile?.role)) {
+    if (profile?.status === "active" && canAccessDashboard(profile?.role)) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      return redirect(url);
     }
   }
 

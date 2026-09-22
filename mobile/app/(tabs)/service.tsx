@@ -559,6 +559,9 @@ export default function ServiceScreen() {
 
   async function handleSubmitOffline() {
     if (!profile) return;
+    // The offline queue creates records; replaying an edit there would create a
+    // duplicate job/report. Keep the draft open until this edit can be saved.
+    if (editJobId) { Alert.alert("Connection needed", "Reconnect to save changes to this existing report. Your edits are still here."); return; }
 
     const customer = customers.find((c) => c.id === customerId);
 
@@ -599,6 +602,11 @@ export default function ServiceScreen() {
       }
 
       const offlineReportId = await savePendingReport({
+        scheduledStart: scheduledStart.toISOString(),
+        scheduledEnd: (isMultiDay && scheduledEnd ? (() => { const d = new Date(scheduledEnd); d.setHours(17, 0, 0, 0); return d; })() : new Date(scheduledStart.getTime() + 60 * 60 * 1000)).toISOString(),
+        scheduledDate: toDateStr(scheduledStart),
+        scheduledEndDate: isMultiDay && scheduledEnd ? toDateStr(scheduledEnd) : null,
+        serviceDescriptions: jobName && serviceDescription.trim() ? { [jobName]: serviceDescription.trim() } : {},
         jobId: "",
         techId: profile.id,
         boatId: boatId || null,

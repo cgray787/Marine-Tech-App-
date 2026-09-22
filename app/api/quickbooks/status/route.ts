@@ -43,12 +43,12 @@ export async function GET(): Promise<Response> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, status")
     .eq("auth_id", user.id)
     .single();
 
   const allowedRoles = ["admin", "manager", "tech", "viewer"];
-  if (!profile || !allowedRoles.includes(profile.role)) {
+  if (!profile || profile.status !== "active" || !allowedRoles.includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

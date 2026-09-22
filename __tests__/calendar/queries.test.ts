@@ -187,3 +187,11 @@ describe('getJobsInRange with an office filter', () => {
     expect(captured[0].select).not.toContain('!inner');
   });
 });
+
+it('includes jobs spanning into the visible range through either end field', async () => {
+  const captured: any[] = [];
+  const db = makeSupabaseMock({ service: [], paperwork: [] }, captured);
+  await getJobsInRange(db as any, '2026-09-01T07:00:00Z', '2026-10-01T06:59:59Z');
+  expect(captured[0].ors[0]).toContain('scheduled_end.gte.2026-09-01T07:00:00Z');
+  expect(captured[0].ors[0]).toContain('scheduled_end_date.gte.2026-09-01');
+});

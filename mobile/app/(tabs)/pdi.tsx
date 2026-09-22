@@ -20,7 +20,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
-import { savePendingPDIReport } from "@/lib/offline-db";
+import { savePendingPDIReport, savePendingPhoto } from "@/lib/offline-db";
 import { colors } from "@/constants/Colors";
 
 const PDI_DRAFT_KEY = "pdi_draft";
@@ -506,19 +506,23 @@ export default function PDIScreen() {
       }
     }
 
+    const savedReportId = report.id;
+    let queuedPhotos = 0;
+    async function savePdiPhoto(uri: string, category: string, caption?: string) {
+      const url = await uploadPhoto(uri, "pdi-photos", savedReportId);
+      if (url) {
+        const { error } = await supabase.from("report_photos").insert({ pdi_report_id: savedReportId, photo_url: url, category, caption: caption ?? null });
+        if (!error) return;
+      }
+      await savePendingPhoto(savedReportId, uri, "pdi-photos", category, caption);
+      queuedPhotos++;
+    }
+
     // Upload checklist item photos
     for (const [itemName, val] of Object.entries(checklist)) {
       if (val.photos && val.photos.length > 0) {
         for (const photo of val.photos) {
-          const url = await uploadPhoto(photo.uri, "pdi-photos", report.id);
-          if (url) {
-            await supabase.from("report_photos").insert({
-              report_id: report.id,
-              photo_url: url,
-              category: "other",
-              caption: `PDI: ${itemName}`,
-            });
-          }
+          await savePdiPhoto(photo.uri, "other", `PDI: ${itemName}`);
         }
       }
     }
@@ -528,18 +532,11 @@ export default function PDIScreen() {
       const categorySlug = photo.category
         .toLowerCase()
         .replace(/\s+/g, "_") as string;
-      const url = await uploadPhoto(photo.uri, "pdi-photos", report.id);
-      if (url) {
-        await supabase.from("report_photos").insert({
-          report_id: report.id,
-          photo_url: url,
-          category: categorySlug,
-        });
-      }
+      await savePdiPhoto(photo.uri, categorySlug);
     }
 
     setSubmitting(false);
-    Alert.alert("Success", "PDI Report submitted!", [
+    Alert.alert("Success", queuedPhotos ? `PDI report saved. ${queuedPhotos} photo(s) are queued and will upload when connected.` : "PDI Report submitted!", [
       { text: "OK", onPress: resetForm },
     ]);
   }
@@ -550,10 +547,14 @@ export default function PDIScreen() {
       return;
     }
 
-    if (isOnline) {
-      await handleSubmitOnline();
-    } else {
-      await handleSubmitOffline();
+    try {
+      if (isOnline) await handleSubmitOnline();
+      else await handleSubmitOffline();
+    } catch (error) {
+      console.error("PDI submission interrupted:", error);
+      Alert.alert("Submission interrupted", "Your draft is still here. Check the reports list before submitting again; part of this report may already be saved.");
+    } finally {
+      setSubmitting(false);
     }
   }
 

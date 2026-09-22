@@ -2,8 +2,8 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Calendar, AlertCircle } from 'lucide-react';
 import { JobStatusActions } from './job-actions';
-import { formatDate, statusColor } from '@/lib/utils';
-import { formatTime } from '@/lib/calendar/format';
+import { statusColor } from '@/lib/utils';
+import { LocalSchedule } from './local-schedule';
 
 type Job = {
   id: string;
@@ -162,14 +162,7 @@ export function JobsByCustomer({ customers, jobs, searchActive = false, query = 
                         <tr key={job.id} className="hover:bg-white/5">
                           <td className="px-6 py-3 text-sm">
                             {job.scheduled_start ? (
-                              <div>
-                                <div className="text-text-primary tabular-nums">
-                                  {formatDate(job.scheduled_start)}
-                                </div>
-                                <div className="text-xs text-gold tabular-nums">
-                                  {formatTime(job.scheduled_start)}
-                                </div>
-                              </div>
+                              <LocalSchedule value={job.scheduled_start} stacked />
                             ) : (
                               <span className="inline-flex items-center gap-1 text-xs text-text-secondary">
                                 <AlertCircle size={12} aria-hidden /> Unscheduled
@@ -233,7 +226,7 @@ export function JobsByCustomer({ customers, jobs, searchActive = false, query = 
             {grouped.orphans.map((j) => (
               <li key={j.id} className="py-1">
                 {j.scheduled_start
-                  ? `${formatDate(j.scheduled_start)} ${formatTime(j.scheduled_start)}`
+                  ? <LocalSchedule value={j.scheduled_start} />
                   : 'Unscheduled'}{' '}
                 · {j.boats?.name ?? 'No boat'}
               </li>

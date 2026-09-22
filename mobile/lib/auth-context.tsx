@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
@@ -40,51 +40,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let initialized = false;
+  const profileRequest = useRef(0);
+  const authGeneration = useRef(0);
+  const activeAuthId = useRef<string | null>(null);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      initialized = true;
-      setSession(session);
-      if (session?.user) fetchProfile(session.user.id);
-      else setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      // INITIAL_SESSION fires alongside getSession() — let getSession handle it
-      // to avoid a duplicate profile fetch race.
-      if (event === "INITIAL_SESSION" && !initialized) return;
-      if (event === "INITIAL_SESSION" && initialized) return;
-
-      setSession(session);
-      if (session?.user) fetchProfile(session.user.id);
-      else {
-        setProfile(null);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function fetchProfile(authId: string) {
+  const fetchProfile = useCallback(async (authId: string) => {
+    const request = ++profileRequest.current;
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("auth_id", authId)
-        .single();
+      const { data, error } = await supabase.from("profiles").select("*").eq("auth_id", authId).single();
+      if (request !== profileRequest.current || activeAuthId.current !== authId) return;
       if (error) console.error("Failed to fetch profile:", error.message);
       setProfile(data ?? null);
     } catch (err) {
+      if (request !== profileRequest.current || activeAuthId.current !== authId) return;
       console.error("Profile fetch error:", err);
       setProfile(null);
     } finally {
-      setLoading(false);
+      if (request === profileRequest.current && activeAuthId.current === authId) setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const initialGeneration = authGeneration.current;
+    function applySession(next: Session | null) {
+      if (!mounted) return;
+      ++authGeneration.current;
+      ++profileRequest.current;
+      const nextId = next?.user.id ?? null;
+      if (activeAuthId.current !== nextId) setProfile(null);
+      activeAuthId.current = nextId;
+      setSession(next);
+      if (nextId) void fetchProfile(nextId);
+      else { setProfile(null); setLoading(false); }
+    }
+    // A late persisted-session read must never undo a newer login/logout event.
+    void supabase.auth.getSession().then(({ data: { session: saved } }) => {
+      if (authGeneration.current === initialGeneration) applySession(saved);
+    }).catch((err) => {
+      console.error("Session recovery failed:", err);
+      if (mounted && authGeneration.current === initialGeneration) applySession(null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event !== "INITIAL_SESSION") applySession(next);
+    });
+    return () => { mounted = false; ++profileRequest.current; subscription.unsubscribe(); };
+  }, [fetchProfile]);
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -92,9 +93,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
+    ++authGeneration.current;
+    ++profileRequest.current;
+    activeAuthId.current = null;
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
+    setLoading(false);
   }
 
   async function refreshProfile() {

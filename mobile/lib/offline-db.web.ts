@@ -11,6 +11,11 @@ export type SyncQueueItem = {
 };
 
 export type PendingServiceReport = {
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  scheduledDate?: string;
+  scheduledEndDate?: string | null;
+  serviceDescriptions?: Record<string, string>;
   jobId: string;
   techId: string;
   boatId: string | null;

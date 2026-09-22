@@ -16,7 +16,7 @@ export function OfficePicker({
 }) {
   function choose(id: string | null) {
     setLocationCookie(id);
-    window.location.href = "/dashboard";
+    window.location.assign("/dashboard");
   }
   const cards: Office[] = [...locations, { id: "__all__", name: "All Offices" }];
   return (

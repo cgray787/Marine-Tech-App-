@@ -31,4 +31,4 @@ NEXT_PUBLIC_TURNSTILE_SITEKEY = "0x4AAAAAADffjFfjP1zZtlR6"
 # Secrets to set with `npx wrangler secret put`:
 #   SUPABASE_SERVICE_ROLE_KEY  — service role JWT
 #   TURNSTILE_SECRET           — paired secret for the sitekey above
-#                                (defaults to Cloudflare's always-passes test secret if unset)
+#                                (required in production; development alone may use the test secret)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { LOCATION_COOKIE, LOCATION_EVENT, parseLocationValue } from "./constants";
 
 export function readLocationCookie(): string | null {
@@ -26,13 +26,10 @@ export function setLocationCookie(id: string | null) {
  * SSR markup and the first client render agree (cookie isn't part of the
  * server-rendered HTML for client components).
  */
+function subscribeLocation(handler: () => void) {
+  window.addEventListener(LOCATION_EVENT, handler);
+  return () => window.removeEventListener(LOCATION_EVENT, handler);
+}
 export function useLocationFilter(): string | null {
-  const [loc, setLoc] = useState<string | null>(null);
-  useEffect(() => {
-    setLoc(readLocationCookie());
-    const handler = () => setLoc(readLocationCookie());
-    window.addEventListener(LOCATION_EVENT, handler);
-    return () => window.removeEventListener(LOCATION_EVENT, handler);
-  }, []);
-  return loc;
+  return useSyncExternalStore(subscribeLocation, readLocationCookie, () => null);
 }

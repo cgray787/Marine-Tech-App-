@@ -161,6 +161,11 @@ export async function clearIdMappings(): Promise<void> {
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type PendingServiceReport = {
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  scheduledDate?: string;
+  scheduledEndDate?: string | null;
+  serviceDescriptions?: Record<string, string>;
   jobId: string;
   techId: string;
   boatId: string | null;
@@ -245,6 +250,11 @@ export async function savePendingReport(report: PendingServiceReport): Promise<s
         status: "completed",
         created_by: report.techId,
         notes: report.jobDescription || null,
+        scheduled_start: report.scheduledStart,
+        scheduled_end: report.scheduledEnd,
+        scheduled_date: report.scheduledDate,
+        scheduled_end_date: report.scheduledEndDate,
+        service_descriptions: report.serviceDescriptions,
       }),
     ]
   );
@@ -554,8 +564,7 @@ export async function getFailedSyncItems(): Promise<SyncQueueItem[]> {
 export async function getPendingSyncCount(): Promise<number> {
   const database = await getDB();
   const result = await database.getFirstAsync<{ count: number }>(
-    `SELECT COUNT(*) as count FROM sync_queue WHERE synced = 0 AND retry_count < ?`,
-    [MAX_RETRIES]
+    `SELECT COUNT(*) as count FROM sync_queue WHERE synced = 0`
   );
   return result?.count ?? 0;
 }

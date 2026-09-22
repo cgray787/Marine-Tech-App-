@@ -59,9 +59,8 @@ async function processSyncItem(
   item: SyncQueueItem,
   idMap: Map<string, string>
 ): Promise<boolean> {
-  const payload = JSON.parse(item.payload);
-
   try {
+    const payload = JSON.parse(item.payload);
     switch (item.table_name) {
       case "jobs": {
         const { data, error } = await supabase
@@ -75,6 +74,11 @@ async function processSyncItem(
             status: payload.status,
             created_by: payload.created_by,
             notes: payload.notes || null,
+            ...(payload.scheduled_start !== undefined ? {
+              scheduled_start: payload.scheduled_start, scheduled_end: payload.scheduled_end,
+              scheduled_date: payload.scheduled_date, scheduled_end_date: payload.scheduled_end_date,
+              service_descriptions: payload.service_descriptions,
+            } : {}),
           })
           .select("id")
           .single();
@@ -251,7 +255,7 @@ async function processSyncItem(
         }
 
         const { error } = await supabase.from("report_photos").insert({
-          report_id: realReportId,
+          ...(payload.bucket === "pdi-photos" ? { pdi_report_id: realReportId } : { report_id: realReportId }),
           photo_url: photoUrl,
           category: payload.category,
           caption: payload.caption,
@@ -342,6 +346,7 @@ async function processSyncItem(
         let photoUrl: string | null = null;
         if (payload.photoUri) {
           photoUrl = await uploadPhotoToStorage(payload.photoUri, "report-photos", realReportId);
+          if (!photoUrl) { await markFailed(item.id, "Parts photo upload failed"); return false; }
         }
 
         const { error } = await supabase.from("parts").insert({
@@ -379,7 +384,7 @@ async function processSyncItem(
   }
 }
 
-export async function syncAll(): Promise<{
+async function runSync(): Promise<{
   synced: number;
   failed: number;
   remaining: number;
@@ -431,4 +436,10 @@ export async function syncAll(): Promise<{
   );
 
   return { synced, failed, remaining };
+}
+
+let inFlight: ReturnType<typeof runSync> | null = null;
+export function syncAll(): ReturnType<typeof runSync> {
+  if (!inFlight) inFlight = runSync().finally(() => { inFlight = null; });
+  return inFlight;
 }

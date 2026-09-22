@@ -139,6 +139,8 @@ fix, run the narrowest meaningful verification first, then broaden.
 
 # Marine Tech App
 
+Latest verified audit/release: `docs/operations/2026-09-22-code-audit.md`. Consult it before relying on older schema, deployment, or next-step claims below.
+
 ## Project Overview
 
 Field service app for marine technicians to document boat service jobs and pre-delivery inspections. Structured checklists with BAD/GOOD assessments, photo capture (HIN plates, engine hours, damage), and report submission. Admin web dashboard for reviewing reports, managing technicians, and seeing all scheduled work on a calendar.
@@ -203,8 +205,8 @@ https://github.com/cgray787/Marine-Tech-App-.git
 
 - **Admin dashboard (canonical):** `https://marinetech.grayyachts.com` — custom domain on the Cloudflare-managed grayyachts.com zone (wrangler auto-creates DNS + TLS on deploy)
 - **Fallback:** `https://marine-tech-dashboard.connorgray41.workers.dev` — kept alive via `workers_dev = true` for old bookmarks/docs
-- **Second dashboard:** grayyachts.com `/portal/marine-tech` (lives in the separate `~/Desktop/Claude OS/grayyachts.com` repo, same Supabase backend, different UI). **Both dashboards are canonical — mirror dashboard UI changes across both repos.**
-- Dashboard login is protected by Cloudflare Turnstile ('Marine Tech Login' widget; public sitekey in `wrangler.toml`, paired `TURNSTILE_SECRET` wrangler secret — falls back to Cloudflare's always-passes test secret if unset)
+- **Second dashboard:** grayyachts.com `/portal/marine-tech` (lives in the separate `~/Desktop/Artificial Intelligence/Projects/10 - Gray Yachts/11 - Websites/grayyachts.com` repo, same Supabase backend, different UI). **Both dashboards are canonical — mirror dashboard UI changes across both repos.**
+- Dashboard login is protected by Cloudflare Turnstile ('Marine Tech Login' widget; public sitekey in `wrangler.toml`, paired `TURNSTILE_SECRET` wrangler secret — required in production)
 
 ## Supabase
 
@@ -435,8 +437,18 @@ The Technicians (Users & Access) page is **owner-gated at three layers**: sideba
 
 ## Related Projects
 
-- **grayyachts.com** — Yacht management platform (`/Users/connorgray/Desktop/Claude OS/grayyachts.com`)
-- **grayyachts.media** — Media production site (`/Users/connorgray/Desktop/Claude OS/grayyachts.media`)
-- **grayyachts-agents** — Paperclip AI orchestration (`/Users/connorgray/Desktop/Claude OS/grayyachts-agents`)
+- **grayyachts.com** — Yacht management platform (`/Users/connorgray/Desktop/Artificial Intelligence/Projects/10 - Gray Yachts/11 - Websites/grayyachts.com`)
+- **grayyachts.media** — Media production site (`/Users/connorgray/Desktop/Artificial Intelligence/Projects/10 - Gray Yachts/11 - Websites/grayyachts.media`)
+- **grayyachts-agents** — Paperclip AI orchestration (`/Users/connorgray/Desktop/Artificial Intelligence/Projects/10 - Gray Yachts/12 - Agents & Automation/grayyachts-agents`)
 </content>
 </invoke>
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

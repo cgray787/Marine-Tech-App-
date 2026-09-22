@@ -164,9 +164,7 @@ console.log(`  Amount Paid: $${totals.amountPaid}`);
 console.log(`  Balance:     $${totals.balanceDue}`);
 
 // ── Render ────────────────────────────────────────────────────────────────────
-const logoSrc = path.resolve(
-  "/Users/connorgray/Desktop/Claude OS/marine-tech-app/public/jby-logo.png"
-);
+const logoSrc = new URL("../public/jby-logo.png", import.meta.url).pathname;
 
 const outPath = "/Users/connorgray/.claude/jobs/16f77d12/tmp/sample-work-order-v2.pdf";
 

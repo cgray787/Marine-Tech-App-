@@ -34,9 +34,6 @@ export function CreateJobForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Viewers can't create jobs — entire form is hidden.
-  if (!canWrite) return null;
-
   const [customerId, setCustomerId] = useState("");
   const [boatId, setBoatId] = useState("");
   const [techId, setTechId] = useState("");
@@ -58,6 +55,9 @@ export function CreateJobForm({
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledEndDate, setScheduledEndDate] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Keep hook order stable when the session role becomes available.
+  if (!canWrite) return null;
 
   // True when a multi-day end date is set and is strictly after start.
   const isMultiDay = !!scheduledEndDate && !!scheduledDate && scheduledEndDate > scheduledDate;

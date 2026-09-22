@@ -5,7 +5,6 @@ import {
   adminDb,
   saveConnection,
   qbApiBase,
-  qbFetch,
   requireQbRole,
 } from "@/lib/quickbooks/server";
 
@@ -42,6 +41,12 @@ export async function GET(req: NextRequest): Promise<Response> {
     return redirectError("state_mismatch");
   }
 
+  // Re-check permission at callback time: access may have been revoked since
+  // the OAuth flow started. Never save tokens after a failed role check.
+  let connectedBy: string;
+  try { const { profile } = await requireQbRole(); connectedBy = profile.id; }
+  catch { return redirectError("unauthorized"); }
+
   // Exchange code for tokens
   let tokens;
   try {
@@ -55,15 +60,6 @@ export async function GET(req: NextRequest): Promise<Response> {
   const refreshExpiresAt = new Date(
     now.getTime() + tokens.x_refresh_token_expires_in * 1000
   ).toISOString();
-
-  // Identify the connecting user (non-fatal — profile may not exist)
-  let connectedBy: string | null = null;
-  try {
-    const { profile } = await requireQbRole();
-    connectedBy = profile.id as string;
-  } catch {
-    // ignore — connection still saves
-  }
 
   const db = adminDb();
 

@@ -15,6 +15,11 @@ const eslintConfig = defineConfig([
     // Build artifacts & non-source directories
     ".open-next/**",
     "mobile/.expo/**",
+    "mobile/dist/**",
+    ".claude/**",
+    ".worktrees/**",
+    ".wrangler/**",
+    "coverage/**",
   ]),
 ]);
 

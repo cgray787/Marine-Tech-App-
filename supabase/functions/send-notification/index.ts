@@ -27,6 +27,10 @@ interface RequestBody {
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.headers.get("authorization") !== `Bearer ${supabaseServiceKey}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
   // Only accept POST
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {

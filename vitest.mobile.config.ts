@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   test: { environment: 'jsdom', globals: true, include: ['tests/mobile/*.test.tsx'], setupFiles: ['./vitest.setup.ts'] },
   resolve: { dedupe: ['react', 'react-dom', '@tanstack/react-query'], alias: {
+    '@react-native-community/netinfo': resolve(__dirname, 'tests/mobile/netinfo-stub.ts'),
     'expo-router': resolve(__dirname, 'tests/mobile/router-stub.tsx'),
     '@react-navigation/native': resolve(__dirname, 'tests/mobile/router-stub.tsx'),
     'expo-print': resolve(__dirname, 'tests/mobile/expo-stub.ts'),

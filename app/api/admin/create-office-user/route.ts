@@ -37,11 +37,12 @@ export async function POST(req: Request) {
   // existing invited/legacy profile (created by InviteTechForm with no auth_id)
   // would get silently hijacked by trigger 013's ON CONFLICT (email) upsert
   // re-pointing its auth_id at the new auth user. Give a clear error instead.
-  const { data: existingProfile } = await admin
+  const { data: existingProfile, error: lookupError } = await admin
     .from("profiles")
     .select("id")
     .eq("email", email)
     .maybeSingle();
+  if (lookupError) return NextResponse.json({ error: "Could not verify existing accounts" }, { status: 503 });
   if (existingProfile) {
     return NextResponse.json(
       { error: "a user with that email already exists" },
@@ -72,8 +73,9 @@ export async function POST(req: Request) {
       org_id: payload.org_id,
       location_id: payload.location_id,
     })
-    .eq("auth_id", created.user.id);
+    .eq("auth_id", created.user.id).select("id").single();
   if (profErr) {
+    await admin.auth.admin.deleteUser(created.user.id);
     return NextResponse.json({ error: profErr.message }, { status: 400 });
   }
 

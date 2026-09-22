@@ -6,7 +6,7 @@ const ISSUER_ID = "f3b47a16-d70b-4ef4-bc3b-e30fed4d2766";
 const APP_ID = "6762853683";
 const SUBMISSION_ID = "3ff95be0-98a6-4535-a3aa-a47847596697";
 const OLD_SUBMISSION_ID = "17108359-e147-4bf3-aade-8fa9f639cf2c";
-const KEY_PATH = "/Users/connorgray/Desktop/Claude OS/marine-tech-app/mobile/.secrets/AuthKey_2B5Z869244.p8";
+const KEY_PATH = new URL("../.secrets/AuthKey_2B5Z869244.p8", import.meta.url);
 const privateKey = readFileSync(KEY_PATH, "utf8");
 
 const b64url = (buf) => Buffer.from(buf).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
