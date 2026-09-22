@@ -45,8 +45,8 @@ export default async function DashboardLayout({
 
   return (
     <RoleProvider role={profile.role}>
-      <div className="flex h-screen overflow-hidden bg-primary-bg print-layout">
-        <div className="no-print">
+      <div className="flex h-dvh flex-col overflow-hidden md:flex-row bg-primary-bg print-layout">
+        <div className="no-print shrink-0">
           <Sidebar
             profile={profile}
             pendingJobCount={pendingJobCount ?? 0}
@@ -56,7 +56,7 @@ export default async function DashboardLayout({
             ownLocationName={ownLocationName}
           />
         </div>
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8 print-main">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 print-main">
           <QueryProvider>{children}</QueryProvider>
         </main>
       </div>

@@ -103,7 +103,7 @@ export default function CalendarPage() {
   const jobs = jobsQuery.data ?? [];
 
   return (
-    <div className="p-6 text-white min-h-screen bg-[#060a12]">
+    <div className="min-w-0 p-0 md:p-6 text-white min-h-screen bg-[#060a12]">
       <CalendarToolbar
         date={date}
         view={view}

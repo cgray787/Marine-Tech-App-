@@ -21,6 +21,7 @@ The earlier mobile Edit job release (`5e3baa2`, including `cf12a5b`) remains int
 - Undeployed legacy invite/notification handlers now require explicit caller authorization. These legacy functions were not activated or deployed.
 - Redirects preserve refreshed auth cookies. Realtime subscriptions respond to table-list changes; the office cookie uses an external-store subscription.
 - Live-browser testing reproduced Jobs-page hydration failure: UTC server rendered `7 AM` while the Pacific browser rendered `12 AM`. A UTC development server reproduced the same error; browser-local schedule text now renders after hydration and that reproduction passes.
+- At 390px, the desktop sidebar squeezed the web calendar to a nearly unreadable sliver. The dashboard now has a collapsible mobile menu, a full-width content area, and wrapping calendar controls. Live verification measured a 358px calendar and confirmed opening/closing navigation. The native app navigation is separate and unchanged.
 - Prepared deployment test gates for both GitHub workflows. GitHub rejected workflow edits because the current OAuth login lacks `workflow` scope. The reviewable patch is saved as `proposed-deployment-test-gates.patch`; active workflows are unchanged.
 
 ## Verification
@@ -32,12 +33,12 @@ The earlier mobile Edit job release (`5e3baa2`, including `cf12a5b`) remains int
 - Authenticated SQL checks passed before migration application (transactional dry run) and after application: self-office change denied; active tech write permission retained; disabled account denied jobs and writes; viewer cannot write; tech office isolation retained; admin can create/read a PDI and its photo. Test writes were rolled back.
 - Deployed dashboard checks cover Dashboard, Calendar, Jobs, Reports, and Work Orders with an authenticated browser, plus narrow-screen calendar rendering. All five returned HTTP 200 with zero browser errors after the hydration fix. Screenshots and detailed logs are in the protected local audit backup.
 - GrayYachts portal type check, guarded deployment/preflight, and deployed login/portal route checks passed. Portal source commit: `5e75187`, branch `restore/prod-plus-leads` (the current production source; its history differs from the old website main branch).
-- Backend monitor at `2026-09-22T17:20:17Z`: no issues, database writable, ~21.3 MB, no archive failures. Latest backup completed `2026-09-22T11:25:07Z`: full database decode verified, 15 storage objects, private R2 upload/download SHA-256 matched.
+- Backend monitor at `2026-09-22T17:20:17Z`: no issues, database writable, ~21.3 MB, no archive failures. A fresh post-migration backup completed `2026-09-22T17:38:11Z`: full database decode verified, 15 storage objects, private R2 upload/download SHA-256 matched.
 
 ## Production releases
 
 - Database migrations: `060_active_accounts_and_profile_scope`, `061_pdi_photo_links`, applied through the Supabase Management API and recorded in migration history.
-- Dashboard Cloudflare version: `290f28c4-9002-4574-a807-eeb8e9d94df7`.
+- Dashboard Cloudflare version: `beffcd89-cdca-402b-a9a0-d7816b5bd499`.
 - Portal Cloudflare version: `cb7b39d4-da2d-4a95-8c91-7f18bad3da41`.
 - Mobile runtime **1.3.0**: update group `f95ca8a3-66fa-4ac3-93b8-81825f06c517`, production branch, iOS + Android.
 - Mobile runtime **1.2.0**: update group `4f7999ea-d5f5-4814-b338-f74298543dd3`, production branch, iOS + Android. `app.json` restored to 1.3.0 after publishing.

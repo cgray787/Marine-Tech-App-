@@ -27,9 +27,9 @@ export function CalendarToolbar({
   };
 
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl text-white" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <span className="w-full text-2xl text-white sm:w-auto" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
           {format(date, titleFmt)}
         </span>
         <button onClick={() => step(-1)} aria-label="Previous"
@@ -46,11 +46,11 @@ export function CalendarToolbar({
         </button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex w-full flex-wrap gap-2 xl:w-auto">
         <select
           value={selectedTechId ?? ''}
           onChange={(e) => onTechChange(e.target.value || null)}
-          className="bg-[#0d1320] border border-[#1a2236] text-white px-3 py-1.5 rounded-md"
+          className="w-full sm:w-auto bg-[#0d1320] border border-[#1a2236] text-white px-3 py-1.5 rounded-md"
         >
           <option value="">All technicians</option>
           {techs.map((t) => (

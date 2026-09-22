@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -110,6 +111,7 @@ export function Sidebar({
   showLocationSwitcher = false,
   ownLocationName = null,
 }: SidebarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -121,7 +123,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex w-64 flex-col border-r border-border-line bg-secondary-bg">
+    <aside className="flex w-full flex-col border-b border-border-line bg-secondary-bg md:h-full md:w-64 md:border-b-0 md:border-r">
       {/* Logo */}
       <div className="flex items-center gap-3 border-b border-border-line px-6 py-5">
         <span className="anchor-bob text-2xl text-gold">&#9875;</span>
@@ -133,8 +135,13 @@ export function Sidebar({
             Admin Portal
           </p>
         </div>
+        <button type="button" className="ml-auto rounded-lg border border-border-line px-3 py-2 text-sm text-gold md:hidden"
+          aria-expanded={menuOpen} aria-controls="dashboard-navigation" onClick={() => setMenuOpen(!menuOpen)}>
+          {menuOpen ? "Close" : "Menu"}
+        </button>
       </div>
 
+      <div id="dashboard-navigation" className={cn("min-h-0 flex-1 flex-col overflow-y-auto md:flex", menuOpen ? "flex max-h-[70dvh] md:max-h-none" : "hidden")}>
       {/* Office filter — org-wide users (admins + Owner) only; static badge for single-office staff. */}
       {showLocationSwitcher ? (
         locations.length > 0 ? (
@@ -166,6 +173,7 @@ export function Sidebar({
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setMenuOpen(false)}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
@@ -210,6 +218,7 @@ export function Sidebar({
         >
           Sign Out
         </button>
+      </div>
       </div>
     </aside>
   );
