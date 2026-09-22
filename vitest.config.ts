@@ -10,7 +10,7 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     // .claude/worktrees is where the agent worktrees live; without it vitest
     // collects the Playwright specs inside them and four files fail to load.
-    exclude: ['ops/backend-maintenance/**', 'ops/backend-monitor/**', 'e2e/**', 'node_modules/**', 'mobile/**', '.worktrees/**', '.claude/**'],
+    exclude: ['tests/mobile/**', 'ops/backend-maintenance/**', 'ops/backend-monitor/**', 'e2e/**', 'node_modules/**', 'mobile/**', '.worktrees/**', '.claude/**'],
   },
   resolve: {
     alias: { '@': resolve(__dirname) },

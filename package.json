@@ -10,7 +10,8 @@
     "test": "vitest run && node --test ops/backend-maintenance/*.test.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "deploy": "set -a && . ./.env.local && set +a && rm -rf .next .open-next && opennextjs-cloudflare build && wrangler deploy"
+    "deploy": "set -a && . ./.env.local && set +a && rm -rf .next .open-next && opennextjs-cloudflare build && wrangler deploy",
+    "test:mobile": "vitest run --config vitest.mobile.config.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "1.20.6",

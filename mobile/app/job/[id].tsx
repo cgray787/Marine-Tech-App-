@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import {
   View,
@@ -16,6 +17,8 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { supabase } from "@/lib/supabase";
 import { JobCampaigns } from "@/components/JobCampaigns";
+import { EditJobModal } from "@/components/EditJobModal";
+import type { EditableJob } from "@/lib/jobs/edit";
 import { JobPhotos } from "@/components/JobPhotos";
 import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/constants/Colors";
@@ -84,7 +87,7 @@ type Marina = {
   address: string | null;
 };
 
-type Job = {
+type Job = EditableJob & {
   id: string;
   status: string;
   service_types: string[] | null;
@@ -108,7 +111,7 @@ export default function JobDetailScreen() {
   const params = useLocalSearchParams<{ id: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<Job | null>(null);
   const [report, setReport] = useState<ServiceReport | null>(null);
@@ -116,6 +119,7 @@ export default function JobDetailScreen() {
   const [photos, setPhotos] = useState<ReportPhoto[]>([]);
   const [otherJobs, setOtherJobs] = useState<OtherJob[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const fetchJobData = useCallback(async () => {
     if (!id) return;
@@ -124,7 +128,7 @@ export default function JobDetailScreen() {
     // Fetch job with customer, boat, and marina details
     const { data: jobData } = await supabase
       .from("jobs")
-      .select("id, status, service_types, service_descriptions, scheduled_date, notes, boat_id, customers(id, name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color), marinas(name, address)")
+      .select("id, kind, customer_id, scheduled_start, scheduled_end, scheduled_end_date, location_override, status, service_types, service_descriptions, scheduled_date, notes, boat_id, customers(id, name, email, phone), boats(name, make_model, year, hin, engine_make, engine_model, engine_hours_port, engine_hours_starboard, color), marinas(name, address)")
       .eq("id", id)
       .single();
 
@@ -176,10 +180,9 @@ export default function JobDetailScreen() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  useFocusEffect(useCallback(() => {
     void fetchJobData();
-  }, [fetchJobData]);
+  }, [fetchJobData]));
 
   function formatDate(dateStr: string | null) {
     if (!dateStr) return "";
@@ -206,7 +209,7 @@ export default function JobDetailScreen() {
 
   function handleEdit() {
     if (!id) return;
-    router.push({ pathname: "/(tabs)/service", params: { editJobId: id } });
+    setEditing(true);
   }
 
   async function handleDelete() {
@@ -380,6 +383,7 @@ export default function JobDetailScreen() {
 
   return (
     <>
+      {editing && <EditJobModal job={job} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); void fetchJobData(); }} />}
       <Stack.Screen
         options={{
           // Custom back control — the native auto back button is dead on this build,
@@ -456,6 +460,18 @@ export default function JobDetailScreen() {
           </Text>
         )}
       </View>
+
+      {profile && profile.role !== "viewer" && (
+        <TouchableOpacity onPress={handleEdit} disabled={deleting} accessibilityRole="button" accessibilityLabel="Edit job details" style={styles.editJobButton}>
+          <Text style={styles.editJobButtonText}>Edit job</Text>
+        </TouchableOpacity>
+      )}
+
+      {!profile && (
+        <TouchableOpacity onPress={() => void refreshProfile()} accessibilityRole="button" style={styles.headerBtn}>
+          <Text style={styles.headerBtnText}>Account access could not load. Tap to retry editing.</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Service Type Chips */}
       {job.service_types && job.service_types.length > 0 && (
@@ -591,6 +607,15 @@ export default function JobDetailScreen() {
         </View>
       )}
 
+      {(job.scheduled_start || job.location_override) && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Schedule &amp; location</Text>
+          {job.scheduled_start && <InfoRow label="Start" value={new Date(job.scheduled_start).toLocaleString()} />}
+          {job.scheduled_end && <InfoRow label="End" value={new Date(job.scheduled_end).toLocaleString()} />}
+          {job.location_override && <InfoRow label="Location" value={job.location_override} />}
+        </View>
+      )}
+
       {/* Marina Card */}
       {job.marinas && (
         <View style={styles.card}>
@@ -613,6 +638,11 @@ export default function JobDetailScreen() {
       )}
 
       {/* Systems Card (from service report) */}
+      {report && profile && profile.role !== "viewer" && (
+        <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/(tabs)/service", params: { editJobId: id } })} style={styles.headerBtn}>
+          <Text style={styles.headerBtnText}>Edit service report</Text>
+        </TouchableOpacity>
+      )}
       {report && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Systems</Text>
@@ -833,6 +863,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgPrimary,
   },
+  editJobButton: { backgroundColor: colors.gold, paddingVertical: 14, borderRadius: 12, alignItems: "center", marginBottom: 20 },
+  editJobButtonText: { color: colors.bgPrimary, fontSize: 16, fontWeight: "700" },
   content: {
     paddingHorizontal: 20,
     paddingTop: 16,

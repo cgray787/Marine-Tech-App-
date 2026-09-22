@@ -1,0 +1,15 @@
+import React from 'react';
+export const View = ({ children }: any) => <div>{children}</div>;
+export const Text = ({ children }: any) => <span>{children}</span>;
+export const ScrollView = View;
+export const Modal = View;
+export const ActivityIndicator = () => <span>Loading</span>;
+export const Pressable = ({ children, onPress, disabled, accessibilityLabel }: any) => <button aria-label={accessibilityLabel} onClick={onPress} disabled={disabled}>{children}</button>;
+export const TouchableOpacity = Pressable;
+export const TextInput = ({ value, onChangeText, accessibilityLabel, editable }: any) => <input aria-label={accessibilityLabel} value={value} onChange={e => onChangeText(e.target.value)} disabled={editable === false} />;
+export const StyleSheet = { create: (styles: any) => styles };
+export const Platform = { OS: 'ios' };
+export const Alert = { alert: () => {} };
+export const Image = View;
+export const Dimensions = { get: () => ({ width: 393, height: 852 }) };
+export const Share = {};
