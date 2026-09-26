@@ -2,7 +2,31 @@ import { diskRates } from "../../supabase/functions/backend-health-probe/disk-me
 
 const GiB = 1024 ** 3;
 
-export function assess(probes, previousMetrics = null) {
+// How long disk metrics may be missing before it counts as an issue.
+//
+// Disk fills over days, so a short gap in the readings is not actionable. On
+// 2026-09-26 Supabase's privileged metrics endpoint went quiet for ~10 minutes
+// during a Supabase-side incident; the database itself was healthy, but this
+// condition shared the database-outage threshold and emailed a "backend needs
+// attention" alert. A gap only matters if it persists long enough to hide a
+// real filling trend.
+export const DISK_METRICS_GRACE_MS = 60 * 60 * 1000;
+
+// True when the database answered but its disk readings did not.
+export function diskMetricsMissing(probes) {
+  const metrics = probes.database?.data;
+  return Boolean(probes.database?.ok && metrics && (!metrics.resources || metrics.resource_error));
+}
+
+// When the current run of missing disk readings began, carried across runs in
+// KV. A database failure neither starts nor ends a run: that outage alerts on
+// its own, and says nothing about the disk.
+export function nextDiskUnavailableSince(probes, previousSince, now) {
+  if (!probes.database?.ok) return previousSince ?? null;
+  return diskMetricsMissing(probes) ? (previousSince ?? now) : null;
+}
+
+export function assess(probes, previousMetrics = null, { diskUnavailableSince = null, now = Date.now() } = {}) {
   const issues = [];
   for (const [name, probe] of Object.entries(probes)) {
     if (!probe.ok) issues.push(`${name}: ${probe.error || `HTTP ${probe.status}`}`);
@@ -13,7 +37,9 @@ export function assess(probes, previousMetrics = null) {
       issues.push("Database probe returned invalid capacity metrics");
     } else {
       if (!metrics.resources || metrics.resource_error) {
-        issues.push("Disk resource monitoring unavailable");
+        if (diskUnavailableSince != null && now - diskUnavailableSince >= DISK_METRICS_GRACE_MS) {
+          issues.push("Disk resource monitoring unavailable for over an hour");
+        }
       } else {
         const resources = metrics.resources;
         if (resources.availableBytes / resources.sizeBytes <= 0.2) {
