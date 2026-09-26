@@ -1,4 +1,4 @@
-import { assess, nextState, backupIssues } from './checks.mjs';
+import { assess, nextState, backupIssues, nextDiskUnavailableSince } from './checks.mjs';
 import { diskRates } from '../../supabase/functions/backend-health-probe/disk-metrics.mjs';
 
 async function probe(url, headers = {}, json = false, method = 'GET') {
@@ -53,13 +53,15 @@ async function check(env) {
     probe(`${base}/functions/v1/parts-order-email`, { 'x-cron-secret': env.PARTS_CRON_SECRET }, true, 'POST'),
   ]);
   const previous = await env.STATE.get('health', 'json');
-  const issues = assess({ auth, rest, database, dashboard }, previous?.metrics);
-  if (!parts.ok || parts.data?.ok !== true) issues.push('Parts notification worker failed');
   const now = Date.now();
+  const diskUnavailableSince = nextDiskUnavailableSince({ database }, previous?.diskUnavailableSince, now);
+  const issues = assess({ auth, rest, database, dashboard }, previous?.metrics, { diskUnavailableSince, now });
+  if (!parts.ok || parts.data?.ok !== true) issues.push('Parts notification worker failed');
   const backup = await env.STATE.get('backup', 'json');
   if (env.BACKUP_MONITORING_ENABLED === 'true') issues.push(...backupIssues(backup, now, env.REQUIRE_OFFSITE_BACKUP === 'true'));
   const { state, kind } = nextState(previous, issues, now);
   state.checkedAt = new Date(now).toISOString();
+  state.diskUnavailableSince = diskUnavailableSince;
   state.backup = backup;
   state.emailConfigured = Boolean(env.ALERT_TO && env.RESEND_API_KEY);
   state.parts = { ok: parts.ok && parts.data?.ok === true, sent: parts.data?.sent ?? null };

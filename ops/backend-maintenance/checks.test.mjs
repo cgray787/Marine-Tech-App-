@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assess, nextState, backupIssues } from "./checks.mjs";
+import { assess, nextState, backupIssues, nextDiskUnavailableSince, DISK_METRICS_GRACE_MS } from "./checks.mjs";
 
 const healthy = () => ({
   auth: { ok: true }, rest: { ok: true }, dashboard: { ok: true },
@@ -73,4 +73,33 @@ test("reports failed, stale and missing offsite backups", () => {
   assert.match(backupIssues({ ...fresh, ok: false }, now).join(), /failed/);
   assert.match(backupIssues({ ...fresh, checkedAt: "2026-09-07T21:00:00Z" }, now).join(), /36 hours/);
   assert.match(backupIssues(null, now).join(), /heartbeat/);
+});
+
+test("a short gap in disk metrics is not an outage; an hour-long one is", () => {
+  // 2026-09-26: Supabase's metrics endpoint went quiet for ~10 minutes while the
+  // database stayed healthy, and this paged as "backend needs attention".
+  const probes = healthy();
+  probes.database.data.resources = null;
+  probes.database.data.resource_error = "Disk resource metrics unavailable";
+  const start = 1_000_000;
+
+  const since = nextDiskUnavailableSince(probes, null, start);
+  assert.equal(since, start);
+  assert.deepEqual(assess(probes, null, { diskUnavailableSince: since, now: start + 10 * 60_000 }), []);
+  assert.deepEqual(assess(probes, null, { diskUnavailableSince: since, now: start + DISK_METRICS_GRACE_MS - 1 }), []);
+  assert.match(
+    assess(probes, null, { diskUnavailableSince: since, now: start + DISK_METRICS_GRACE_MS }).join("\n"),
+    /Disk resource monitoring unavailable for over an hour/,
+  );
+});
+
+test("the disk-gap clock starts once, clears on recovery, and ignores database outages", () => {
+  const missing = healthy();
+  missing.database.data.resources = null;
+  assert.equal(nextDiskUnavailableSince(missing, 500, 900), 500);    // keeps the original start
+  assert.equal(nextDiskUnavailableSince(healthy(), 500, 900), null); // readings back -> cleared
+  const dbDown = { ...healthy(), database: { ok: false, status: 503 } };
+  assert.equal(nextDiskUnavailableSince(dbDown, 500, 900), 500);     // outage neither starts nor clears it
+  assert.equal(nextDiskUnavailableSince(dbDown, null, 900), null);
+  assert.match(assess(dbDown).join("\n"), /database: HTTP 503/);     // a real outage still counts at once
 });
