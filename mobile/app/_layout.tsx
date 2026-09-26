@@ -9,6 +9,7 @@ import { makeQueryClient } from "@/lib/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { applyUpdateOnLaunch } from "@/lib/apply-update-on-launch";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -16,14 +17,21 @@ SplashScreen.preventAutoHideAsync();
 
 function RootStack() {
   const { loading } = useAuth();
+  // Held behind the splash until any waiting OTA update is applied, so a fix
+  // published to EAS reaches the user on this launch rather than the next.
+  const [updateChecked, setUpdateChecked] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
+    applyUpdateOnLaunch().finally(() => setUpdateChecked(true));
+  }, []);
+
+  useEffect(() => {
+    if (!loading && updateChecked) {
       SplashScreen.hideAsync();
     }
-  }, [loading]);
+  }, [loading, updateChecked]);
 
-  if (loading) return null;
+  if (loading || !updateChecked) return null;
 
   return (
     <Stack
