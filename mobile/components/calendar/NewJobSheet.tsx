@@ -15,11 +15,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
-// The customer/boat dropdowns scroll INSIDE the sheet's own scroll view. A
-// react-native ScrollView there loses its drag to the sheet's pan gesture;
-// gesture-handler's ScrollView registers its own gesture and cooperates.
-import { ScrollView as GHScrollView } from "react-native-gesture-handler";
+import BottomSheet, { BottomSheetScrollView, BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { addHours, parseISO, format as fmtDate } from "date-fns";
@@ -75,6 +71,7 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
     const [customerId, setCustomerId] = useState<string | null>(null);
     const [boatId, setBoatId] = useState<string | null>(null);
     const [showCustomerPicker, setShowCustomerPicker] = useState(false);
+    const [customerSearch, setCustomerSearch] = useState("");
     const [showBoatPicker, setShowBoatPicker] = useState(false);
 
     const isPaperwork = kind === "paperwork";
@@ -160,6 +157,7 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
         setCustomerId(null);
         setBoatId(null);
         setShowCustomerPicker(false);
+        setCustomerSearch("");
         setShowBoatPicker(false);
         sheetRef.current?.snapToIndex(0);
       },
@@ -324,23 +322,44 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
                 </Text>
                 <Text style={styles.pickerChevron}>{showCustomerPicker ? "▴" : "▾"}</Text>
               </Pressable>
+              {/*
+                No inner scroller. A scroll list nested inside the sheet's own
+                BottomSheetScrollView fights the sheet's pan gesture — first as a
+                capped View whose overflow drew over the BOAT field, then as a
+                nested ScrollView that still could not be dragged. The list now
+                renders in full and scrolls WITH the sheet (the same pattern the
+                Service form's client picker uses), and a search box keeps it
+                short. BottomSheetTextInput keeps the sheet above the keyboard.
+              */}
               {showCustomerPicker && (
-                <GHScrollView
-                  style={styles.pickerList}
-                  nestedScrollEnabled
-                  keyboardShouldPersistTaps="handled"
-                  testID="new-job-customer-list"
-                >
+                <BottomSheetTextInput
+                  style={styles.pickerSearch}
+                  placeholder="Search clients…"
+                  placeholderTextColor="#8892A5"
+                  value={customerSearch}
+                  onChangeText={setCustomerSearch}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  testID="new-job-customer-search"
+                />
+              )}
+              {showCustomerPicker && (
+                <View style={styles.pickerList} testID="new-job-customer-list">
                   {customersQuery.isLoading && (
                     <ActivityIndicator color="#C9A96E" style={{ padding: 12 }} />
                   )}
-                  {customersQuery.data?.map((c) => (
+                  {customersQuery.data
+                    ?.filter((c) =>
+                      c.name.toLowerCase().includes(customerSearch.trim().toLowerCase())
+                    )
+                    .map((c) => (
                     <Pressable
                       key={c.id}
                       onPress={() => {
                         setCustomerId(c.id);
                         setBoatId(null);   // clear any prior boat (was a useEffect)
                         setShowCustomerPicker(false);
+                        setCustomerSearch("");
                       }}
                       style={styles.pickerItem}
                       testID={`customer-${c.id}`}
@@ -351,7 +370,12 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
                   {customersQuery.data?.length === 0 && (
                     <Text style={styles.pickerEmpty}>No customers in your location yet</Text>
                   )}
-                </GHScrollView>
+                  {!!customersQuery.data?.length &&
+                    !!customerSearch.trim() &&
+                    !customersQuery.data.some((c) =>
+                      c.name.toLowerCase().includes(customerSearch.trim().toLowerCase())
+                    ) && <Text style={styles.pickerEmpty}>No clients match “{customerSearch.trim()}”</Text>}
+                </View>
               )}
 
               {/* Boat picker */}
@@ -371,12 +395,7 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
                 <Text style={styles.pickerChevron}>{showBoatPicker ? "▴" : "▾"}</Text>
               </Pressable>
               {showBoatPicker && customerId && (
-                <GHScrollView
-                  style={styles.pickerList}
-                  nestedScrollEnabled
-                  keyboardShouldPersistTaps="handled"
-                  testID="new-job-boat-list"
-                >
+                <View style={styles.pickerList} testID="new-job-boat-list">
                   {boatsQuery.isLoading && (
                     <ActivityIndicator color="#C9A96E" style={{ padding: 12 }} />
                   )}
@@ -398,7 +417,7 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
                   {boatsQuery.data?.length === 0 && (
                     <Text style={styles.pickerEmpty}>No boats on this customer</Text>
                   )}
-                </GHScrollView>
+                </View>
               )}
             </>
           )}
@@ -566,20 +585,29 @@ const styles = StyleSheet.create({
   pickerRowDisabled: { opacity: 0.5 },
   pickerValue: { color: "#f1f5f9", fontSize: 15, flex: 1, marginRight: 8 },
   pickerChevron: { color: "#8892A5", fontSize: 12 },
-  // Was a plain View with maxHeight: 200. A View neither scrolls nor clips on
-  // iOS, so only ~5 rows fit the box and every row after them drew on top of
-  // the BOAT field below — visible, but not scrollable and not reliably
-  // tappable. It is now a scroll container, and overflow is clipped so rows
-  // can never paint outside the box again.
+  // Deliberately NO maxHeight. A capped box inside the sheet either paints its
+  // overflow over the fields below (a View) or needs a nested scroller that
+  // fights the sheet's pan gesture (a ScrollView). Uncapped, the list is part
+  // of the sheet's own scroll content, and the search box keeps it short.
   pickerList: {
     marginTop: 4,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: "#1a2236",
     borderRadius: 6,
-    maxHeight: 260,
     overflow: "hidden",
     backgroundColor: "#060a12",
+  },
+  pickerSearch: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#1a2236",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#f1f5f9",
+    fontSize: 14,
+    backgroundColor: "#0c1220",
   },
   pickerItem: {
     paddingVertical: 10,
