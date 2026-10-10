@@ -269,6 +269,10 @@ export default function JobsScreen() {
       </View>
 
       <SectionList
+        // With the search keyboard up, the default ("never") spends the first
+        // tap on a job dismissing the keyboard instead of opening it.
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}

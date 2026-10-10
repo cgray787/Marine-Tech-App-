@@ -184,7 +184,18 @@ export const NewJobSheet = forwardRef<NewJobSheetHandle, Props>(
         backgroundStyle={{ backgroundColor: "#0d1320" }}
         handleIndicatorStyle={{ backgroundColor: "#8892A5" }}
       >
-        <BottomSheetScrollView contentContainerStyle={styles.body}>
+        {/*
+          keyboardShouldPersistTaps="handled" is load-bearing. The default
+          ("never") spends the first tap while the keyboard is open on
+          dismissing it — so after typing in "Search clients…", tapping a
+          client only closed the keyboard and selected nothing. That is why
+          the dropdown "stopped working" once the search box was added.
+        */}
+        <BottomSheetScrollView
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           <Text style={styles.heading}>
             {isPaperwork ? "New paperwork block" : "Schedule a job"}
           </Text>
