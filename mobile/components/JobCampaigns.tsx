@@ -18,6 +18,7 @@ import {
   saveCampaignWork,
   uploadCampaignPhoto,
   completeCampaign,
+  CampaignPhotoPendingError,
   completionBlocker,
   pendingPhotoUris,
   num,
@@ -35,8 +36,10 @@ import {
  * it writes to the same campaign_log and report_photos rows the dashboard and
  * portal read, so a photo taken at the boat shows up for the office immediately.
  */
-export function JobCampaigns({ jobId }: { jobId: string }) {
-  const { isOnline } = useOffline();
+// readOnly: viewers — RLS (profile_can_write, 060) rejects their writes, so a
+// viewer's campaign photo used to sit "queued" forever.
+export function JobCampaigns({ jobId, readOnly = false }: { jobId: string; readOnly?: boolean }) {
+  const { isOnline, syncNow } = useOffline();
   const [entries, setEntries] = useState<CampaignEntry[] | null>(null);
   const [photos, setPhotos] = useState<Record<string, CampaignPhoto[]>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -159,9 +162,19 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
         );
         return;
       }
+      // Push any queued photos first; completion now requires one on the server.
+      if ((queued[entry.id] ?? []).length > 0) await syncNow();
       await completeCampaign(entry.id);
       await load();
-    } catch {
+    } catch (err) {
+      if (err instanceof CampaignPhotoPendingError) {
+        Alert.alert(
+          "Photo still uploading",
+          "Your photo is saved on this phone but hasn't reached the office yet. Try again in a moment, once it finishes uploading."
+        );
+        await load();
+        return;
+      }
       Alert.alert("Could not complete", "Check your signal and try again.");
     } finally {
       setBusy(null);
@@ -268,6 +281,7 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
                     </View>
                   ))}
                 </View>
+                {!readOnly && (
                 <TouchableOpacity
                   onPress={() => addPhoto(e)}
                   disabled={busy === e.id || done}
@@ -278,11 +292,12 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
                     {busy === e.id ? "Uploading…" : shots.length ? "📷  Add another photo" : "📷  Take a photo"}
                   </Text>
                 </TouchableOpacity>
+                )}
 
                 <Text style={styles.fieldLabel}>CONDITIONS FOUND</Text>
                 <TextInput
                   multiline
-                  editable={!done}
+                  editable={!done && !readOnly}
                   value={d.notes}
                   onChangeText={(v) =>
                     setDrafts((prev) => ({ ...prev, [e.id]: { ...d, notes: v } }))
@@ -303,7 +318,7 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
                   <View style={styles.hoursCell}>
                     <Text style={styles.fieldLabel}>YOUR HOURS</Text>
                     <TextInput
-                      editable={!done}
+                      editable={!done && !readOnly}
                       keyboardType="decimal-pad"
                       value={d.hours}
                       onChangeText={(v) =>
@@ -317,7 +332,7 @@ export function JobCampaigns({ jobId }: { jobId: string }) {
                   </View>
                 </View>
 
-                {!done && (
+                {!done && !readOnly && (
                   <>
                     <TouchableOpacity
                       onPress={() => markDone(e)}
