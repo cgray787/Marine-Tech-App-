@@ -206,6 +206,10 @@ export function JobEditor({
         assigned_to: assignedTo || null,
         marina_id: marinaId || null,
         scheduled_start: startIso,
+        // Keep the legacy date in step: the dashboard's Recent Jobs, the
+        // client page, and the "needs scheduling" count all read it. Saving
+        // without it left a rescheduled job showing its OLD date.
+        scheduled_date: startIso ? dateStr : null,
         scheduled_end: endIso,
         scheduled_end_date: endDateCol,
       })
