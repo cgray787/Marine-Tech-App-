@@ -96,13 +96,25 @@ export function replayId(table: string, recordId: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
-/** Insert a parent row at most once, however many times the queue retries it. */
+/**
+ * Insert a row at most once, however many times the queue retries it.
+ *
+ * `seedKey` MUST be unique per row. For most queue entries that is the
+ * record_id minted per row at enqueue (generateId()). It is NOT for
+ * campaign_photos and job_photos: their record_id is the shared
+ * campaignLogId / jobId, identical for every photo of one entry. Seeding those
+ * on record_id alone would give every photo the same id and ON CONFLICT DO
+ * NOTHING would silently keep only the first — so callers append the photo's
+ * on-device local_uri, which is unique per photo and stable across retries.
+ * `seedTable` namespaces the seed (several queue types write report_photos).
+ */
 async function insertOnce(
-  table: "jobs" | "service_reports" | "pdi_reports",
-  recordId: string,
-  row: Record<string, unknown>
+  table: "jobs" | "service_reports" | "pdi_reports" | "checklist_items" | "pdi_checklist_items" | "report_photos" | "parts",
+  seedKey: string,
+  row: Record<string, unknown>,
+  seedTable: string = table
 ): Promise<{ id: string; error: { message: string } | null }> {
-  const id = replayId(table, recordId);
+  const id = replayId(seedTable, seedKey);
   const { error } = await supabase
     .from(table)
     .upsert({ id, ...row }, { onConflict: "id", ignoreDuplicates: true });
@@ -221,7 +233,7 @@ async function processSyncItem(
           return false;
         }
 
-        const { error } = await supabase.from("checklist_items").insert({
+        const { error } = await insertOnce("checklist_items", item.record_id, {
           report_id: realReportId,
           category: payload.category,
           item_name: payload.item_name,
@@ -250,7 +262,7 @@ async function processSyncItem(
           return false;
         }
 
-        const { error } = await supabase.from("pdi_checklist_items").insert({
+        const { error } = await insertOnce("pdi_checklist_items", item.record_id, {
           pdi_report_id: realReportId,
           category: payload.category,
           item_name: payload.item_name,
@@ -290,7 +302,7 @@ async function processSyncItem(
           return false;
         }
 
-        const { error } = await supabase.from("report_photos").insert({
+        const { error } = await insertOnce("report_photos", item.record_id, {
           ...(payload.bucket === "pdi-photos" ? { pdi_report_id: realReportId } : { report_id: realReportId }),
           photo_url: photoUrl,
           category: payload.category,
@@ -318,12 +330,13 @@ async function processSyncItem(
           await markFailed(item.id, "Campaign photo upload failed");
           return false;
         }
-        const { error } = await supabase.from("report_photos").insert({
+        // record_id here is the shared campaignLogId — seed per photo via local_uri.
+        const { error } = await insertOnce("report_photos", `${item.record_id}:${payload.local_uri}`, {
           campaign_log_id: payload.campaign_log_id,
           photo_url: photoUrl,
           category: "campaign",
           caption: payload.caption,
-        });
+        }, "campaign_photos");
         if (error) {
           console.error("[Sync] Campaign photo insert error:", error);
           await markFailed(item.id, error.message);
@@ -342,12 +355,13 @@ async function processSyncItem(
           await markFailed(item.id, "Job photo upload failed");
           return false;
         }
-        const { error } = await supabase.from("report_photos").insert({
+        // record_id here is the shared jobId — seed per photo via local_uri.
+        const { error } = await insertOnce("report_photos", `${item.record_id}:${payload.local_uri}`, {
           job_id: payload.job_id,
           photo_url: photoUrl,
           category: "work_area",
           caption: payload.caption,
-        });
+        }, "job_photos");
         if (error) {
           console.error("[Sync] Job photo insert error:", error);
           await markFailed(item.id, error.message);
@@ -385,7 +399,7 @@ async function processSyncItem(
           if (!photoUrl) { await markFailed(item.id, "Parts photo upload failed"); return false; }
         }
 
-        const { error } = await supabase.from("parts").insert({
+        const { error } = await insertOnce("parts", item.record_id, {
           service_report_id: realReportId,
           name: payload.name,
           part_number: payload.partNum || null,

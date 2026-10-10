@@ -23,12 +23,12 @@ it('marks a malformed queue entry failed and continues with later entries', asyn
 });
 it('links an offline PDI photo to the PDI foreign key', async () => {
   mocks.pending = [item('report_photos', { _offline_report_id: 'pdi-1', bucket: 'pdi-photos', local_uri: 'file://photo.jpg' })];
-  await syncAll(); expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ pdi_report_id: 'pdi-1' }));
-  expect(mocks.insert.mock.calls[0][0]).not.toHaveProperty('report_id');
+  await syncAll(); expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({ pdi_report_id: 'pdi-1' }), { onConflict: 'id', ignoreDuplicates: true });
+  expect(mocks.upsert.mock.calls[0][0]).not.toHaveProperty('report_id');
 });
 it('retains a parts entry if its photo upload fails', async () => {
   mocks.pending = [item('parts', { service_report_id: 'report-1', photoUri: 'file://part.jpg' })]; mocks.upload.mockResolvedValue({ error: { message: 'offline' } });
-  expect(await syncAll()).toMatchObject({ synced: 0, failed: 1 }); expect(mocks.insert).not.toHaveBeenCalled();
+  expect(await syncAll()).toMatchObject({ synced: 0, failed: 1 }); expect(mocks.upsert).not.toHaveBeenCalled();
 });
 it('preserves scheduling fields from an offline service job', async () => {
   const schedule = { scheduled_start: '2026-09-22T16:00:00Z', scheduled_end: '2026-09-24T00:00:00Z', scheduled_date: '2026-09-22', scheduled_end_date: '2026-09-23', service_descriptions: { Oil: 'Change filters' } };
@@ -58,5 +58,32 @@ it('gives different queued records different ids, and is deterministic', () => {
 });
 it('coalesces concurrent sync requests into a single replay', async () => {
   mocks.pending = [item('checklist_items', { report_id: 'report-1' })];
-  const a = syncAll(); const b = syncAll(); expect(a).toBe(b); await Promise.all([a,b]); expect(mocks.insert).toHaveBeenCalledOnce();
+  const a = syncAll(); const b = syncAll(); expect(a).toBe(b); await Promise.all([a,b]); expect(mocks.upsert).toHaveBeenCalledOnce();
+});
+// Child rows: a retried checklist item or part (e.g. a duplicated parts row
+// would mean ordering the same part twice) must reuse its id too.
+it('replays a retried checklist item and part with the SAME id', async () => {
+  for (const table of ['checklist_items', 'parts']) {
+    mocks.upsert.mockReset().mockResolvedValueOnce({ error: { message: 'lost' } }).mockResolvedValue({ error: null });
+    mocks.pending = [item(table, { report_id: 'report-1', service_report_id: 'report-1' })];
+    await syncAll(); await syncAll();
+    const [first, second] = mocks.upsert.mock.calls.map((c) => c[0].id);
+    expect(second).toBe(first);
+  }
+});
+// THE TRAP: job_photos / campaign_photos queue every photo of one job under the
+// SAME record_id (the jobId / campaignLogId). Seeding on record_id alone would
+// give all photos one id and ON CONFLICT DO NOTHING would keep only the first.
+it('gives two photos queued under one job DIFFERENT ids, so neither is dropped', async () => {
+  for (const table of ['job_photos', 'campaign_photos']) {
+    mocks.upsert.mockReset().mockResolvedValue({ error: null });
+    mocks.pending = [
+      { ...item(table, { job_id: 'job-1', campaign_log_id: 'log-1', local_uri: 'file://a.jpg' }, 1), record_id: 'job-1' },
+      { ...item(table, { job_id: 'job-1', campaign_log_id: 'log-1', local_uri: 'file://b.jpg' }, 2), record_id: 'job-1' },
+    ];
+    await syncAll();
+    const ids = mocks.upsert.mock.calls.map((c) => c[0].id);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
+  }
 });
