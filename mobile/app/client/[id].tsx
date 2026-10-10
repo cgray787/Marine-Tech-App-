@@ -816,7 +816,7 @@ export default function ClientDetailScreen() {
                   </Text>
                   {pdi.submitted_at && (
                     <Text style={styles.pdiDate}>
-                      {formatDate(pdi.submitted_at.split("T")[0])}
+                      {new Date(pdi.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </Text>
                   )}
                 </View>
