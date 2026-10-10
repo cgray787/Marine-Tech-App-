@@ -148,12 +148,16 @@ export default function JobDetailScreen() {
       if (otherJobsData) setOtherJobs(otherJobsData as OtherJob[]);
     }
 
-    // Fetch service report for this job
+    // Fetch service report for this job. Newest wins, never .single():
+    // service_reports.job_id has no unique constraint, and .single() returns
+    // null data on 2+ rows, which made the report vanish from this screen.
     const { data: reportData } = await supabase
       .from("service_reports")
       .select("*")
       .eq("job_id", id)
-      .single();
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (reportData) {
       setReport(reportData);

@@ -1,4 +1,18 @@
 import { format, parseISO } from "date-fns";
+
+/**
+ * The calendar day a job starts on, in the PHONE's timezone (yyyy-MM-dd).
+ *
+ * scheduledStart is a UTC ISO string (start.toISOString()), so slicing its
+ * first 10 chars gave the UTC date: a job picked for Mon Sep 28 at 6:00 PM in
+ * Seattle is 2026-09-29T01:00Z, and scheduled_date became "2026-09-29". Every
+ * job starting at/after 5 PM (4 PM in winter) showed TOMORROW's date on Job
+ * Details and in client history, while the calendar showed the right day.
+ * Matches lib/calendar/spans.ts jobDays(), whose first day is also local.
+ */
+export function localScheduledDate(scheduledStart: string): string {
+  return format(parseISO(scheduledStart), "yyyy-MM-dd");
+}
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CalendarJob, JobKind, JobStatus } from './types';
 
@@ -104,7 +118,7 @@ export async function createJob(supabase: SupabaseClient, input: CreateJobInput)
     assigned_to: input.assignedTo ?? null,
     scheduled_start: input.scheduledStart ?? null,
     scheduled_end: input.scheduledEnd ?? null,
-    scheduled_date: input.scheduledStart ? input.scheduledStart.slice(0, 10) : null,
+    scheduled_date: input.scheduledStart ? localScheduledDate(input.scheduledStart) : null,
     scheduled_end_date: input.scheduledEndDate ?? null,
     day_locations: input.dayLocations ?? {},
     service_types: input.serviceTypes ?? [],
@@ -129,7 +143,7 @@ export async function updateJob(supabase: SupabaseClient, input: UpdateJobInput)
   if ('assignedTo' in rest) payload.assigned_to = rest.assignedTo;
   if ('scheduledStart' in rest) {
     payload.scheduled_start = rest.scheduledStart;
-    payload.scheduled_date = rest.scheduledStart ? rest.scheduledStart.slice(0, 10) : null;
+    payload.scheduled_date = rest.scheduledStart ? localScheduledDate(rest.scheduledStart) : null;
   }
   if ('scheduledEnd' in rest) payload.scheduled_end = rest.scheduledEnd;
   if ('scheduledEndDate' in rest) payload.scheduled_end_date = rest.scheduledEndDate;

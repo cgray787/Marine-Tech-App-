@@ -277,11 +277,17 @@ export default function ServiceScreen() {
           setScheduledStart(new Date(jobData.scheduled_start as string));
         }
 
+        // Newest wins, never .single(). With 2+ reports on a job, .single()
+        // returned null, so editReportId stayed null, the form loaded blank,
+        // and saving fell through to INSERT — adding another duplicate on
+        // every edit (service_reports.job_id has no unique constraint).
         const { data: reportData } = await supabase
           .from("service_reports")
           .select("id, hin, marina, general_notes")
           .eq("job_id", editJobId)
-          .single();
+          .order("submitted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
         const { data: items } = reportData
           ? await supabase
@@ -723,7 +729,10 @@ export default function ServiceScreen() {
         // Clear existing checklist items, photos, and parts — we re-insert from state.
         await supabase.from("checklist_items").delete().eq("report_id", reportId);
         await supabase.from("report_photos").delete().eq("report_id", reportId);
-        await supabase.from("parts").delete().eq("service_report_id", reportId);
+        // Parts are NOT deleted here. Edit mode never loads them into the form,
+        // so delete-then-persistParts wiped every part on the report (incl. ones
+        // the office had marked Ordered). persistParts appends only the parts
+        // added during this edit; existing rows keep status and notified_at.
       } else {
         const { data: newReport, error: reportErr } = await supabase
           .from("service_reports")
