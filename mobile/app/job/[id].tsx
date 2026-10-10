@@ -491,11 +491,11 @@ export default function JobDetailScreen() {
       {/* Work-area photos. The common path here is the calendar — tap a job,
           Open job, and shoot what is in front of you. Same rows the dashboard
           and portal read. */}
-      <JobPhotos jobId={String(id)} />
+      <JobPhotos jobId={String(id)} readOnly={profile?.role === "viewer"} />
 
       {/* Service campaigns — attached by the office, worked here. Instructions,
           photos and findings all live on the same rows the dashboard reads. */}
-      <JobCampaigns jobId={String(id)} />
+      <JobCampaigns jobId={String(id)} readOnly={profile?.role === "viewer"} />
 
       {/* Service notes — per-service descriptions */}
       {(() => {

@@ -30,7 +30,9 @@ import {
  * dashboard job page and the portal read. A photo taken here shows up for the
  * office without anything being copied or synced between systems.
  */
-export function JobPhotos({ jobId }: { jobId: string }) {
+// readOnly: viewers. Their photo rows are rejected by RLS (profile_can_write,
+// migration 060) after the file uploads, so the photo sat "queued" forever.
+export function JobPhotos({ jobId, readOnly = false }: { jobId: string; readOnly?: boolean }) {
   const { isOnline } = useOffline();
   const [photos, setPhotos] = useState<JobPhoto[] | null>(null);
   const [queued, setQueued] = useState<string[]>([]);
@@ -135,7 +137,7 @@ export function JobPhotos({ jobId }: { jobId: string }) {
               {(photos ?? []).map((p) => (
                 <TouchableOpacity
                   key={p.id}
-                  onLongPress={() => confirmDelete(p)}
+                  onLongPress={readOnly ? undefined : () => confirmDelete(p)}
                   delayLongPress={500}
                   activeOpacity={0.8}
                 >
@@ -151,10 +153,11 @@ export function JobPhotos({ jobId }: { jobId: string }) {
             </View>
           )}
 
-          {total > 0 && (
+          {total > 0 && !readOnly && (
             <Text style={styles.helpText}>Press and hold a photo to remove it.</Text>
           )}
 
+          {!readOnly && (
           <View style={styles.actions}>
             <TouchableOpacity
               onPress={() => shoot(false)}
@@ -175,6 +178,7 @@ export function JobPhotos({ jobId }: { jobId: string }) {
               <Text style={styles.libraryText}>Library</Text>
             </TouchableOpacity>
           </View>
+          )}
 
           {queued.length > 0 && (
             <Text style={styles.queuedNote}>
