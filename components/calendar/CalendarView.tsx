@@ -34,7 +34,7 @@ export function CalendarView({ jobs, view, date, onNavigate, onView, onSelectJob
           // end-of-day on scheduled_end_date. Single-day jobs keep their real
           // scheduled_end (or a +1h fallback). scheduled_end_date is a date-only
           // 'yyyy-MM-dd' string; the day part of scheduled_start is its first day.
-          const startDay = j.scheduledStart!.slice(0, 10);
+          const startDay = format(start, 'yyyy-MM-dd'); // local day, like jobDays
           const isMultiDay = !!j.scheduledEndDate && j.scheduledEndDate > startDay;
           const end = isMultiDay
             ? // End-of-day local on the last spanned date so the bar covers it.

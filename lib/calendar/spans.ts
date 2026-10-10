@@ -1,3 +1,4 @@
+import { format, parseISO } from 'date-fns';
 import type { CalendarJob } from './types';
 
 /** Hard cap so a bad/huge scheduled_end_date can never spin the day loop. */
@@ -16,7 +17,7 @@ export function jobDays(
   job: Pick<CalendarJob, 'scheduledStart' | 'scheduledEndDate'>,
 ): string[] {
   if (!job.scheduledStart) return [];
-  const start = job.scheduledStart.slice(0, 10);
+  const start = format(parseISO(job.scheduledStart), 'yyyy-MM-dd');
   const end =
     job.scheduledEndDate && job.scheduledEndDate > start ? job.scheduledEndDate : start;
   if (end === start) return [start];

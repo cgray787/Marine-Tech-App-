@@ -19,7 +19,7 @@ import { QuickBooksButton } from "./quickbooks-button";
 
 type Props = {
   wo: WorkOrderFull;
-  customers: { id: string; name: string; email: string | null; phone: string | null }[];
+  customers: { id: string; name: string; email: string | null; phone: string | null; location_id: string | null }[];
   boats: { id: string; name: string; make_model: string | null; customer_id: string }[];
   priceLevels: PriceLevel[];
   templates: JobTemplate[];
@@ -143,9 +143,17 @@ export function WOEditor({
               <select
                 disabled={!canEdit}
                 value={wo.customer_id}
-                onChange={(e) =>
-                  patchWO({ customer_id: e.target.value, boat_id: null })
-                }
+                onChange={(e) => {
+                  // A WO belongs to its customer's office (see createWorkOrder).
+                  // Without moving location_id, a WO switched to a Sausalito
+                  // client stayed filed under Seattle and Sausalito couldn't see it.
+                  const next = customers.find((c) => c.id === e.target.value);
+                  patchWO({
+                    customer_id: e.target.value,
+                    boat_id: null,
+                    ...(next?.location_id ? { location_id: next.location_id } : {}),
+                  });
+                }}
                 className="w-full rounded-lg border border-border-line bg-secondary-bg px-3 py-2 text-sm text-text-primary disabled:opacity-60"
               >
                 {/* Only show placeholder when no customer is selected — prevents patching empty string into NOT NULL column (#7) */}

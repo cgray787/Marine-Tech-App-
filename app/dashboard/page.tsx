@@ -68,11 +68,19 @@ export default async function DashboardPage() {
         .order("created_at", { ascending: false })
         .limit(5);
 
-  let partsQ = supabase
-    .from("parts")
-    .select("id, name, customer_id, boat_id, part_number, quantity, description, supplier, url, photo_url, status, ordered_at, customers:customer_id(name), boats:boat_id(name)")
-    .order("created_at", { ascending: false });
-  if (loc) partsQ = partsQ.eq("location_id", loc);
+  // parts has no location_id column (filtering on it errored, and the
+  // swallowed error emptied this section whenever an office was picked).
+  // A part's office is its customer's, as RLS (migration 028) also treats it.
+  const partsQ = loc
+    ? supabase
+        .from("parts")
+        .select("id, name, customer_id, boat_id, part_number, quantity, description, supplier, url, photo_url, status, ordered_at, customers:customer_id!inner(name, location_id), boats:boat_id(name)")
+        .eq("customers.location_id", loc)
+        .order("created_at", { ascending: false })
+    : supabase
+        .from("parts")
+        .select("id, name, customer_id, boat_id, part_number, quantity, description, supplier, url, photo_url, status, ordered_at, customers:customer_id(name), boats:boat_id(name)")
+        .order("created_at", { ascending: false });
 
   // Fetch stats in parallel
   const [

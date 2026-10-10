@@ -170,6 +170,13 @@ export function JobEditor({
   }
 
   async function handleSave() {
+    // A date with no time made combineLocalToIso return null, so Save wrote
+    // scheduled_start = null — silently UNSCHEDULING the job — and still
+    // flashed "Saved". (An unscheduled job opens with an empty time box.)
+    if (dateStr && !timeStr) {
+      setSaveError("Pick a start time.");
+      return;
+    }
     setSaving(true);
     setSaveError("");
     const startIso = combineLocalToIso(dateStr, timeStr);
@@ -206,6 +213,10 @@ export function JobEditor({
         assigned_to: assignedTo || null,
         marina_id: marinaId || null,
         scheduled_start: startIso,
+        // Keep the legacy date in step: the dashboard's Recent Jobs, the
+        // client page, and the "needs scheduling" count all read it. Saving
+        // without it left a rescheduled job showing its OLD date.
+        scheduled_date: startIso ? dateStr : null,
         scheduled_end: endIso,
         scheduled_end_date: endDateCol,
       })

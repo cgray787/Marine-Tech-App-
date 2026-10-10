@@ -183,7 +183,7 @@ export async function createJob(supabase: SupabaseClient, input: CreateJobInput)
     assigned_to: input.assignedTo ?? null,
     scheduled_start: input.scheduledStart ?? null,
     scheduled_end: input.scheduledEnd ?? null,
-    scheduled_date: input.scheduledStart ? input.scheduledStart.slice(0, 10) : null,
+    scheduled_date: input.scheduledStart ? format(parseISO(input.scheduledStart), 'yyyy-MM-dd') : null,
     scheduled_end_date: input.scheduledEndDate ?? null,
     day_locations: input.dayLocations ?? {},
     service_types: input.serviceTypes ?? [],
@@ -208,7 +208,7 @@ export async function updateJob(supabase: SupabaseClient, input: UpdateJobInput)
   if ('assignedTo' in rest) payload.assigned_to = rest.assignedTo;
   if ('scheduledStart' in rest) {
     payload.scheduled_start = rest.scheduledStart;
-    payload.scheduled_date = rest.scheduledStart ? rest.scheduledStart.slice(0, 10) : null;
+    payload.scheduled_date = rest.scheduledStart ? format(parseISO(rest.scheduledStart), 'yyyy-MM-dd') : null;
   }
   if ('scheduledEnd' in rest) payload.scheduled_end = rest.scheduledEnd;
   if ('scheduledEndDate' in rest) payload.scheduled_end_date = rest.scheduledEndDate;

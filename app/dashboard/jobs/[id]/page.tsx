@@ -114,7 +114,7 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
       .is("campaign_log_id", null)
       .order("created_at", { ascending: true }),
     supabase.from("parts")
-      .select("id, name, part_number, quantity, supplier, description, ordered, url")
+      .select("id, name, part_number, quantity, supplier, description, status, url")
       .eq("job_id", id)
       .order("created_at", { ascending: true }),
   ]);
@@ -359,9 +359,9 @@ export default async function JobDetailPage({ params }: { params: RouteParams })
                 {pt.part_number && <span className="font-mono text-xs text-text-secondary">{pt.part_number}</span>}
                 {pt.supplier && <span className="text-xs text-text-secondary">· {pt.supplier}</span>}
                 <span className={`ml-auto rounded px-2 py-0.5 text-[10px] font-semibold ${
-                  pt.ordered ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
+                  pt.status === "ordered" ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
                 }`}>
-                  {pt.ordered ? "ordered" : "need to order"}
+                  {pt.status === "ordered" ? "ordered" : "need to order"}
                 </span>
               </li>
             ))}
