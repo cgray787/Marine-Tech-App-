@@ -177,12 +177,12 @@ export function NewJobModal({ open, defaultStart, customers, boats, marinas, tec
               <Field label="Start">
                 <input className="modal-input" type="datetime-local"
                   value={format(start, "yyyy-MM-dd'T'HH:mm")}
-                  onChange={(e) => setStart(new Date(e.target.value))} />
+                  onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setStart(d); }} />
               </Field>
               <Field label="End">
                 <input className="modal-input" type="datetime-local"
                   value={format(end, "yyyy-MM-dd'T'HH:mm")}
-                  onChange={(e) => setEnd(new Date(e.target.value))} />
+                  onChange={(e) => { const d = new Date(e.target.value); if (!isNaN(d.getTime())) setEnd(d); }} />
               </Field>
             </div>
 
