@@ -729,7 +729,10 @@ export default function ServiceScreen() {
         // Clear existing checklist items, photos, and parts — we re-insert from state.
         await supabase.from("checklist_items").delete().eq("report_id", reportId);
         await supabase.from("report_photos").delete().eq("report_id", reportId);
-        await supabase.from("parts").delete().eq("service_report_id", reportId);
+        // Parts are NOT deleted here. Edit mode never loads them into the form,
+        // so delete-then-persistParts wiped every part on the report (incl. ones
+        // the office had marked Ordered). persistParts appends only the parts
+        // added during this edit; existing rows keep status and notified_at.
       } else {
         const { data: newReport, error: reportErr } = await supabase
           .from("service_reports")
