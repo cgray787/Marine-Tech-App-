@@ -277,11 +277,17 @@ export default function ServiceScreen() {
           setScheduledStart(new Date(jobData.scheduled_start as string));
         }
 
+        // Newest wins, never .single(). With 2+ reports on a job, .single()
+        // returned null, so editReportId stayed null, the form loaded blank,
+        // and saving fell through to INSERT — adding another duplicate on
+        // every edit (service_reports.job_id has no unique constraint).
         const { data: reportData } = await supabase
           .from("service_reports")
           .select("id, hin, marina, general_notes")
           .eq("job_id", editJobId)
-          .single();
+          .order("submitted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
         const { data: items } = reportData
           ? await supabase
