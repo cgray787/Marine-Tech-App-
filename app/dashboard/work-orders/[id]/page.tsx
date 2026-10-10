@@ -10,7 +10,7 @@ export default async function WorkOrderPage({ params }: { params: Promise<{ id: 
   let wo;
   try { wo = await fetchWorkOrderFull(supabase, id); } catch { notFound(); }
   const [{ data: customers }, { data: boats }, { data: priceLevels }, { data: templates }, { data: settings }, { data: staff }] = await Promise.all([
-    supabase.from("customers").select("id, name, email, phone").order("name"),
+    supabase.from("customers").select("id, name, email, phone, location_id").order("name"),
     supabase.from("boats").select("id, name, make_model, customer_id").order("name"),
     supabase.from("price_levels").select("*").eq("active", true).order("name"),
     supabase.from("job_templates").select("*").eq("active", true).order("name"),
