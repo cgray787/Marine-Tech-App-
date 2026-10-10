@@ -239,6 +239,21 @@ export default function JobDetailScreen() {
               Alert.alert("Error", reportErr.message);
               return;
             }
+            // Job photos: report_photos.job_id is ON DELETE SET NULL (043), so
+            // deleting the job left them as parentless rows no one but admins
+            // could see. Remove them (the dialog promises it). Campaign photos
+            // are warranty evidence and are deliberately left alone.
+            const { error: photoErr } = await supabase
+              .from("report_photos")
+              .delete()
+              .eq("job_id", id)
+              .is("report_id", null)
+              .is("campaign_log_id", null);
+            if (photoErr) {
+              setDeleting(false);
+              Alert.alert("Error", photoErr.message);
+              return;
+            }
             const { error: jobErr } = await supabase
               .from("jobs")
               .delete()
@@ -491,11 +506,11 @@ export default function JobDetailScreen() {
       {/* Work-area photos. The common path here is the calendar — tap a job,
           Open job, and shoot what is in front of you. Same rows the dashboard
           and portal read. */}
-      <JobPhotos jobId={String(id)} />
+      <JobPhotos jobId={String(id)} readOnly={profile?.role === "viewer"} />
 
       {/* Service campaigns — attached by the office, worked here. Instructions,
           photos and findings all live on the same rows the dashboard reads. */}
-      <JobCampaigns jobId={String(id)} />
+      <JobCampaigns jobId={String(id)} readOnly={profile?.role === "viewer"} />
 
       {/* Service notes — per-service descriptions */}
       {(() => {

@@ -124,10 +124,11 @@ export async function uploadCampaignPhoto(
     .toString(36)
     .slice(2, 8)}.jpg`;
 
-  const response = await fetch(localUri);
-  const arrayBuffer = await response.arrayBuffer();
-
   try {
+    // Inside the try: a file-read failure used to escape the queue fallback,
+    // reject unhandled in addPhoto, and the photo silently vanished.
+    const response = await fetch(localUri);
+    const arrayBuffer = await response.arrayBuffer();
     const { error: uploadError } = await supabase.storage
       .from("report-photos")
       .upload(fileName, arrayBuffer, { contentType: "image/jpeg" });
@@ -156,6 +157,14 @@ export async function uploadCampaignPhoto(
   }
 }
 
+/** Completion refused because no campaign photo has reached the server yet. */
+export class CampaignPhotoPendingError extends Error {
+  constructor() {
+    super("The campaign photo hasn't finished uploading yet.");
+    this.name = "CampaignPhotoPendingError";
+  }
+}
+
 /**
  * Mark a campaign done. Requires a written finding and at least one photo — the
  * two things whose absence gets a warranty claim rejected.
@@ -164,6 +173,16 @@ export async function uploadCampaignPhoto(
  * the authenticated user, so it cannot be forgotten by a client or spoofed.
  */
 export async function completeCampaign(entryId: string): Promise<void> {
+  // The screen's gate counts photos still QUEUED on the phone, and nothing
+  // server-side checks — so a campaign could be completed with zero photos
+  // ever arriving (queue stuck, picker cache purged). Require a saved one.
+  const { count, error: countErr } = await supabase
+    .from("report_photos")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_log_id", entryId);
+  if (countErr) throw countErr;
+  if (!count) throw new CampaignPhotoPendingError();
+
   const { error } = await supabase
     .from("campaign_log")
     .update({ status: "completed", completed_at: new Date().toISOString() })

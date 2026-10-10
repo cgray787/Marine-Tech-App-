@@ -23,7 +23,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAuth } from "@/lib/auth-context";
 import { useOffline } from "@/lib/offline-context";
 import { supabase } from "@/lib/supabase";
-import { savePendingReport, savePendingParts } from "@/lib/offline-db";
+import { savePendingReport, savePendingParts, savePendingPhoto } from "@/lib/offline-db";
 import { colors } from "@/constants/Colors";
 import { SUPPLIERS } from "@/constants/Suppliers";
 
@@ -687,6 +687,9 @@ export default function ServiceScreen() {
 
     let reportId: string;
     let jobId: string;
+    // Edit mode: photo URLs already saved on the report. Those rows are kept
+    // as-is (caption, created_at) rather than deleted and re-inserted.
+    let savedPhotoUrls = new Set<string>();
 
     if (isEditing && editJobId) {
       // UPDATE existing job
@@ -726,9 +729,34 @@ export default function ServiceScreen() {
         }
         reportId = editReportId;
 
-        // Clear existing checklist items, photos, and parts — we re-insert from state.
+        // Checklist items are re-inserted from state.
         await supabase.from("checklist_items").delete().eq("report_id", reportId);
-        await supabase.from("report_photos").delete().eq("report_id", reportId);
+
+        // Photos: remove only the ones the tech removed. Deleting every row and
+        // re-inserting meant a signal drop mid-save lost all of the report's
+        // photos, and every edit wiped gallery captions and created_at.
+        const keptUrls = new Set(
+          [
+            ...galleryPhotos.map((p) => p.uri),
+            ...Object.values(checklist).flatMap((v) => (v.photos ?? []).map((p) => p.uri)),
+          ].filter((u) => /^https?:\/\//.test(u)),
+        );
+        const { data: savedRows, error: savedErr } = await supabase
+          .from("report_photos")
+          .select("id, photo_url")
+          .eq("report_id", reportId);
+        if (savedErr) {
+          Alert.alert("Error", savedErr.message);
+          setSubmitting(false);
+          return;
+        }
+        const removedIds = (savedRows ?? [])
+          .filter((r) => !keptUrls.has(r.photo_url))
+          .map((r) => r.id);
+        if (removedIds.length > 0) {
+          await supabase.from("report_photos").delete().in("id", removedIds);
+        }
+        savedPhotoUrls = new Set((savedRows ?? []).map((r) => r.photo_url));
         // Parts are NOT deleted here. Edit mode never loads them into the form,
         // so delete-then-persistParts wiped every part on the report (incl. ones
         // the office had marked Ordered). persistParts appends only the parts
@@ -825,56 +853,52 @@ export default function ServiceScreen() {
     // Upload all photos in parallel (checklist + gallery).
     // Track failures so we can surface them to the tech instead of silently
     // marking the report submitted with missing photos.
-    const photoUploads: Promise<{ ok: boolean }>[] = [];
+    type PhotoResult = { ok: boolean; queued?: boolean };
+    const photoUploads: Promise<PhotoResult>[] = [];
+
+    // A photo that fails to upload (weak marina signal while "online") goes to
+    // the offline queue, like the PDI form does. It used to be dropped: the
+    // form reset after "Success" and the tech had nothing left to re-add.
+    async function saveOrQueue(uri: string, category: string, caption?: string): Promise<PhotoResult> {
+      if (savedPhotoUrls.has(uri)) return { ok: true }; // already on the report
+      try {
+        const url = await uploadPhoto(uri, "report-photos", report.id, category);
+        if (url) {
+          const { error } = await supabase.from("report_photos").insert({
+            report_id: report.id,
+            photo_url: url,
+            category,
+            ...(caption ? { caption } : {}),
+          });
+          if (!error) return { ok: true };
+        }
+      } catch {
+        // fall through to the queue
+      }
+      try {
+        await savePendingPhoto(report.id, uri, "report-photos", category, caption);
+        return { ok: false, queued: true };
+      } catch {
+        return { ok: false };
+      }
+    }
 
     for (const [itemName, val] of Object.entries(checklist)) {
-      if (val.photos && val.photos.length > 0) {
-        for (const photo of val.photos) {
-          photoUploads.push(
-            (async () => {
-              try {
-                const url = await uploadPhoto(photo.uri, "report-photos", report.id, "checklist");
-                if (!url) return { ok: false };
-                const { error } = await supabase.from("report_photos").insert({
-                  report_id: report.id,
-                  photo_url: url,
-                  category: "other",
-                  caption: itemName,
-                });
-                return { ok: !error };
-              } catch {
-                return { ok: false };
-              }
-            })()
-          );
-        }
+      for (const photo of val.photos ?? []) {
+        photoUploads.push(saveOrQueue(photo.uri, "other", itemName));
       }
     }
 
     for (const photo of galleryPhotos) {
       const categorySlug = photo.category.toLowerCase().replace(/\s+/g, "_") as string;
-      photoUploads.push(
-        (async () => {
-          try {
-            const url = await uploadPhoto(photo.uri, "report-photos", report.id, categorySlug);
-            if (!url) return { ok: false };
-            const { error } = await supabase.from("report_photos").insert({
-              report_id: report.id,
-              photo_url: url,
-              category: categorySlug,
-            });
-            return { ok: !error };
-          } catch {
-            return { ok: false };
-          }
-        })()
-      );
+      photoUploads.push(saveOrQueue(photo.uri, categorySlug));
     }
 
     const results = await Promise.allSettled(photoUploads);
+    const queuedCount = results.filter((r) => r.status === "fulfilled" && r.value.queued).length;
     const failedCount = results.reduce((n, r) => {
       if (r.status === "rejected") return n + 1;
-      return r.value.ok ? n : n + 1;
+      return r.value.ok || r.value.queued ? n : n + 1;
     }, 0);
 
     // Persist parts (runs once for both new and edit paths).
@@ -882,6 +906,12 @@ export default function ServiceScreen() {
 
     setSubmitting(false);
 
+    if (queuedCount > 0) {
+      Alert.alert(
+        "Photos queued",
+        `${queuedCount} photo${queuedCount === 1 ? "" : "s"} didn't upload on this connection and will finish uploading automatically when signal improves.`
+      );
+    }
     if (failedCount > 0) {
       Alert.alert(
         "Photo upload incomplete",
