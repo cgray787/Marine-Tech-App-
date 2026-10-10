@@ -55,6 +55,60 @@ async function uploadPhotoToStorage(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Idempotent replay for parent rows (jobs, service_reports, pdi_reports).
+//
+// These used to replay as a plain INSERT with a server-generated id. When the
+// server committed but the response was lost — routine on marina signal — the
+// item was marked failed (retry_count + 1) and retried, inserting a second job
+// or report. Duplicate reports then hid the report entirely from the job page
+// and made every edit insert another one (fixed separately on the read side).
+//
+// Each queued record now gets a UUID derived deterministically from its
+// table + record_id. record_id is minted once at enqueue time and stored in
+// the sync_queue row, so every retry carries the SAME id, and
+// ON CONFLICT (id) DO NOTHING turns a retry of an already-committed row into
+// a no-op instead of a duplicate. Needs only INSERT privilege under RLS.
+// ---------------------------------------------------------------------------
+
+/** cyrb128: fast, well-mixed 128-bit non-cryptographic hash. */
+function cyrb128(str: string): [number, number, number, number] {
+  let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
+  for (let i = 0, k; i < str.length; i++) {
+    k = str.charCodeAt(i);
+    h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+    h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+    h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+    h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+  }
+  h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+  h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+  h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+  h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+  h1 ^= h2 ^ h3 ^ h4; h2 ^= h1; h3 ^= h1; h4 ^= h1;
+  return [h1 >>> 0, h2 >>> 0, h3 >>> 0, h4 >>> 0];
+}
+
+/** Deterministic, UUID-shaped id for one queued record. Same input, same id. */
+export function replayId(table: string, recordId: string): string {
+  const hex = cyrb128(`${table}:${recordId}`).map((n) => n.toString(16).padStart(8, "0")).join("");
+  const variant = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+/** Insert a parent row at most once, however many times the queue retries it. */
+async function insertOnce(
+  table: "jobs" | "service_reports" | "pdi_reports",
+  recordId: string,
+  row: Record<string, unknown>
+): Promise<{ id: string; error: { message: string } | null }> {
+  const id = replayId(table, recordId);
+  const { error } = await supabase
+    .from(table)
+    .upsert({ id, ...row }, { onConflict: "id", ignoreDuplicates: true });
+  return { id, error };
+}
+
 async function processSyncItem(
   item: SyncQueueItem,
   idMap: Map<string, string>
@@ -63,9 +117,7 @@ async function processSyncItem(
     const payload = JSON.parse(item.payload);
     switch (item.table_name) {
       case "jobs": {
-        const { data, error } = await supabase
-          .from("jobs")
-          .insert({
+        const { id: newId, error } = await insertOnce("jobs", item.record_id, {
             assigned_to: payload.assigned_to,
             customer_id: payload.customer_id,
             boat_id: payload.boat_id,
@@ -79,19 +131,15 @@ async function processSyncItem(
               scheduled_date: payload.scheduled_date, scheduled_end_date: payload.scheduled_end_date,
               service_descriptions: payload.service_descriptions,
             } : {}),
-          })
-          .select("id")
-          .single();
+          });
 
         if (error) {
           console.error("[Sync] Job insert error:", error);
           await markFailed(item.id, error.message);
           return false;
         }
-        if (data) {
-          idMap.set(item.record_id, data.id);
-          await saveIdMapping(item.record_id, data.id);
-        }
+        idMap.set(item.record_id, newId);
+        await saveIdMapping(item.record_id, newId);
         return true;
       }
 
@@ -109,9 +157,7 @@ async function processSyncItem(
           return false;
         }
 
-        const { data, error } = await supabase
-          .from("service_reports")
-          .insert({
+        const { id: newId, error } = await insertOnce("service_reports", item.record_id, {
             job_id: realJobId,
             tech_id: payload.tech_id,
             boat_id: payload.boat_id,
@@ -123,26 +169,20 @@ async function processSyncItem(
             hin: payload.hin,
             marina: payload.marina,
             general_notes: payload.general_notes,
-          })
-          .select("id")
-          .single();
+          });
 
         if (error) {
           console.error("[Sync] Service report insert error:", error);
           await markFailed(item.id, error.message);
           return false;
         }
-        if (data) {
-          idMap.set(item.record_id, data.id);
-          await saveIdMapping(item.record_id, data.id);
-        }
+        idMap.set(item.record_id, newId);
+        await saveIdMapping(item.record_id, newId);
         return true;
       }
 
       case "pdi_reports": {
-        const { data, error } = await supabase
-          .from("pdi_reports")
-          .insert({
+        const { id: newId, error } = await insertOnce("pdi_reports", item.record_id, {
             tech_id: payload.tech_id,
             boat_id: payload.boat_id,
             customer_id: payload.customer_id,
@@ -157,19 +197,15 @@ async function processSyncItem(
             completed_items: payload.completed_items,
             flagged_items: payload.flagged_items,
             general_notes: payload.general_notes,
-          })
-          .select("id")
-          .single();
+          });
 
         if (error) {
           console.error("[Sync] PDI report insert error:", error);
           await markFailed(item.id, error.message);
           return false;
         }
-        if (data) {
-          idMap.set(item.record_id, data.id);
-          await saveIdMapping(item.record_id, data.id);
-        }
+        idMap.set(item.record_id, newId);
+        await saveIdMapping(item.record_id, newId);
         return true;
       }
 

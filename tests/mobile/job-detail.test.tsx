@@ -6,10 +6,18 @@ vi.mock('../../mobile/lib/auth-context', () => ({ useAuth: () => ({ profile: moc
 vi.mock('../../mobile/components/JobPhotos', () => ({ JobPhotos: () => null }));
 vi.mock('../../mobile/components/JobCampaigns', () => ({ JobCampaigns: () => null }));
 vi.mock('../../mobile/components/EditJobModal', () => ({ EditJobModal: ({ job }: any) => <div>Editing {job.id}</div> }));
-vi.mock('../../mobile/lib/supabase', () => ({ supabase: { from: (table: string) => ({ select: () => ({ eq: () => ({ single: async () => ({ data: table === 'jobs' ? {
-  id: 'job-1', status: 'new', kind: 'service', boat_id: null, customers: { id: 'customer-1', name: 'Andrew Shuman' }, boats: null,
-  service_types: [], notes: null, scheduled_date: '2026-09-20',
-} : null }) }) }) }) } }));
+vi.mock('../../mobile/lib/supabase', () => {
+  const row = (table: string) => ({ data: table === 'jobs' ? {
+    id: 'job-1', status: 'new', kind: 'service', boat_id: null, customers: { id: 'customer-1', name: 'Andrew Shuman' }, boats: null,
+    service_types: [], notes: null, scheduled_date: '2026-09-20',
+  } : null });
+  // The service-report lookup is .order().limit().maybeSingle() (newest wins):
+  // service_reports.job_id is not unique, and .single() hid the report on 2+ rows.
+  return { supabase: { from: (table: string) => ({ select: () => ({ eq: () => ({
+    single: async () => row(table),
+    order: () => ({ limit: () => ({ maybeSingle: async () => row(table) }) }),
+  }) }) }) } };
+});
 beforeEach(() => { cleanup(); mocks.profile = { role: 'admin' }; mocks.refresh.mockReset(); });
 it('opens the correct job editor from the page body even without a native header', async () => {
   render(<JobDetailScreen />);
