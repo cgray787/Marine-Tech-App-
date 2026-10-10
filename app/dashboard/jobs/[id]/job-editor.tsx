@@ -170,6 +170,13 @@ export function JobEditor({
   }
 
   async function handleSave() {
+    // A date with no time made combineLocalToIso return null, so Save wrote
+    // scheduled_start = null — silently UNSCHEDULING the job — and still
+    // flashed "Saved". (An unscheduled job opens with an empty time box.)
+    if (dateStr && !timeStr) {
+      setSaveError("Pick a start time.");
+      return;
+    }
     setSaving(true);
     setSaveError("");
     const startIso = combineLocalToIso(dateStr, timeStr);
