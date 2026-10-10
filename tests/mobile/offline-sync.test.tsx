@@ -6,7 +6,9 @@ vi.mock('../../mobile/lib/offline-db', () => ({
   markFailed: mocks.markFailed, markSynced: mocks.markSynced, clearSyncedItems: vi.fn(), saveIdMapping: vi.fn(), getAllIdMappings: async () => new Map(),
 }));
 vi.mock('../../mobile/lib/supabase', () => ({ supabase: {
-  from: () => ({ insert: mocks.insert, upsert: mocks.upsert }),
+  from: () => ({ insert: mocks.insert, upsert: mocks.upsert,
+    // Parent service report lookup (parts replay copies its customer/job/boat).
+    select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { customer_id: 'cust-1', job_id: 'job-1', boat_id: 'boat-1' }, error: null }) }) }) }),
   storage: { from: () => ({ upload: mocks.upload, getPublicUrl: () => ({ data: { publicUrl: 'https://photos.example/photo.jpg' } }) }) },
 } }));
 function item(table: string, payload: object | string, id = 1) { return { id, table_name: table, record_id: 'offline_1', payload: typeof payload === 'string' ? payload : JSON.stringify(payload) }; }
@@ -70,6 +72,17 @@ it('replays a retried checklist item and part with the SAME id', async () => {
     const [first, second] = mocks.upsert.mock.calls.map((c) => c[0].id);
     expect(second).toBe(first);
   }
+});
+// parts_insert RLS (migration 028) requires customer_in_my_location(customer_id).
+// Offline parts replayed with no customer_id were rejected on every retry for
+// shop techs, so they never reached Parts to Order or the order email.
+it('replays an offline part with its report\'s customer, job and boat', async () => {
+  mocks.pending = [item('parts', { _offline_report_id: 'report-1', name: 'Impeller', tech_id: 'tech-1' })];
+  expect(await syncAll()).toMatchObject({ synced: 1 });
+  expect(mocks.upsert).toHaveBeenCalledWith(
+    expect.objectContaining({ service_report_id: 'report-1', customer_id: 'cust-1', job_id: 'job-1', boat_id: 'boat-1' }),
+    { onConflict: 'id', ignoreDuplicates: true },
+  );
 });
 // THE TRAP: job_photos / campaign_photos queue every photo of one job under the
 // SAME record_id (the jobId / campaignLogId). Seeding on record_id alone would

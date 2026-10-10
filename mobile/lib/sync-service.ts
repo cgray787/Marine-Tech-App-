@@ -393,6 +393,18 @@ async function processSyncItem(
           return false;
         }
 
+        // parts_insert RLS (028) requires customer_in_my_location(customer_id),
+        // and the queue never stored it — so for shop techs every offline part
+        // was rejected on each retry and never reached Parts to Order. Copy the
+        // customer/job/boat from the (now synced) parent report, as the online
+        // path does.
+        const { data: parent, error: parentErr } = await supabase
+          .from("service_reports")
+          .select("customer_id, job_id, boat_id")
+          .eq("id", realReportId)
+          .maybeSingle();
+        if (parentErr) { await markFailed(item.id, parentErr.message); return false; }
+
         let photoUrl: string | null = null;
         if (payload.photoUri) {
           photoUrl = await uploadPhotoToStorage(payload.photoUri, "report-photos", realReportId);
@@ -401,6 +413,9 @@ async function processSyncItem(
 
         const { error } = await insertOnce("parts", item.record_id, {
           service_report_id: realReportId,
+          customer_id: parent?.customer_id ?? null,
+          job_id: parent?.job_id ?? null,
+          boat_id: parent?.boat_id ?? null,
           name: payload.name,
           part_number: payload.partNum || null,
           quantity: payload.quantity || 1,
