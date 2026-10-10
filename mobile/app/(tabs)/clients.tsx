@@ -138,6 +138,10 @@ export default function ClientsScreen() {
 
       {/* Client List */}
       <FlatList
+        // With the search keyboard up, the default ("never") spends the first
+        // tap on a client card dismissing the keyboard instead of opening it.
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         data={clients.filter((c) => {
           if (!search.trim()) return true;
           const q = search.toLowerCase().trim();
