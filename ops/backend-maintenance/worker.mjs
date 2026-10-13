@@ -94,6 +94,26 @@ export default {
   async fetch(request, env) {
     if (!env.MONITOR_ADMIN_TOKEN || request.headers.get('authorization') !== `Bearer ${env.MONITOR_ADMIN_TOKEN}`) return new Response('Unauthorized', { status: 401 });
     const path = new URL(request.url).pathname;
+    // Private, authenticated transport for the VPS backup runner. No listing,
+    // deletion, arbitrary keys, or public bucket access is exposed.
+    if (path.startsWith('/backup-object/')) {
+      const name = path.slice('/backup-object/'.length);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{6}Z\.tar\.gz$/.test(name)) return new Response('Invalid backup name', { status: 400 });
+      if (!env.BACKUPS) return new Response('Backup storage unavailable', { status: 503 });
+      const key = `marine-tech/${name}`;
+      if (request.method === 'PUT') {
+        const bytes = Number(request.headers.get('content-length'));
+        if (!Number.isInteger(bytes) || bytes <= 0 || bytes > 95 * 1024 * 1024) return new Response('Invalid backup size', { status: 413 });
+        await env.BACKUPS.put(key, request.body, { httpMetadata: { contentType: 'application/gzip' } });
+        return Response.json({ ok: true });
+      }
+      if (request.method === 'GET') {
+        const object = await env.BACKUPS.get(key);
+        if (!object) return new Response('Not found', { status: 404 });
+        return new Response(object.body, { headers: { 'content-type': 'application/gzip', 'content-length': String(object.size), 'cache-control': 'private, no-store' } });
+      }
+      return new Response('Method not allowed', { status: 405 });
+    }
     if (request.method === 'POST' && path === '/backup-status') {
       let body;
       try { body = await request.json(); } catch { return new Response('Invalid JSON', { status: 400 }); }

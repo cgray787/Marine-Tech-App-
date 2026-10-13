@@ -1,0 +1,15 @@
+[Unit]
+Description=Marine Tech verified database and file backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/marine-tech-backups/backup.py --config /etc/marine-tech-backup/backup.json --scheduled
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/marine-tech-backups
+TimeoutStartSec=45min

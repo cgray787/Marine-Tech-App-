@@ -1,0 +1,11 @@
+[Unit]
+Description=Marine Tech nightly backup with hourly recovery checks
+
+[Timer]
+OnCalendar=*-*-* *:15:00 Pacific/Honolulu
+Persistent=true
+AccuracySec=30s
+Unit=marine-tech-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,13 +1,21 @@
 # Marine Tech backend maintenance
 
 Production Cloudflare Worker: `marine-tech-backend-maintenance`.
-Runs every two minutes outside the Supabase database. Calls the existing parts
+Runs every five minutes outside the Supabase database. Calls the existing parts
 notification handler and checks Auth, REST, the dashboard, and a dedicated
 aggregate database-health probe. Empty parts checks do not enqueue pg_net HTTP
 requests or create pg_cron execution records. Normal parts delivery still uses
 the existing handler and destination; it was not manually tested with an email.
 
 ## Authentication and state
+
+Since October 13, 2026, the same protected Worker also accepts PUT/GET at
+`/backup-object/<YYYY-MM-DDTHHMMSSZ>.tar.gz` for the VPS backup runner. `BACKUPS`
+binds the existing private R2 bucket. Authentication is checked before bucket
+access; keys are restricted to the `marine-tech/` prefix and timestamp pattern.
+There are no list/delete operations or public read routes. Requests stream to
+and from R2; the runner verifies the downloaded archive's SHA-256 before its
+success heartbeat. Uploads are capped at 95 MiB. Bucket public access stays off.
 
 `BACKEND_MONITOR_TOKEN`, `PARTS_CRON_SECRET`, and `MONITOR_ADMIN_TOKEN` are Worker
 secrets. Only the monitor token is also configured on the health Edge Function.

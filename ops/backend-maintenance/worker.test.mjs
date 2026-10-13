@@ -12,6 +12,37 @@ function environment() {
 }
 const request = () => new Request('https://worker.example/check', { method: 'POST', headers: { authorization: 'Bearer admin-token' } });
 
+test('backup bytes require authorization and never call storage anonymously', async () => {
+  let calls = 0;
+  const env = { ...environment(), BACKUPS: { get: async () => { calls++; } } };
+  const response = await worker.fetch(new Request('https://worker.example/backup-object/2026-10-13T173629Z.tar.gz'), env);
+  assert.equal(response.status, 401);
+  assert.equal(calls, 0);
+});
+
+test('private backup transport puts and reads exact bytes under its fixed prefix', async () => {
+  const objects = new Map();
+  const env = { ...environment(), BACKUPS: {
+    put: async (key, body) => objects.set(key, await new Response(body).text()),
+    get: async key => objects.has(key) ? {body:objects.get(key),size:objects.get(key).length} : null,
+  }};
+  const url='https://worker.example/backup-object/2026-10-13T173629Z.tar.gz';
+  const headers={authorization:'Bearer admin-token','content-length':'7'};
+  assert.equal((await worker.fetch(new Request(url,{method:'PUT',headers,body:'archive'}),env)).status,200);
+  assert.equal(objects.get('marine-tech/2026-10-13T173629Z.tar.gz'),'archive');
+  const response=await worker.fetch(new Request(url,{headers}),env);
+  assert.equal(await response.text(),'archive');
+  assert.equal(response.headers.get('cache-control'),'private, no-store');
+  assert.equal((await worker.fetch(new Request(url,{method:'DELETE',headers}),env)).status,405);
+});
+
+test('backup transport rejects arbitrary names and oversize objects', async () => {
+  const env={...environment(),BACKUPS:{put:async()=>{throw new Error('must not upload');}}};
+  const headers={authorization:'Bearer admin-token','content-length':String(100*1024*1024)};
+  assert.equal((await worker.fetch(new Request('https://worker.example/backup-object/unrelated',{headers}),env)).status,400);
+  assert.equal((await worker.fetch(new Request('https://worker.example/backup-object/2026-10-13T173629Z.tar.gz',{method:'PUT',headers,body:'x'}),env)).status,413);
+});
+
 test('persists health after email timeout and clears the error after a successful retry', async (t) => {
   let rejectEmail = true;
   t.mock.method(globalThis, 'fetch', async url => {

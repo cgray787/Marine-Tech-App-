@@ -28,6 +28,9 @@
       "id": "0f482dcb56e04961af25afc9b6d9495e"
     }
   ],
+  "r2_buckets": [
+    { "binding": "BACKUPS", "bucket_name": "marine-tech-private-backups" }
+  ],
   // Reach the dashboard Worker directly instead of fetching
   // https://marinetech.grayyachts.com over the public internet. Both Workers
   // live on this same account, so that fetch left the edge and came back in
