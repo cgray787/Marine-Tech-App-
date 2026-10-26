@@ -14,6 +14,8 @@ const privateTables = new Set(['qb_connections', 'quo_sweep_runs']);
 test('every table creation makes its Data API exposure explicit in the same file', () => {
   for (const name of files) {
     const sql = source(name);
+    const declarations = clean(sql).match(/\bcreate\s+(?:(?:global|local)\s+)?(?:(?:temporary|temp|unlogged)\s+)?table\b/gi) || [];
+    assert.equal(tables(sql).length, declarations.length, `${name}: unsupported CREATE TABLE syntax; extend the grant guard before adding it`);
     for (const table of tables(sql)) {
       const grants = dataGrants(sql).filter(g => new RegExp(`\\bon\\s+table\\s+public\\.${table}\\s+to\\b`, 'i').test(g));
       assert.ok(grants.some(g => /\bservice_role\b/i.test(g)), `${name}: ${table} needs explicit service access`);
@@ -61,10 +63,11 @@ test('fresh schemas without automatic grants have intended table/sequence access
       const { rows } = await db.query(`select relname as name,
         has_table_privilege('anon', c.oid, 'SELECT') as anon_read,
         has_table_privilege('authenticated', c.oid, 'SELECT') as user_read,
-        has_table_privilege('service_role', c.oid, 'SELECT,INSERT,UPDATE,DELETE') as service_access
+        (has_table_privilege('service_role', c.oid, 'SELECT') and has_table_privilege('service_role', c.oid, 'INSERT') and has_table_privilege('service_role', c.oid, 'UPDATE') and has_table_privilege('service_role', c.oid, 'DELETE')) as service_access
         from pg_class c join pg_namespace n on n.oid=c.relnamespace
         where n.nspname='public' and c.relkind='r' order by relname`);
-      assert.equal(rows.length, 26);
+      const expected = [...new Set(files.flatMap(name => tables(source(name))))].sort();
+      assert.deepEqual(rows.map(row => row.name), expected, 'DDL replay must create every declared table');
       for (const row of rows) {
         assert.equal(row.anon_read, false, row.name);
         assert.equal(row.user_read, !privateTables.has(row.name), row.name);

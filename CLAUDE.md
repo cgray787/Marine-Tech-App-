@@ -225,7 +225,9 @@ Every new public table needs explicit per-role GRANT statements in its creation
 migration, alongside RLS. Existing live grants remain unchanged by this source
 update. Do not replay old migrations against production or restore blanket
 anonymous grants. QuickBooks connection credentials and Quo sweep history are
-service-only. Grant sequence usage only to roles that need it.
+service-only. Organizations are read-only for authenticated sessions by design;
+existing production grants may be broader. Grant sequence usage only to roles
+that need it.
 
 Run `npm run test:data-api-grants` when changing migrations. It checks every
 creation file and replays actual table/grant DDL into isolated PostgreSQL via
