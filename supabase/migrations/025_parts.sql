@@ -84,3 +84,8 @@ create policy parts_delete on public.parts
 
 revoke all on function public.current_profile_org() from public, anon;
 grant execute on function public.current_profile_org() to authenticated;
+
+-- Explicit Data API privileges for new/reset schemas (October 2026).
+-- RLS still governs rows; never restore blanket anonymous default grants.
+grant select, insert, update, delete on table public.parts to service_role;
+grant select, insert, update, delete on table public.parts to authenticated;

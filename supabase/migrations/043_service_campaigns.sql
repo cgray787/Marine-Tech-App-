@@ -347,3 +347,10 @@ create policy campaign_log_update on public.campaign_log
 
 comment on table public.campaign_log is
   'Permanent append-only record of service campaigns performed per boat. Snapshot columns are frozen at insert; DELETE is blocked by trigger; withdraw a mistaken entry with status = voided.';
+
+-- Explicit Data API privileges for new/reset schemas (October 2026).
+-- RLS still governs rows; never restore blanket anonymous default grants.
+grant select, insert, update, delete on table public.service_campaigns to service_role;
+grant select, insert, update, delete on table public.service_campaigns to authenticated;
+grant select, insert, update, delete on table public.campaign_log to service_role;
+grant select, insert, update on table public.campaign_log to authenticated;

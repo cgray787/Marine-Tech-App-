@@ -219,6 +219,21 @@ https://github.com/cgray787/Marine-Tech-App-.git
 - **Admin auth_id:** `ec4c6451-623a-4a41-9dde-0cd48afc767d`
 - **Env vars:** `.env.local` (gitignored). Public values are also in `wrangler.toml`. Service role key lives as a Cloudflare secret (`npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY`).
 
+## Explicit Data API privileges (October 2026)
+
+Every new public table needs explicit per-role GRANT statements in its creation
+migration, alongside RLS. Existing live grants remain unchanged by this source
+update. Do not replay old migrations against production or restore blanket
+anonymous grants. QuickBooks connection credentials and Quo sweep history are
+service-only. Grant sequence usage only to roles that need it.
+
+Run `npm run test:data-api-grants` when changing migrations. It checks every
+creation file and replays actual table/grant DDL into isolated PostgreSQL via
+PGlite with no default grants, including private-table denials, sequence access,
+and notification ownership RLS. This focused test does not certify a full
+Supabase restore: legacy migrations include platform extensions, data seeds and
+duplicate numeric prefixes. Use an isolated Supabase project for a full rebuild.
+
 ## Database Schema
 
 **Tables (live as of migration 031):**

@@ -271,3 +271,30 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('signatures', 'signatures
 
 CREATE POLICY "auth_upload_photos" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('report-photos', 'pdi-photos', 'signatures'));
 CREATE POLICY "public_view_photos" ON storage.objects FOR SELECT TO public USING (bucket_id IN ('report-photos', 'pdi-photos', 'signatures'));
+
+-- Explicit Data API privileges for new/reset schemas (October 2026).
+-- RLS still governs rows; never restore blanket anonymous default grants.
+grant select, insert, update, delete on table public.profiles to service_role;
+grant select, insert, update, delete on table public.profiles to authenticated;
+grant select, insert, update, delete on table public.customers to service_role;
+grant select, insert, update, delete on table public.customers to authenticated;
+grant select, insert, update, delete on table public.boats to service_role;
+grant select, insert, update, delete on table public.boats to authenticated;
+grant select, insert, update, delete on table public.marinas to service_role;
+grant select, insert, update, delete on table public.marinas to authenticated;
+grant select, insert, update, delete on table public.jobs to service_role;
+grant select, insert, update, delete on table public.jobs to authenticated;
+grant select, insert, update, delete on table public.service_reports to service_role;
+grant select, insert, update, delete on table public.service_reports to authenticated;
+grant select, insert, update, delete on table public.checklist_items to service_role;
+grant select, insert, update, delete on table public.checklist_items to authenticated;
+grant select, insert, update, delete on table public.report_photos to service_role;
+grant select, insert, update, delete on table public.report_photos to authenticated;
+grant select, insert, update, delete on table public.pdi_reports to service_role;
+grant select, insert, update, delete on table public.pdi_reports to authenticated;
+grant select, insert, update, delete on table public.pdi_checklist_items to service_role;
+grant select, insert, update, delete on table public.pdi_checklist_items to authenticated;
+grant select, insert, update, delete on table public.invites to service_role;
+grant select, insert, update, delete on table public.invites to authenticated;
+grant select, insert, update, delete on table public.notifications to service_role;
+grant select, insert, update, delete on table public.notifications to authenticated;
