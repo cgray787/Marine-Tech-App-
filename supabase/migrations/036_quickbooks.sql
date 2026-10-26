@@ -22,3 +22,7 @@ alter table public.qb_connections enable row level security;
 alter table public.work_orders
   add column quickbooks_invoice_id text,
   add column quickbooks_synced_at timestamptz;
+
+-- Explicit Data API privileges for new/reset schemas (October 2026).
+-- RLS still governs rows; never restore blanket anonymous default grants.
+grant select, insert, update, delete on table public.qb_connections to service_role;

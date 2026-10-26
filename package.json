@@ -7,11 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run && node --test ops/backend-maintenance/*.test.mjs",
+    "test": "vitest run && node --test ops/backend-maintenance/*.test.mjs && npm run test:data-api-grants",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "deploy": "set -a && . ./.env.local && set +a && rm -rf .next .open-next && opennextjs-cloudflare build && wrangler deploy",
-    "test:mobile": "vitest run --config vitest.mobile.config.ts"
+    "test:mobile": "vitest run --config vitest.mobile.config.ts",
+    "test:data-api-grants": "node --test scripts/test-data-api-grants.mjs"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "1.20.6",
@@ -30,6 +31,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.12",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",

@@ -140,3 +140,8 @@ $fn$;
 
 revoke all on function public.quo_sweep_post(date,int,text,boolean) from public, anon, authenticated;
 revoke all on function public.quo_sweep_verify(int) from public, anon, authenticated;;
+
+-- Explicit Data API privileges for new/reset schemas (October 2026).
+-- RLS still governs rows; never restore blanket anonymous default grants.
+grant select, insert, update, delete on table public.quo_sweep_runs to service_role;
+grant usage, select on sequence public.quo_sweep_runs_id_seq to service_role;

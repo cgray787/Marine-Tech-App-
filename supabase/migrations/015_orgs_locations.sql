@@ -119,3 +119,10 @@ begin
   update profiles set org_id = loc.org_id, location_id = loc.id where auth_id = auth.uid();
   return loc.id;
 end $$;
+
+-- Explicit Data API privileges for new/reset schemas (October 2026).
+-- RLS still governs rows; never restore blanket anonymous default grants.
+grant select, insert, update, delete on table public.organizations to service_role;
+grant select on table public.organizations to authenticated;
+grant select, insert, update, delete on table public.locations to service_role;
+grant select, insert, update, delete on table public.locations to authenticated;

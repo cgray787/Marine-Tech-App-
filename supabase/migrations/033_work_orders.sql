@@ -201,3 +201,21 @@ begin
     (v_org, 'Install Transducer', 'Transducer install', 8.00, v_pl),
     (v_org, 'Boat Wash', 'Exterior boat wash', 1.00, v_pl);
 end $$;
+
+-- Explicit Data API privileges for new/reset schemas (October 2026).
+-- RLS still governs rows; never restore blanket anonymous default grants.
+grant select, insert, update, delete on table public.price_levels to service_role;
+grant select, insert, update, delete on table public.price_levels to authenticated;
+grant select, insert, update, delete on table public.job_templates to service_role;
+grant select, insert, update, delete on table public.job_templates to authenticated;
+grant select, insert, update, delete on table public.wo_settings to service_role;
+grant select, insert, update, delete on table public.wo_settings to authenticated;
+grant select, insert, update, delete on table public.work_orders to service_role;
+grant select, insert, update, delete on table public.work_orders to authenticated;
+grant select, insert, update, delete on table public.work_order_jobs to service_role;
+grant select, insert, update, delete on table public.work_order_jobs to authenticated;
+grant select, insert, update, delete on table public.work_order_lines to service_role;
+grant select, insert, update, delete on table public.work_order_lines to authenticated;
+grant select, insert, update, delete on table public.work_order_payments to service_role;
+grant select, insert, update, delete on table public.work_order_payments to authenticated;
+grant usage, select on sequence public.work_order_number_seq to authenticated, service_role;
